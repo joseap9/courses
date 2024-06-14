@@ -35,12 +35,12 @@ def process_csv(csv_path):
 
 def friendly_reminder_message(first_name, courses):
     message = f"Hola {first_name},\n\nJunto con saludarte, te recuerdo que tienes cursos que vencen proximamente, favor completar en el plazo:\n"
-    message += "\n\n".join([f"- {course['Item Title']} (ID: {course['Item ID']}, Fecha de Vencimiento: {course['Required Date'].strftime('%Y-%m-%d')})" for course in courses])
-    message += "\n\n".join(f"Cordialmente,")
+    message += "\n".join([f"- {course['Item Title']} ({course['Item ID']}), Fecha de Vencimiento: {course['Required Date'].strftime('%Y-%m-%d')})" for course in courses].join("\n\n"))
+    message += "".join(f"Cordialmente,")
     return message
 
 def delayed_reminder_message(first_name, courses):
     message = f"Hola {first_name},\n\nJunto con saludarte, te comento que tienes cursos vencidos, necesitamos que los curses a la brevedad en mysuccess:\n"
-    message += "\n\n".join([f"- {course['Item Title']} (ID: {course['Item ID']}, Fecha de Vencimiento: {course['Required Date'].strftime('%Y-%m-%d')})" for course in courses])
-    message += "\n\n".join(f"Cordialmente,")
+    message += "\n".join([f"- {course['Item Title']} (ID: {course['Item ID']}, Fecha de Vencimiento: {course['Required Date'].strftime('%Y-%m-%d')})" for course in courses].join("\n\n"))
+    message += "".join(f"Cordialmente,")
     return message

@@ -15,20 +15,19 @@ class MainWindow(QMainWindow):
         self.layout = QVBoxLayout()
 
         self.file_layout = QHBoxLayout()
-        self.label = QLabel("Seleccione un archivo CSV")
-        self.file_layout.addWidget(self.label)
 
         self.button = QPushButton("Seleccionar archivo CSV")
         self.button.clicked.connect(self.open_file_dialog)
         self.file_layout.addWidget(self.button)
-        self.layout.addLayout(self.file_layout)
 
         # Agregar una imagen
         self.image_label = QLabel()
-        pixmap = QPixmap('path/to/your/image.png')  # Reemplaza con la ruta de tu imagen
+        pixmap = QPixmap('path/to/your/image.png').scaled(100, 100, Qt.KeepAspectRatio, Qt.SmoothTransformation)  # Reemplaza con la ruta de tu imagen
         self.image_label.setPixmap(pixmap)
-        self.image_label.setAlignment(Qt.AlignRight)
-        self.layout.addWidget(self.image_label)
+        self.file_layout.addWidget(self.image_label)
+        self.file_layout.setAlignment(Qt.AlignLeft)
+
+        self.layout.addLayout(self.file_layout)
 
         self.tabs = QTabWidget()
         self.tabs.setStyleSheet(styles.MAIN_TAB_STYLE)
@@ -107,12 +106,15 @@ class MainWindow(QMainWindow):
                     table_widget.setItem(row, col, QTableWidgetItem(str(user_courses.iat[row, col])))
 
                 copy_button = QPushButton("Copiar")
+                copy_button.setStyleSheet(styles.BUTTON_STYLE)
                 copy_button.clicked.connect(lambda _, r=row: self.copy_row(user_courses.iloc[r]))
                 table_widget.setCellWidget(row, user_courses.shape[1], copy_button)
 
             header_layout = QHBoxLayout()
             header_label = QLabel(f"{user_courses['First Name'][0]} {user_courses['Last Name'][0]} ({user_courses.shape[0]} Cursos Pendientes)")
+            header_label.setStyleSheet(styles.HEADER_LABEL_STYLE)
             copy_all_button = QPushButton("Copiar Todo")
+            copy_all_button.setStyleSheet(styles.BUTTON_STYLE)
             copy_all_button.clicked.connect(lambda _, u=username: self.copy_all(user_courses, message_function))
             header_layout.addWidget(header_label)
             header_layout.addWidget(copy_all_button)
