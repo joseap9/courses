@@ -40,6 +40,7 @@ MAIN_TAB_STYLE = """
         border: 1px solid black;
         border-radius: 10px;
         min-width: 400px;
+        margin-bottom: 2px;  /* Separar borde de la línea inferior */
     }
     QTabBar::tab:selected {
         font: bold 16px;
@@ -59,6 +60,7 @@ SUB_TAB_STYLE = """
         border: 1px solid black;
         border-radius: 8px;
         min-width: 250px;
+        margin-bottom: 2px;  /* Separar borde de la línea inferior */
     }
     QTabBar::tab:selected {
         font: bold 14px;

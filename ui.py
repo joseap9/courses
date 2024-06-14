@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QFileDialog, QLabel, QTabWidget, QTableWidget, QTableWidgetItem
-from PyQt5.QtGui import QPixmap, QColor, QPainter, QFont
+from PyQt5.QtGui import QPixmap, QColor, QPainter
 from PyQt5.QtCore import Qt
 import pyperclip
 from logic import process_csv, friendly_reminder_message, delayed_reminder_message
@@ -8,7 +8,7 @@ import styles
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("CSV Analyzer")
+        self.setWindowTitle("Monitoreo de cursos - Compliance CL")
         self.setGeometry(100, 100, 1200, 800)
         self.setStyleSheet(styles.APP_STYLE)
 
@@ -16,17 +16,18 @@ class MainWindow(QMainWindow):
 
         self.file_layout = QHBoxLayout()
 
-        self.button = QPushButton("Seleccionar archivo CSV")
-        self.button.clicked.connect(self.open_file_dialog)
-        self.file_layout.addWidget(self.button)
-
         # Agregar una imagen
         self.image_label = QLabel()
         pixmap = QPixmap('path/to/your/image.png').scaled(100, 100, Qt.KeepAspectRatio, Qt.SmoothTransformation)  # Reemplaza con la ruta de tu imagen
         self.image_label.setPixmap(pixmap)
         self.file_layout.addWidget(self.image_label)
-        self.file_layout.setAlignment(Qt.AlignLeft)
 
+        self.button = QPushButton("Seleccionar archivo CSV")
+        self.button.setStyleSheet(styles.BUTTON_STYLE)
+        self.button.clicked.connect(self.open_file_dialog)
+        self.file_layout.addWidget(self.button)
+        
+        self.file_layout.setAlignment(Qt.AlignLeft)
         self.layout.addLayout(self.file_layout)
 
         self.tabs = QTabWidget()
@@ -38,7 +39,7 @@ class MainWindow(QMainWindow):
         self.all_records_table = WatermarkTable()
         self.all_records_layout.addWidget(self.all_records_table)
         self.all_records_tab.setLayout(self.all_records_layout)
-        self.tabs.addTab(self.all_records_tab, "Todos los Registros")
+        self.tabs.addTab(self.all_records_tab, "All")
 
         self.delayed_courses_tab = QWidget()
         self.delayed_courses_layout = QVBoxLayout()
@@ -46,7 +47,7 @@ class MainWindow(QMainWindow):
         self.delayed_tabs.setStyleSheet(styles.SUB_TAB_STYLE)
         self.delayed_courses_layout.addWidget(self.delayed_tabs)
         self.delayed_courses_tab.setLayout(self.delayed_courses_layout)
-        self.tabs.addTab(self.delayed_courses_tab, "Delayed Courses")
+        self.tabs.addTab(self.delayed_courses_tab, "Cursos Vencidos")
 
         self.future_courses_tab = QWidget()
         self.future_courses_layout = QVBoxLayout()
@@ -54,7 +55,7 @@ class MainWindow(QMainWindow):
         self.future_tabs.setStyleSheet(styles.SUB_TAB_STYLE)
         self.future_courses_layout.addWidget(self.future_tabs)
         self.future_courses_tab.setLayout(self.future_courses_layout)
-        self.tabs.addTab(self.future_courses_tab, "Courses About to Past Due")
+        self.tabs.addTab(self.future_courses_tab, "Cursos por Vencer")
 
         container = QWidget()
         container.setLayout(self.layout)

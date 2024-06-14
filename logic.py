@@ -24,7 +24,7 @@ def process_csv(csv_path):
         df_all = df
 
         # Seleccionar columnas específicas para los DataFrames de fechas pasadas y futuras
-        columns_to_display = ['Item ID', 'Item Title', 'User', 'Username', 'Last Name', 'First Name', 'Required Date']
+        columns_to_display = ['Item ID', 'Item Title', 'User', 'Username', 'Last Name', 'First Name', 'Required Date', 'Manager Last Name', 'Manager First Name']
         df_past = df_past[columns_to_display]
         df_future = df_future[columns_to_display]
 
