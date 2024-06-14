@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QPushButton, QFileDialog, QLabel, QTabWidget, QTableWidget, QTableWidgetItem, QLineEdit, QHBoxLayout
+from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QPushButton, QFileDialog, QLabel, QTabWidget, QTableWidget, QTableWidgetItem, QLineEdit, QHBoxLayout, QHeaderView
 import pyperclip
 from logic import process_csv, friendly_reminder_message, delayed_reminder_message
 
@@ -69,10 +69,15 @@ class MainWindow(QMainWindow):
     def populate_grouped_table(self, df, tab_name, message_function):
         for username, user_courses in df.groupby('Username'):
             user_courses.reset_index(drop=True, inplace=True)
+            user_tab = QWidget()
+            user_layout = QVBoxLayout()
+            user_tab.setLayout(user_layout)
+
             table_widget = QTableWidget()
             table_widget.setRowCount(user_courses.shape[0])
             table_widget.setColumnCount(len(user_courses.columns) + 1)  # Añadir una columna para el botón de copiar
             table_widget.setHorizontalHeaderLabels(list(user_courses.columns) + ["Acciones"])
+            table_widget.horizontalHeader().setStretchLastSection(True)
 
             for row in range(user_courses.shape[0]):
                 for col in range(user_courses.shape[1]):
@@ -91,8 +96,10 @@ class MainWindow(QMainWindow):
 
             header_widget = QWidget()
             header_widget.setLayout(header_layout)
-            self.tabs.addTab(table_widget, username)
-            self.tabs.setTabBar(header_widget)
+            user_layout.addWidget(header_widget)
+            user_layout.addWidget(table_widget)
+
+            self.tabs.addTab(user_tab, f"{user_courses['First Name'][0]} {user_courses['Last Name'][0]}")
 
     def copy_row(self, row_data):
         message = friendly_reminder_message(row_data['First Name'], [row_data.to_dict()])
