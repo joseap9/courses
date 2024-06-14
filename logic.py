@@ -9,20 +9,27 @@ def process_csv(csv_path):
         # Depuración: Imprimir las columnas del DataFrame
         print("Columnas del DataFrame:", df.columns)
 
-        df_uncomplete = df[df['status'] == 'uncomplete']
+        # Filtrar los registros no completados (Completion Status en blanco)
+        df_uncomplete = df[df['Completion Status'].isna()]
 
-        current_date = datetime.now().date()
+        # Procesar las fechas
+        current_date = datetime.now()
         one_week_later = current_date + timedelta(weeks=1)
 
-        df_uncomplete['fecha'] = pd.to_datetime(df_uncomplete['fecha'], format='%d-%b-%y').dt.date
+        df_uncomplete['Completion Date'] = pd.to_datetime(df_uncomplete['Completion Date'], format='%b %d, %Y, %I:%M %p', errors='coerce')
 
-        df_past = df_uncomplete[df_uncomplete['fecha'] < current_date]
-        df_future = df_uncomplete[(df_uncomplete['fecha'] >= current_date) & (df_uncomplete['fecha'] <= one_week_later)]
+        df_past = df_uncomplete[df_uncomplete['Completion Date'] < current_date]
+        df_future = df_uncomplete[(df_uncomplete['Completion Date'] >= current_date) & (df_uncomplete['Completion Date'] <= one_week_later)]
 
-        df_past = df_past[['nombre', 'curso', 'fecha']]
-        df_future = df_future[['nombre', 'curso', 'fecha']]
+        # Mantener todas las columnas para el primer DataFrame
+        df_all = df_uncomplete
 
-        return df_past, df_future
+        # Seleccionar columnas específicas para los DataFrames de fechas pasadas y futuras
+        columns_to_display = ['Item ID', 'Item Title', 'User', 'Username', 'Last Name', 'First Name', 'Completion Status', 'Grade', 'Completion Date']
+        df_past = df_past[columns_to_display]
+        df_future = df_future[columns_to_display]
+
+        return df_all, df_past, df_future
 
     except Exception as e:
-        return str(e), str(e)
+        return str(e), str(e), str(e)

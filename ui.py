@@ -3,8 +3,6 @@ from PyQt5.QtCore import Qt
 import pyperclip
 from logic import process_csv
 
-#PONER BOTON DE DESCARGAR TODO EL CSV
-
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -34,13 +32,14 @@ class MainWindow(QMainWindow):
         options = QFileDialog.Options()
         file_name, _ = QFileDialog.getOpenFileName(self, "Seleccionar archivo CSV", "", "Archivos CSV (*.csv)", options=options)
         if file_name:
-            df_past, df_future = process_csv(file_name)
-            if isinstance(df_past, str) or isinstance(df_future, str):
-                self.result_label.setText(f"Error: {df_past}")
+            df_all, df_past, df_future = process_csv(file_name)
+            if isinstance(df_all, str) or isinstance(df_past, str) or isinstance(df_future, str):
+                self.result_label.setText(f"Error: {df_all}")
             else:
                 self.tabs.clear()
-                self.populate_table(df_past, "Fechas Pasadas", add_copy_buttons=True, message_template="Hola {name}, los cursos: {course} están pendientes")
-                self.populate_table(df_future, "Fechas Futuras", add_copy_buttons=True, message_template="Hola {name}, recuerda que los cursos: {course} empiezan pronto")
+                self.populate_table(df_all, "Todos los Registros")
+                self.populate_table(df_past, "Fechas Pasadas", add_copy_buttons=True, message_template="Hola {First Name}, los cursos: {Item Title} están pendientes")
+                self.populate_table(df_future, "Fechas Futuras", add_copy_buttons=True, message_template="Hola {First Name}, recuerda que los cursos: {Item Title} empiezan pronto")
 
     def populate_table(self, df, tab_name, add_copy_buttons=False, message_template=""):
         table_widget = QTableWidget()
@@ -60,8 +59,8 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(table_widget, tab_name)
 
     def copy_to_clipboard(self, df, row, button, message_template):
-        name = df.iat[row, df.columns.get_loc("nombre")]
-        course = df.iat[row, df.columns.get_loc("curso")]
+        name = df.iat[row, df.columns.get_loc("First Name")]
+        course = df.iat[row, df.columns.get_loc("Item Title")]
         message = message_template.format(name=name, course=course)
         pyperclip.copy(message)
 
