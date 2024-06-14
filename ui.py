@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QPushButton, QFileDialog, QLabel, QTabWidget, QTableWidget, QTableWidgetItem, QLineEdit, QHBoxLayout, QHeaderView
+from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QFileDialog, QLabel, QTabWidget, QTableWidget, QTableWidgetItem, QLineEdit
 import pyperclip
 from logic import process_csv, friendly_reminder_message, delayed_reminder_message
 
@@ -6,38 +6,66 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("CSV Analyzer")
-        self.setGeometry(100, 100, 800, 600)
+        self.setGeometry(100, 100, 1000, 800)
 
         self.layout = QVBoxLayout()
 
+        self.file_layout = QHBoxLayout()
         self.label = QLabel("Seleccione un archivo CSV")
-        self.layout.addWidget(self.label)
+        self.file_layout.addWidget(self.label)
 
         self.button = QPushButton("Seleccionar archivo CSV")
         self.button.clicked.connect(self.open_file_dialog)
-        self.layout.addWidget(self.button)
-
-        self.search_label = QLabel("Buscar por First Name")
-        self.layout.addWidget(self.search_label)
-
-        self.search_box = QLineEdit()
-        self.layout.addWidget(self.search_box)
-
-        self.search_button = QPushButton("Buscar")
-        self.search_button.clicked.connect(self.search_table)
-        self.layout.addWidget(self.search_button)
-
-        self.result_label = QLabel("")
-        self.layout.addWidget(self.result_label)
+        self.file_layout.addWidget(self.button)
+        self.layout.addLayout(self.file_layout)
 
         self.tabs = QTabWidget()
         self.layout.addWidget(self.tabs)
+
+        self.all_records_tab = QWidget()
+        self.all_records_layout = QVBoxLayout()
+
+        self.search_layout = QHBoxLayout()
+        self.search_label = QLabel("Buscar por First Name")
+        self.search_layout.addWidget(self.search_label)
+
+        self.search_box = QLineEdit()
+        self.search_layout.addWidget(self.search_box)
+
+        self.search_button = QPushButton("Buscar")
+        self.search_button.clicked.connect(self.search_table)
+        self.search_layout.addWidget(self.search_button)
+
+        self.all_records_layout.addLayout(self.search_layout)
+
+        self.result_label = QLabel("")
+        self.all_records_layout.addWidget(self.result_label)
+
+        self.all_records_table = QTableWidget()
+        self.all_records_layout.addWidget(self.all_records_table)
+
+        self.all_records_tab.setLayout(self.all_records_layout)
+        self.tabs.addTab(self.all_records_tab, "Todos los Registros")
+
+        self.delayed_courses_tab = QWidget()
+        self.delayed_courses_layout = QVBoxLayout()
+        self.delayed_tabs = QTabWidget()
+        self.delayed_courses_layout.addWidget(self.delayed_tabs)
+        self.delayed_courses_tab.setLayout(self.delayed_courses_layout)
+        self.tabs.addTab(self.delayed_courses_tab, "Delayed Courses")
+
+        self.future_courses_tab = QWidget()
+        self.future_courses_layout = QVBoxLayout()
+        self.future_tabs = QTabWidget()
+        self.future_courses_layout.addWidget(self.future_tabs)
+        self.future_courses_tab.setLayout(self.future_courses_layout)
+        self.tabs.addTab(self.future_courses_tab, "Courses About to Past Due")
 
         container = QWidget()
         container.setLayout(self.layout)
         self.setCentralWidget(container)
 
-        self.current_table_widget = None
+        self.current_table_widget = self.all_records_table
 
     def open_file_dialog(self):
         options = QFileDialog.Options()
@@ -47,13 +75,11 @@ class MainWindow(QMainWindow):
             if isinstance(df_all, str) or isinstance(df_past, str) or isinstance(df_future, str):
                 self.result_label.setText(f"Error: {df_all}")
             else:
-                self.tabs.clear()
-                self.populate_table(df_all, "Todos los Registros")
-                self.populate_grouped_table(df_past, "Fechas Pasadas", delayed_reminder_message)
-                self.populate_grouped_table(df_future, "Fechas Futuras", friendly_reminder_message)
+                self.populate_table(df_all, self.all_records_table)
+                self.populate_grouped_table(df_past, self.delayed_tabs, delayed_reminder_message)
+                self.populate_grouped_table(df_future, self.future_tabs, friendly_reminder_message)
 
-    def populate_table(self, df, tab_name):
-        table_widget = QTableWidget()
+    def populate_table(self, df, table_widget):
         table_widget.setRowCount(df.shape[0])
         table_widget.setColumnCount(df.shape[1])
         table_widget.setHorizontalHeaderLabels(list(df.columns))
@@ -62,11 +88,10 @@ class MainWindow(QMainWindow):
             for col in range(df.shape[1]):
                 table_widget.setItem(row, col, QTableWidgetItem(str(df.iat[row, col])))
 
-        self.tabs.addTab(table_widget, tab_name)
-        if tab_name == "Todos los Registros":
+        if table_widget == self.all_records_table:
             self.current_table_widget = table_widget
 
-    def populate_grouped_table(self, df, tab_name, message_function):
+    def populate_grouped_table(self, df, tab_widget, message_function):
         for username, user_courses in df.groupby('Username'):
             user_courses.reset_index(drop=True, inplace=True)
             user_tab = QWidget()
@@ -99,7 +124,7 @@ class MainWindow(QMainWindow):
             user_layout.addWidget(header_widget)
             user_layout.addWidget(table_widget)
 
-            self.tabs.addTab(user_tab, f"{user_courses['First Name'][0]} {user_courses['Last Name'][0]}")
+            tab_widget.addTab(user_tab, f"{user_courses['First Name'][0]} {user_courses['Last Name'][0]}")
 
     def copy_row(self, row_data):
         message = friendly_reminder_message(row_data['First Name'], [row_data.to_dict()])
