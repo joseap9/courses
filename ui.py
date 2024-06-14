@@ -1,5 +1,4 @@
 from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QPushButton, QFileDialog, QLabel, QTabWidget, QTableWidget, QTableWidgetItem
-from PyQt5.QtCore import Qt
 import pyperclip
 from logic import process_csv
 

@@ -10,16 +10,18 @@ def process_csv(csv_path):
         print("Columnas del DataFrame:", df.columns)
 
         # Filtrar los registros no completados (Completion Status en blanco)
-        df_uncomplete = df[df['Completion Status'].isna()]
+        df_uncomplete = df[df['Completion Status'].isna()].copy()
 
         # Procesar las fechas
         current_date = datetime.now()
         one_week_later = current_date + timedelta(weeks=1)
 
+        # Convertir las fechas
         df_uncomplete['Completion Date'] = pd.to_datetime(df_uncomplete['Completion Date'], format='%b %d, %Y, %I:%M %p', errors='coerce')
 
-        df_past = df_uncomplete[df_uncomplete['Completion Date'] < current_date]
-        df_future = df_uncomplete[(df_uncomplete['Completion Date'] >= current_date) & (df_uncomplete['Completion Date'] <= one_week_later)]
+        # Filtrar las fechas
+        df_past = df_uncomplete[df_uncomplete['Completion Date'] < current_date].copy()
+        df_future = df_uncomplete[(df_uncomplete['Completion Date'] >= current_date) & (df_uncomplete['Completion Date'] <= one_week_later)].copy()
 
         # Mantener todas las columnas para el primer DataFrame
         df_all = df_uncomplete
