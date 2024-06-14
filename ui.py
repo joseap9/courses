@@ -1,12 +1,15 @@
-from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QFileDialog, QLabel, QTabWidget, QTableWidget, QTableWidgetItem, QLineEdit
+from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QFileDialog, QLabel, QTabWidget, QTableWidget, QTableWidgetItem
+from PyQt5.QtGui import QPixmap
+from PyQt5.QtCore import Qt
 import pyperclip
 from logic import process_csv, friendly_reminder_message, delayed_reminder_message
+import styles
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("CSV Analyzer")
-        self.setGeometry(100, 100, 1000, 800)
+        self.setGeometry(100, 100, 1200, 800)
 
         self.layout = QVBoxLayout()
 
@@ -19,37 +22,28 @@ class MainWindow(QMainWindow):
         self.file_layout.addWidget(self.button)
         self.layout.addLayout(self.file_layout)
 
+        # Agregar una imagen
+        self.image_label = QLabel()
+        pixmap = QPixmap('path/to/your/image.png')  # Reemplaza con la ruta de tu imagen
+        self.image_label.setPixmap(pixmap)
+        self.image_label.setAlignment(Qt.AlignRight)
+        self.layout.addWidget(self.image_label)
+
         self.tabs = QTabWidget()
+        self.tabs.setStyleSheet(styles.MAIN_TAB_STYLE)
         self.layout.addWidget(self.tabs)
 
         self.all_records_tab = QWidget()
         self.all_records_layout = QVBoxLayout()
-
-        self.search_layout = QHBoxLayout()
-        self.search_label = QLabel("Buscar por First Name")
-        self.search_layout.addWidget(self.search_label)
-
-        self.search_box = QLineEdit()
-        self.search_layout.addWidget(self.search_box)
-
-        self.search_button = QPushButton("Buscar")
-        self.search_button.clicked.connect(self.search_table)
-        self.search_layout.addWidget(self.search_button)
-
-        self.all_records_layout.addLayout(self.search_layout)
-
-        self.result_label = QLabel("")
-        self.all_records_layout.addWidget(self.result_label)
-
         self.all_records_table = QTableWidget()
         self.all_records_layout.addWidget(self.all_records_table)
-
         self.all_records_tab.setLayout(self.all_records_layout)
         self.tabs.addTab(self.all_records_tab, "Todos los Registros")
 
         self.delayed_courses_tab = QWidget()
         self.delayed_courses_layout = QVBoxLayout()
         self.delayed_tabs = QTabWidget()
+        self.delayed_tabs.setStyleSheet(styles.SUB_TAB_STYLE)
         self.delayed_courses_layout.addWidget(self.delayed_tabs)
         self.delayed_courses_tab.setLayout(self.delayed_courses_layout)
         self.tabs.addTab(self.delayed_courses_tab, "Delayed Courses")
@@ -57,6 +51,7 @@ class MainWindow(QMainWindow):
         self.future_courses_tab = QWidget()
         self.future_courses_layout = QVBoxLayout()
         self.future_tabs = QTabWidget()
+        self.future_tabs.setStyleSheet(styles.SUB_TAB_STYLE)
         self.future_courses_layout.addWidget(self.future_tabs)
         self.future_courses_tab.setLayout(self.future_courses_layout)
         self.tabs.addTab(self.future_courses_tab, "Courses About to Past Due")
@@ -134,13 +129,3 @@ class MainWindow(QMainWindow):
         first_name = user_courses['First Name'].iloc[0] if not user_courses.empty else ''
         message = message_function(first_name, user_courses.to_dict('records'))
         pyperclip.copy(message)
-
-    def search_table(self):
-        text = self.search_box.text().lower()
-        if self.current_table_widget:
-            for row in range(self.current_table_widget.rowCount()):
-                item = self.current_table_widget.item(row, self.current_table_widget.columnCount() - 1)  # Assuming 'First Name' is in the last column
-                if item and text in item.text().lower():
-                    self.current_table_widget.setRowHidden(row, False)
-                else:
-                    self.current_table_widget.setRowHidden(row, True)
