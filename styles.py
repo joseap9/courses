@@ -3,7 +3,8 @@ MAIN_TAB_STYLE = """
     QTabBar::tab {
         font-size: 16px;
         color: #338AFF;
-        padding: 10px;
+        padding: 12px 20px;
+        border-radius: 10px;
     }
     QTabBar::tab:selected {
         font: bold 16px;
@@ -19,7 +20,8 @@ SUB_TAB_STYLE = """
     QTabBar::tab {
         font-size: 14px;
         color: #338AFF;
-        padding: 8px;
+        padding: 10px 15px;
+        border-radius: 8px;
     }
     QTabBar::tab:selected {
         font: bold 14px;

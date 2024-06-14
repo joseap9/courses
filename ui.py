@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QFileDialog, QLabel, QTabWidget, QTableWidget, QTableWidgetItem
-from PyQt5.QtGui import QPixmap
+from PyQt5.QtGui import QPixmap, QColor, QPainter
 from PyQt5.QtCore import Qt
 import pyperclip
 from logic import process_csv, friendly_reminder_message, delayed_reminder_message
@@ -10,6 +10,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("CSV Analyzer")
         self.setGeometry(100, 100, 1200, 800)
+        self.setStyleSheet("background-color: white;")
 
         self.layout = QVBoxLayout()
 
@@ -35,7 +36,7 @@ class MainWindow(QMainWindow):
 
         self.all_records_tab = QWidget()
         self.all_records_layout = QVBoxLayout()
-        self.all_records_table = QTableWidget()
+        self.all_records_table = WatermarkTable()
         self.all_records_layout.addWidget(self.all_records_table)
         self.all_records_tab.setLayout(self.all_records_layout)
         self.tabs.addTab(self.all_records_tab, "Todos los Registros")
@@ -85,6 +86,7 @@ class MainWindow(QMainWindow):
 
         if table_widget == self.all_records_table:
             self.current_table_widget = table_widget
+            self.current_table_widget.update()  # Refresh to remove watermark
 
     def populate_grouped_table(self, df, tab_widget, message_function):
         for username, user_courses in df.groupby('Username'):
@@ -98,6 +100,7 @@ class MainWindow(QMainWindow):
             table_widget.setColumnCount(len(user_courses.columns) + 1)  # Añadir una columna para el botón de copiar
             table_widget.setHorizontalHeaderLabels(list(user_courses.columns) + ["Acciones"])
             table_widget.horizontalHeader().setStretchLastSection(True)
+            table_widget.setStyleSheet("background-color: #F5F5F5;")
 
             for row in range(user_courses.shape[0]):
                 for col in range(user_courses.shape[1]):
@@ -129,3 +132,15 @@ class MainWindow(QMainWindow):
         first_name = user_courses['First Name'].iloc[0] if not user_courses.empty else ''
         message = message_function(first_name, user_courses.to_dict('records'))
         pyperclip.copy(message)
+
+class WatermarkTable(QTableWidget):
+    def __init__(self):
+        super().__init__()
+        self.setStyleSheet("background-color: #F5F5F5;")
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if self.rowCount() == 0:
+            painter = QPainter(self.viewport())
+            painter.setPen(QColor(200, 200, 200, 127))
+            painter.drawText(self.rect(), Qt.AlignCenter, "No data")
