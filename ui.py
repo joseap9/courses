@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QPushButton, QFileDialog, QLabel, QTabWidget, QTableWidget, QTableWidgetItem, QLineEdit
+from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QPushButton, QFileDialog, QLabel, QTabWidget, QTableWidget, QTableWidgetItem, QLineEdit, QHBoxLayout
 import pyperclip
 from logic import process_csv, friendly_reminder_message, delayed_reminder_message
 
@@ -21,8 +21,11 @@ class MainWindow(QMainWindow):
         self.layout.addWidget(self.search_label)
 
         self.search_box = QLineEdit()
-        self.search_box.textChanged.connect(self.search_table)
         self.layout.addWidget(self.search_box)
+
+        self.search_button = QPushButton("Buscar")
+        self.search_button.clicked.connect(self.search_table)
+        self.layout.addWidget(self.search_button)
 
         self.result_label = QLabel("")
         self.layout.addWidget(self.result_label)
@@ -64,36 +67,48 @@ class MainWindow(QMainWindow):
             self.current_table_widget = table_widget
 
     def populate_grouped_table(self, df, tab_name, message_function):
-        table_widget = QTableWidget()
-        table_widget.setRowCount(df.shape[0])
-        table_widget.setColumnCount(2)  # Username y Courses
-        table_widget.setHorizontalHeaderLabels(["Username", "Courses"])
+        for username, user_courses in df.groupby('Username'):
+            user_courses.reset_index(drop=True, inplace=True)
+            table_widget = QTableWidget()
+            table_widget.setRowCount(user_courses.shape[0])
+            table_widget.setColumnCount(len(user_courses.columns) + 1)  # Añadir una columna para el botón de copiar
+            table_widget.setHorizontalHeaderLabels(list(user_courses.columns) + ["Acciones"])
 
-        for row in range(df.shape[0]):
-            username_item = QTableWidgetItem(str(df.iat[row, df.columns.get_loc("Username")]))
-            table_widget.setItem(row, 0, username_item)
+            for row in range(user_courses.shape[0]):
+                for col in range(user_courses.shape[1]):
+                    table_widget.setItem(row, col, QTableWidgetItem(str(user_courses.iat[row, col])))
 
-            courses = df.iat[row, df.columns.get_loc("Courses")]
-            courses_str = "\n".join([f"{course['Item Title']} (ID: {course['Item ID']})" for course in courses])
-            courses_item = QTableWidgetItem(courses_str)
-            table_widget.setItem(row, 1, courses_item)
+                copy_button = QPushButton("Copiar")
+                copy_button.clicked.connect(lambda _, r=row: self.copy_row(user_courses.iloc[r]))
+                table_widget.setCellWidget(row, user_courses.shape[1], copy_button)
 
-            copy_button = QPushButton("Copiar")
-            copy_button.clicked.connect(lambda _, r=row, u=username_item, c=courses: self.copy_message(u.text(), c, message_function))
-            table_widget.setCellWidget(row, 2, copy_button)
+            header_layout = QHBoxLayout()
+            header_label = QLabel(f"{user_courses['First Name'][0]} {user_courses['Last Name'][0]} ({user_courses.shape[0]} Cursos Pendientes)")
+            copy_all_button = QPushButton("Copiar Todo")
+            copy_all_button.clicked.connect(lambda _, u=username: self.copy_all(user_courses, message_function))
+            header_layout.addWidget(header_label)
+            header_layout.addWidget(copy_all_button)
 
-        self.tabs.addTab(table_widget, tab_name)
+            header_widget = QWidget()
+            header_widget.setLayout(header_layout)
+            self.tabs.addTab(table_widget, username)
+            self.tabs.setTabBar(header_widget)
 
-    def copy_message(self, username, courses, message_function):
-        first_name = courses[0]['First Name'] if courses else ''
-        message = message_function(first_name, courses)
+    def copy_row(self, row_data):
+        message = friendly_reminder_message(row_data['First Name'], [row_data.to_dict()])
         pyperclip.copy(message)
 
-    def search_table(self, text):
+    def copy_all(self, user_courses, message_function):
+        first_name = user_courses['First Name'].iloc[0] if not user_courses.empty else ''
+        message = message_function(first_name, user_courses.to_dict('records'))
+        pyperclip.copy(message)
+
+    def search_table(self):
+        text = self.search_box.text().lower()
         if self.current_table_widget:
             for row in range(self.current_table_widget.rowCount()):
-                item = self.current_table_widget.item(row, 0)  # Assuming 'First Name' is in the first column
-                if item and text.lower() in item.text().lower():
+                item = self.current_table_widget.item(row, self.current_table_widget.columnCount() - 1)  # Assuming 'First Name' is in the last column
+                if item and text in item.text().lower():
                     self.current_table_widget.setRowHidden(row, False)
                 else:
                     self.current_table_widget.setRowHidden(row, True)

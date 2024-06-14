@@ -24,9 +24,9 @@ def process_csv(csv_path):
         df_all = df
 
         # Seleccionar columnas específicas para los DataFrames de fechas pasadas y futuras
-        columns_to_display = ['Item ID', 'Item Title', 'User', 'Username', 'Last Name', 'First Name', 'Completion Status', 'Grade', 'Completion Date']
-        df_past = df_past[columns_to_display].groupby('Username').apply(lambda x: x.to_dict('records')).reset_index().rename(columns={0: 'Courses'})
-        df_future = df_future[columns_to_display].groupby('Username').apply(lambda x: x.to_dict('records')).reset_index().rename(columns={0: 'Courses'})
+        columns_to_display = ['Item ID', 'Item Title', 'User', 'Username', 'Last Name', 'First Name', 'Required Date']
+        df_past = df_past[columns_to_display]
+        df_future = df_future[columns_to_display]
 
         return df_all, df_past, df_future
 
