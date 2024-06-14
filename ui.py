@@ -37,8 +37,8 @@ class MainWindow(QMainWindow):
             else:
                 self.tabs.clear()
                 self.populate_table(df_all, "Todos los Registros")
-                self.populate_table(df_past, "Fechas Pasadas", add_copy_buttons=True, message_template="Hola {First Name}, los cursos: {Item Title} están pendientes")
-                self.populate_table(df_future, "Fechas Futuras", add_copy_buttons=True, message_template="Hola {First Name}, recuerda que los cursos: {Item Title} empiezan pronto")
+                self.populate_table(df_past, "Fechas Pasadas", add_copy_buttons=True, message_template="Hola {First_Name}, los cursos: {Item_Title} están pendientes")
+                self.populate_table(df_future, "Fechas Futuras", add_copy_buttons=True, message_template="Hola {First_Name}, recuerda que los cursos: {Item_Title} empiezan pronto")
 
     def populate_table(self, df, tab_name, add_copy_buttons=False, message_template=""):
         table_widget = QTableWidget()
@@ -58,9 +58,13 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(table_widget, tab_name)
 
     def copy_to_clipboard(self, df, row, button, message_template):
-        name = df.iat[row, df.columns.get_loc("First Name")]
-        course = df.iat[row, df.columns.get_loc("Item Title")]
-        message = message_template.format(name=name, course=course)
-        pyperclip.copy(message)
-
-        button.setText("✔")
+        try:
+            print("Columnas del DataFrame:", df.columns)
+            name = df.iat[row, df.columns.get_loc("First Name")]
+            course = df.iat[row, df.columns.get_loc("Item Title")]
+            message = message_template.format(First_Name=name, Item_Title=course)
+            pyperclip.copy(message)
+            button.setText("✔")
+        except KeyError as e:
+            print(f"Error al acceder a la columna: {e}")
+            self.result_label.setText(f"Error: {e}")
