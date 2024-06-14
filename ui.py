@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QFileDialog, QLabel, QTabWidget, QTableWidget, QTableWidgetItem
-from PyQt5.QtGui import QPixmap, QColor, QPainter
+from PyQt5.QtGui import QPixmap, QColor, QPainter, QFont
 from PyQt5.QtCore import Qt
 import pyperclip
 from logic import process_csv, friendly_reminder_message, delayed_reminder_message
@@ -10,7 +10,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("CSV Analyzer")
         self.setGeometry(100, 100, 1200, 800)
-        self.setStyleSheet("background-color: white;")
+        self.setStyleSheet(styles.APP_STYLE)
 
         self.layout = QVBoxLayout()
 
