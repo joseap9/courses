@@ -6,8 +6,17 @@ CALCULATE(
 )
 
 second note = 
-LOOKUPVALUE(
-    archivo[ResultRecords.ResultRecord.AuditRecords.AuditRecord.Note], 
-    archivo[ResultRecords.ResultRecord.Id.#text], archivo[ResultRecords.ResultRecord.Id.#text],
-    archivo[ResultRecords.ResultRecord.AuditRecords.AuditRecord.Action], "NewNote"
+VAR currentId = archivo[ResultRecords.ResultRecord.Id.#text]
+RETURN
+CALCULATE(
+    FIRSTNONBLANK(
+        archivo[ResultRecords.ResultRecord.AuditRecords.AuditRecord.Note], 
+        archivo[ResultRecords.ResultRecord.AuditRecords.AuditRecord.Note]
+    ),
+    archivo[ResultRecords.ResultRecord.AuditRecords.AuditRecord.Action] = "NewNote",
+    FILTER(
+        archivo,
+        archivo[ResultRecords.ResultRecord.Id.#text] = currentId &&
+        archivo[ResultRecords.ResultRecord.AuditRecords.AuditRecord.Action] = "RecordCreated"
+    )
 )
