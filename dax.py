@@ -5,7 +5,7 @@ CALCULATE(
     CONTAINSSTRING(archivo[ResultRecords.ResultRecord.AuditRecords.AuditRecord.Note], "SRS")
 )
 
-second note = 
+NewNote = 
 VAR currentId = archivo[ResultRecords.ResultRecord.Id.#text]
 RETURN
 CALCULATE(
@@ -13,10 +13,10 @@ CALCULATE(
         archivo[ResultRecords.ResultRecord.AuditRecords.AuditRecord.Note], 
         archivo[ResultRecords.ResultRecord.AuditRecords.AuditRecord.Note]
     ),
-    archivo[ResultRecords.ResultRecord.AuditRecords.AuditRecord.Action] = "NewNote",
     FILTER(
         archivo,
         archivo[ResultRecords.ResultRecord.Id.#text] = currentId &&
-        archivo[ResultRecords.ResultRecord.AuditRecords.AuditRecord.Action] = "RecordCreated"
+        archivo[ResultRecords.ResultRecord.AuditRecords.AuditRecord.Action] = "NewNote"
     )
 )
+
