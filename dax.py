@@ -1,16 +1,6 @@
-second note = 
-VAR currentId = archivo[ResultRecords.ResultRecord.Id.#text]
-RETURN
+Retail On Boarding = 
 CALCULATE(
-    FIRSTNONBLANK(
-        SELECTCOLUMNS(
-            FILTER(
-                archivo, 
-                archivo[ResultRecords.ResultRecord.AuditRecords.AuditRecord.Action] = "NewNote" &&
-                archivo[ResultRecords.ResultRecord.Id.#text] = currentId
-            ),
-            "Note", archivo[ResultRecords.ResultRecord.AuditRecords.AuditRecord.Note]
-        ), 
-        archivo[ResultRecords.ResultRecord.AuditRecords.AuditRecord.Note]
-    )
+    COUNTROWS(archivo),
+    archivo[ResultRecords.ResultRecord.AuditRecords.AuditRecord.Action] = "RecordCreated",
+    CONTAINSSTRING(archivo[ResultRecords.ResultRecord.AuditRecords.AuditRecord.Note], "SRS")
 )
