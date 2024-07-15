@@ -1,4 +1,5 @@
 import fitz
+import pdfplumber
 from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QPushButton, QFileDialog, QLabel, QHBoxLayout, QGraphicsView, QGraphicsScene, QGraphicsPixmapItem
 from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import Qt
@@ -57,10 +58,10 @@ class MainWindow(QMainWindow):
         self.highlight_differences(pdf2_path, pdf2_text, diffs, is_pdf1=False)
 
     def extract_text_from_pdf(self, pdf_path):
-        doc = fitz.open(pdf_path)
         text = []
-        for page in doc:
-            text.append(page.get_text())
+        with pdfplumber.open(pdf_path) as pdf:
+            for page in pdf.pages:
+                text.append(page.extract_text())
         return text
 
     def get_diff(self, text1, text2):
@@ -70,14 +71,14 @@ class MainWindow(QMainWindow):
     def highlight_differences(self, pdf_path, text, diffs, is_pdf1=True):
         doc = fitz.open(pdf_path)
         for page_num, page in enumerate(doc):
-            page_text = text[page_num]
+            page_text = text[page_num].splitlines()
             page_diffs = [d for d in diffs if d.startswith(' ') or (is_pdf1 and d.startswith('+')) or (not is_pdf1 and d.startswith('-'))]
 
             for d in page_diffs:
                 if d.startswith(' '):
                     continue
                 prefix, content = d[0], d[2:]
-                pos = page_text.find(content)
+                pos = '\n'.join(page_text).find(content)
                 if pos == -1:
                     continue
 
@@ -96,28 +97,20 @@ class MainWindow(QMainWindow):
                     highlight.set_colors(stroke=color)
                     highlight.update()
 
-        if is_pdf1:
-            output_path = "highlighted_pdf1.pdf"
-        else:
-            output_path = "highlighted_pdf2.pdf"
+        self.display_pdf(doc, is_pdf1)
 
-        doc.save(output_path)
-        self.display_pdf(output_path, is_pdf1)
-
-    def display_pdf(self, pdf_path, is_pdf1):
-        doc = fitz.open(pdf_path)
-        pixmaps = [page.get_pixmap() for page in doc]
-
-        for pix in pixmaps:
+    def display_pdf(self, doc, is_pdf1):
+        scene = QGraphicsScene()
+        for page_num in range(len(doc)):
+            page = doc[page_num]
+            pix = page.get_pixmap()
             image = QImage(pix.samples, pix.width, pix.height, pix.stride, QImage.Format_RGB888)
             pixmap = QPixmap(image)
-
-            if is_pdf1:
-                self.pdf1_scene.addItem(QGraphicsPixmapItem(pixmap))
-            else:
-                self.pdf2_scene.addItem(QGraphicsPixmapItem(pixmap))
+            scene.addItem(QGraphicsPixmapItem(pixmap))
 
         if is_pdf1:
-            self.pdf1_view.fitInView(self.pdf1_scene.itemsBoundingRect(), Qt.KeepAspectRatio)
+            self.pdf1_view.setScene(scene)
+            self.pdf1_view.fitInView(scene.itemsBoundingRect(), Qt.KeepAspectRatio)
         else:
-            self.pdf2_view.fitInView(self.pdf2_scene.itemsBoundingRect(), Qt.KeepAspectRatio)
+            self.pdf2_view.setScene(scene)
+            self.pdf2_view.fitInView(scene.itemsBoundingRect(), Qt.KeepAspectRatio)
