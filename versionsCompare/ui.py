@@ -1,7 +1,9 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QTextEdit, QHBoxLayout
-from PyQt5.QtGui import QTextCursor, QTextCharFormat, QColor
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QPixmap
 import fitz  # PyMuPDF
+import tempfile
 
 class PDFComparer(QMainWindow):
     def __init__(self):
@@ -21,12 +23,12 @@ class PDFComparer(QMainWindow):
         self.layout.addWidget(self.button2)
 
         self.pdf_layout = QHBoxLayout()
-        self.pdf1_viewer = QTextEdit(self)
-        self.pdf2_viewer = QTextEdit(self)
-        self.pdf1_viewer.setReadOnly(True)
-        self.pdf2_viewer.setReadOnly(True)
-        self.pdf_layout.addWidget(self.pdf1_viewer)
-        self.pdf_layout.addWidget(self.pdf2_viewer)
+        self.pdf1_label = QLabel(self)
+        self.pdf2_label = QLabel(self)
+        self.pdf1_label.setAlignment(Qt.AlignTop)
+        self.pdf2_label.setAlignment(Qt.AlignTop)
+        self.pdf_layout.addWidget(self.pdf1_label)
+        self.pdf_layout.addWidget(self.pdf2_label)
         self.layout.addLayout(self.pdf_layout)
 
         container = QWidget()
@@ -35,13 +37,15 @@ class PDFComparer(QMainWindow):
 
         self.pdf1_text = None
         self.pdf2_text = None
+        self.pdf1_path = None
+        self.pdf2_path = None
 
     def load_first_pdf(self):
         options = QFileDialog.Options()
         fileName, _ = QFileDialog.getOpenFileName(self, "Select First PDF", "", "PDF Files (*.pdf);;All Files (*)", options=options)
         if fileName:
             self.pdf1_text = self.extract_text_from_pdf(fileName)
-            self.pdf1_viewer.setPlainText(self.pdf1_text)
+            self.pdf1_path = fileName
             self.compare_pdfs()
 
     def load_second_pdf(self):
@@ -49,7 +53,7 @@ class PDFComparer(QMainWindow):
         fileName, _ = QFileDialog.getOpenFileName(self, "Select Second PDF", "", "PDF Files (*.pdf);;All Files (*)", options=options)
         if fileName:
             self.pdf2_text = self.extract_text_from_pdf(fileName)
-            self.pdf2_viewer.setPlainText(self.pdf2_text)
+            self.pdf2_path = fileName
             self.compare_pdfs()
 
     def extract_text_from_pdf(self, file_path):
@@ -62,34 +66,43 @@ class PDFComparer(QMainWindow):
 
     def compare_pdfs(self):
         if self.pdf1_text and self.pdf2_text:
-            self.highlight_differences(self.pdf1_viewer, self.pdf1_text, self.pdf2_text)
-            self.highlight_differences(self.pdf2_viewer, self.pdf2_text, self.pdf1_text)
+            temp_pdf1_path = self.highlight_differences(self.pdf1_path, self.pdf1_text, self.pdf2_text)
+            temp_pdf2_path = self.highlight_differences(self.pdf2_path, self.pdf2_text, self.pdf1_text)
 
-    def highlight_differences(self, viewer, text1, text2):
-        cursor = viewer.textCursor()
-        highlight_format = QTextCharFormat()
-        highlight_format.setBackground(QColor("yellow"))
+            self.display_pdf(self.pdf1_label, temp_pdf1_path)
+            self.display_pdf(self.pdf2_label, temp_pdf2_path)
 
-        cursor.beginEditBlock()
-        cursor.select(QTextCursor.Document)
-        cursor.setCharFormat(QTextCharFormat())  # Clear formatting
-        cursor.endEditBlock()
+    def highlight_differences(self, file_path, text1, text2):
+        doc = fitz.open(file_path)
+        words1 = text1.split()
+        words2 = text2.split()
+        highlight_format = {"color": (1, 1, 0), "opacity": 0.5}
 
-        lines1 = text1.splitlines()
-        lines2 = text2.splitlines()
+        for page_num in range(len(doc)):
+            page = doc.load_page(page_num)
+            blocks = page.get_text("blocks")
+            for b in blocks:
+                for line in b[4].split('\n'):
+                    for word in line.split():
+                        if word in words1 and word not in words2:
+                            highlight = fitz.Rect(b[:4])
+                            page.add_highlight_annot(highlight)
+                        elif word in words2 and word not in words1:
+                            highlight = fitz.Rect(b[:4])
+                            page.add_highlight_annot(highlight)
 
-        len1, len2 = len(lines1), len(lines2)
-        max_len = max(len1, len2)
+        temp_pdf_path = tempfile.mktemp(suffix=".pdf")
+        doc.save(temp_pdf_path)
+        doc.close()
+        return temp_pdf_path
 
-        for i in range(max_len):
-            line1 = lines1[i] if i < len1 else ""
-            line2 = lines2[i] if i < len2 else ""
-            if line1 != line2:
-                cursor.movePosition(QTextCursor.Start)
-                for _ in range(i):
-                    cursor.movePosition(QTextCursor.Down)
-                cursor.select(QTextCursor.LineUnderCursor)
-                cursor.mergeCharFormat(highlight_format)
+    def display_pdf(self, label, file_path):
+        doc = fitz.open(file_path)
+        page = doc.load_page(0)
+        pix = page.get_pixmap()
+        temp_image_path = tempfile.mktemp(suffix=".png")
+        pix.save(temp_image_path)
+        label.setPixmap(QPixmap(temp_image_path).scaled(600, 800, Qt.KeepAspectRatio))
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
