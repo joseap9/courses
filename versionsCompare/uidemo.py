@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap
 import fitz  # PyMuPDF
@@ -23,12 +23,23 @@ class PDFComparer(QMainWindow):
         self.layout.addWidget(self.button2)
 
         self.pdf_layout = QHBoxLayout()
-        self.pdf1_label = QLabel(self)
-        self.pdf2_label = QLabel(self)
-        self.pdf1_label.setAlignment(Qt.AlignTop)
-        self.pdf2_label.setAlignment(Qt.AlignTop)
-        self.pdf_layout.addWidget(self.pdf1_label)
-        self.pdf_layout.addWidget(self.pdf2_label)
+
+        self.pdf1_scroll = QScrollArea(self)
+        self.pdf1_container = QWidget()
+        self.pdf1_layout = QVBoxLayout()
+        self.pdf1_container.setLayout(self.pdf1_layout)
+        self.pdf1_scroll.setWidget(self.pdf1_container)
+        self.pdf1_scroll.setWidgetResizable(True)
+        self.pdf_layout.addWidget(self.pdf1_scroll)
+
+        self.pdf2_scroll = QScrollArea(self)
+        self.pdf2_container = QWidget()
+        self.pdf2_layout = QVBoxLayout()
+        self.pdf2_container.setLayout(self.pdf2_layout)
+        self.pdf2_scroll.setWidget(self.pdf2_container)
+        self.pdf2_scroll.setWidgetResizable(True)
+        self.pdf_layout.addWidget(self.pdf2_scroll)
+
         self.layout.addLayout(self.pdf_layout)
 
         container = QWidget()
@@ -44,6 +55,7 @@ class PDFComparer(QMainWindow):
         options = QFileDialog.Options()
         fileName, _ = QFileDialog.getOpenFileName(self, "Select First PDF", "", "PDF Files (*.pdf);;All Files (*)", options=options)
         if fileName:
+            self.button1.setText(fileName.split('/')[-1])
             self.pdf1_text, self.pdf1_words = self.extract_text_and_positions(fileName)
             self.pdf1_path = fileName
             self.compare_pdfs()
@@ -52,6 +64,7 @@ class PDFComparer(QMainWindow):
         options = QFileDialog.Options()
         fileName, _ = QFileDialog.getOpenFileName(self, "Select Second PDF", "", "PDF Files (*.pdf);;All Files (*)", options=options)
         if fileName:
+            self.button2.setText(fileName.split('/')[-1])
             self.pdf2_text, self.pdf2_words = self.extract_text_and_positions(fileName)
             self.pdf2_path = fileName
             self.compare_pdfs()
@@ -74,8 +87,8 @@ class PDFComparer(QMainWindow):
             temp_pdf1_path = self.highlight_differences(self.pdf1_path, self.pdf1_words, self.pdf2_words)
             temp_pdf2_path = self.highlight_differences(self.pdf2_path, self.pdf2_words, self.pdf1_words)
 
-            self.display_pdf(self.pdf1_label, temp_pdf1_path)
-            self.display_pdf(self.pdf2_label, temp_pdf2_path)
+            self.display_pdfs(self.pdf1_layout, temp_pdf1_path)
+            self.display_pdfs(self.pdf2_layout, temp_pdf2_path)
 
     def highlight_differences(self, file_path, words1, words2):
         doc = fitz.open(file_path)
@@ -93,13 +106,16 @@ class PDFComparer(QMainWindow):
         doc.close()
         return temp_pdf_path
 
-    def display_pdf(self, label, file_path):
+    def display_pdfs(self, layout, file_path):
         doc = fitz.open(file_path)
-        page = doc.load_page(0)
-        pix = page.get_pixmap()
-        temp_image_path = tempfile.mktemp(suffix=".png")
-        pix.save(temp_image_path)
-        label.setPixmap(QPixmap(temp_image_path).scaled(600, 800, Qt.KeepAspectRatio))
+        for page_num in range(len(doc)):
+            page = doc.load_page(page_num)
+            pix = page.get_pixmap()
+            temp_image_path = tempfile.mktemp(suffix=".png")
+            pix.save(temp_image_path)
+            label = QLabel(self)
+            label.setPixmap(QPixmap(temp_image_path).scaled(600, 800, Qt.KeepAspectRatio))
+            layout.addWidget(label)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
