@@ -1,5 +1,7 @@
-from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QPushButton, QFileDialog, QLabel, QTextEdit
 import fitz
+from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QPushButton, QFileDialog, QLabel, QHBoxLayout, QGraphicsView, QGraphicsScene, QGraphicsPixmapItem
+from PyQt5.QtGui import QPixmap, QImage
+from PyQt5.QtCore import Qt
 import difflib
 
 class MainWindow(QMainWindow):
@@ -20,17 +22,15 @@ class MainWindow(QMainWindow):
         self.result_label = QLabel("")
         self.layout.addWidget(self.result_label)
 
-        self.pdf1_text = QTextEdit()
-        self.pdf1_text.setReadOnly(True)
-        self.layout.addWidget(self.pdf1_text)
+        self.pdf1_view = QGraphicsView()
+        self.pdf1_scene = QGraphicsScene()
+        self.pdf1_view.setScene(self.pdf1_scene)
+        self.layout.addWidget(self.pdf1_view)
 
-        self.pdf2_text = QTextEdit()
-        self.pdf2_text.setReadOnly(True)
-        self.layout.addWidget(self.pdf2_text)
-
-        self.diff_text = QTextEdit()
-        self.diff_text.setReadOnly(True)
-        self.layout.addWidget(self.diff_text)
+        self.pdf2_view = QGraphicsView()
+        self.pdf2_scene = QGraphicsScene()
+        self.pdf2_view.setScene(self.pdf2_scene)
+        self.layout.addWidget(self.pdf2_view)
 
         container = QWidget()
         container.setLayout(self.layout)
@@ -40,22 +40,79 @@ class MainWindow(QMainWindow):
         options = QFileDialog.Options()
         file_names, _ = QFileDialog.getOpenFileNames(self, "Seleccionar archivos PDF", "", "Archivos PDF (*.pdf)", options=options)
         if len(file_names) == 2:
-            pdf1_text = self.extract_text_from_pdf(file_names[0])
-            pdf2_text = self.extract_text_from_pdf(file_names[1])
-            self.pdf1_text.setPlainText(pdf1_text)
-            self.pdf2_text.setPlainText(pdf2_text)
-            diff_text = self.get_diff(pdf1_text, pdf2_text)
-            self.diff_text.setPlainText(diff_text)
+            pdf1_path, pdf2_path = file_names
+            self.compare_pdfs(pdf1_path, pdf2_path)
         else:
             self.result_label.setText("Por favor seleccione exactamente dos archivos PDF.")
 
+    def compare_pdfs(self, pdf1_path, pdf2_path):
+        pdf1_text = self.extract_text_from_pdf(pdf1_path)
+        pdf2_text = self.extract_text_from_pdf(pdf2_path)
+        diffs = self.get_diff(pdf1_text, pdf2_text)
+
+        self.highlight_differences(pdf1_path, pdf1_text, diffs, is_pdf1=True)
+        self.highlight_differences(pdf2_path, pdf2_text, diffs, is_pdf1=False)
+
     def extract_text_from_pdf(self, pdf_path):
         doc = fitz.open(pdf_path)
-        text = ""
+        text = []
         for page in doc:
-            text += page.get_text()
+            text.append(page.get_text())
         return text
 
     def get_diff(self, text1, text2):
-        diff = difflib.ndiff(text1.splitlines(), text2.splitlines())
-        return '\n'.join(diff)
+        diff = difflib.ndiff(text1, text2)
+        return list(diff)
+
+    def highlight_differences(self, pdf_path, text, diffs, is_pdf1=True):
+        doc = fitz.open(pdf_path)
+        for page_num, page in enumerate(doc):
+            page_text = text[page_num]
+            page_diffs = [d for d in diffs if d.startswith(' ') or (is_pdf1 and d.startswith('+')) or (not is_pdf1 and d.startswith('-'))]
+
+            for d in page_diffs:
+                if d.startswith(' '):
+                    continue
+                prefix, content = d[0], d[2:]
+                pos = page_text.find(content)
+                if pos == -1:
+                    continue
+
+                # Find the rectangle positions
+                quads = page.search_for(content)
+                for quad in quads:
+                    if prefix == '+':
+                        color = (0, 0, 1)  # Blue for added
+                    elif prefix == '-':
+                        color = (1, 0, 0)  # Red for removed
+                    else:
+                        color = (0, 1, 0)  # Green for modified
+
+                    page.add_highlight_annot(quad)
+                    highlight = page.first_annot
+                    highlight.set_colors(stroke=color)
+                    highlight.update()
+
+        if is_pdf1:
+            output_path = "highlighted_pdf1.pdf"
+        else:
+            output_path = "highlighted_pdf2.pdf"
+
+        doc.save(output_path)
+        self.display_pdf(output_path, is_pdf1)
+
+    def display_pdf(self, pdf_path, is_pdf1):
+        doc = fitz.open(pdf_path)
+        page = doc[0]
+        pix = page.get_pixmap()
+        image = QImage(pix.samples, pix.width, pix.height, pix.stride, QImage.Format_RGB888)
+        pixmap = QPixmap(image)
+
+        if is_pdf1:
+            self.pdf1_scene.clear()
+            self.pdf1_scene.addItem(QGraphicsPixmapItem(pixmap))
+            self.pdf1_view.fitInView(self.pdf1_scene.itemsBoundingRect(), Qt.KeepAspectRatio)
+        else:
+            self.pdf2_scene.clear()
+            self.pdf2_scene.addItem(QGraphicsPixmapItem(pixmap))
+            self.pdf2_view.fitInView(self.pdf2_scene.itemsBoundingRect(), Qt.KeepAspectRatio)
