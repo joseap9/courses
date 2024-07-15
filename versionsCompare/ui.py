@@ -22,15 +22,18 @@ class MainWindow(QMainWindow):
         self.result_label = QLabel("")
         self.layout.addWidget(self.result_label)
 
+        self.pdf_layout = QHBoxLayout()
+        self.layout.addLayout(self.pdf_layout)
+
         self.pdf1_view = QGraphicsView()
         self.pdf1_scene = QGraphicsScene()
         self.pdf1_view.setScene(self.pdf1_scene)
-        self.layout.addWidget(self.pdf1_view)
+        self.pdf_layout.addWidget(self.pdf1_view)
 
         self.pdf2_view = QGraphicsView()
         self.pdf2_scene = QGraphicsScene()
         self.pdf2_view.setScene(self.pdf2_scene)
-        self.layout.addWidget(self.pdf2_view)
+        self.pdf_layout.addWidget(self.pdf2_view)
 
         container = QWidget()
         container.setLayout(self.layout)
@@ -103,16 +106,18 @@ class MainWindow(QMainWindow):
 
     def display_pdf(self, pdf_path, is_pdf1):
         doc = fitz.open(pdf_path)
-        page = doc[0]
-        pix = page.get_pixmap()
-        image = QImage(pix.samples, pix.width, pix.height, pix.stride, QImage.Format_RGB888)
-        pixmap = QPixmap(image)
+        pixmaps = [page.get_pixmap() for page in doc]
+
+        for pix in pixmaps:
+            image = QImage(pix.samples, pix.width, pix.height, pix.stride, QImage.Format_RGB888)
+            pixmap = QPixmap(image)
+
+            if is_pdf1:
+                self.pdf1_scene.addItem(QGraphicsPixmapItem(pixmap))
+            else:
+                self.pdf2_scene.addItem(QGraphicsPixmapItem(pixmap))
 
         if is_pdf1:
-            self.pdf1_scene.clear()
-            self.pdf1_scene.addItem(QGraphicsPixmapItem(pixmap))
             self.pdf1_view.fitInView(self.pdf1_scene.itemsBoundingRect(), Qt.KeepAspectRatio)
         else:
-            self.pdf2_scene.clear()
-            self.pdf2_scene.addItem(QGraphicsPixmapItem(pixmap))
             self.pdf2_view.fitInView(self.pdf2_scene.itemsBoundingRect(), Qt.KeepAspectRatio)
