@@ -78,8 +78,7 @@ class MainWindow(QMainWindow):
                 if d.startswith(' '):
                     continue
                 prefix, content = d[0], d[2:]
-                pos = '\n'.join(page_text).find(content)
-                if pos == -1:
+                if content.strip() == "":
                     continue
 
                 # Find the rectangle positions
@@ -93,8 +92,7 @@ class MainWindow(QMainWindow):
                         else:
                             color = (0, 1, 0)  # Green for modified
 
-                        page.add_highlight_annot(quad)
-                        highlight = page.first_annot
+                        highlight = page.add_highlight_annot(quad)
                         highlight.set_colors(stroke=color)
                         highlight.update()
 
