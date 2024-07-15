@@ -1,9 +1,10 @@
 import fitz
-import pdfplumber
 from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QPushButton, QFileDialog, QLabel, QHBoxLayout, QGraphicsView, QGraphicsScene, QGraphicsPixmapItem
 from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import Qt
 import difflib
+from pdfminer.high_level import extract_text
+from PIL import Image, ImageDraw, ImageFont
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -56,13 +57,11 @@ class MainWindow(QMainWindow):
 
         self.highlight_differences(pdf1_path, pdf1_text, diffs, is_pdf1=True)
         self.highlight_differences(pdf2_path, pdf2_text, diffs, is_pdf1=False)
+        self.list_differences(diffs)
 
     def extract_text_from_pdf(self, pdf_path):
-        text = []
-        with pdfplumber.open(pdf_path) as pdf:
-            for page in pdf.pages:
-                text.append(page.extract_text())
-        return text
+        text = extract_text(pdf_path)
+        return text.splitlines()
 
     def get_diff(self, text1, text2):
         diff = difflib.ndiff(text1, text2)
@@ -81,7 +80,6 @@ class MainWindow(QMainWindow):
                 if content.strip() == "":
                     continue
 
-                # Find the rectangle positions
                 quads = page.search_for(content)
                 if quads:
                     for quad in quads:
@@ -113,3 +111,13 @@ class MainWindow(QMainWindow):
         else:
             self.pdf2_view.setScene(scene)
             self.pdf2_view.fitInView(scene.itemsBoundingRect(), Qt.KeepAspectRatio)
+
+    def list_differences(self, diffs):
+        diff_text = "\n".join([d for d in diffs if d.startswith('+') or d.startswith('-')])
+        self.result_label.setText(f"Diferencias encontradas:\n{diff_text}")
+
+if __name__ == "__main__":
+    app = QApplication([])
+    window = MainWindow()
+    window.show()
+    app.exec_()
