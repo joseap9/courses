@@ -1,5 +1,6 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QTextEdit, QVBoxLayout, QWidget
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QTextEdit, QHBoxLayout
+from PyQt5.QtGui import QTextCursor, QTextFormat, QColor
 import fitz  # PyMuPDF
 
 class PDFComparer(QMainWindow):
@@ -7,7 +8,7 @@ class PDFComparer(QMainWindow):
         super().__init__()
 
         self.setWindowTitle("PDF Comparer")
-        self.setGeometry(100, 100, 800, 600)
+        self.setGeometry(100, 100, 1200, 800)
 
         self.layout = QVBoxLayout()
 
@@ -19,8 +20,14 @@ class PDFComparer(QMainWindow):
         self.button2.clicked.connect(self.load_second_pdf)
         self.layout.addWidget(self.button2)
 
-        self.result_text = QTextEdit(self)
-        self.layout.addWidget(self.result_text)
+        self.pdf_layout = QHBoxLayout()
+        self.pdf1_viewer = QTextEdit(self)
+        self.pdf2_viewer = QTextEdit(self)
+        self.pdf1_viewer.setReadOnly(True)
+        self.pdf2_viewer.setReadOnly(True)
+        self.pdf_layout.addWidget(self.pdf1_viewer)
+        self.pdf_layout.addWidget(self.pdf2_viewer)
+        self.layout.addLayout(self.pdf_layout)
 
         container = QWidget()
         container.setLayout(self.layout)
@@ -34,6 +41,7 @@ class PDFComparer(QMainWindow):
         fileName, _ = QFileDialog.getOpenFileName(self, "Select First PDF", "", "PDF Files (*.pdf);;All Files (*)", options=options)
         if fileName:
             self.pdf1_text = self.extract_text_from_pdf(fileName)
+            self.pdf1_viewer.setPlainText(self.pdf1_text)
             self.compare_pdfs()
 
     def load_second_pdf(self):
@@ -41,6 +49,7 @@ class PDFComparer(QMainWindow):
         fileName, _ = QFileDialog.getOpenFileName(self, "Select Second PDF", "", "PDF Files (*.pdf);;All Files (*)", options=options)
         if fileName:
             self.pdf2_text = self.extract_text_from_pdf(fileName)
+            self.pdf2_viewer.setPlainText(self.pdf2_text)
             self.compare_pdfs()
 
     def extract_text_from_pdf(self, file_path):
@@ -53,24 +62,34 @@ class PDFComparer(QMainWindow):
 
     def compare_pdfs(self):
         if self.pdf1_text and self.pdf2_text:
-            differences = self.find_differences(self.pdf1_text, self.pdf2_text)
-            self.result_text.setText(differences)
+            self.highlight_differences(self.pdf1_viewer, self.pdf1_text, self.pdf2_text)
+            self.highlight_differences(self.pdf2_viewer, self.pdf2_text, self.pdf1_text)
 
-    def find_differences(self, text1, text2):
-        differences = ""
+    def highlight_differences(self, viewer, text1, text2):
+        cursor = viewer.textCursor()
+        format = QTextFormat()
+        format.setBackground(QColor("yellow"))
+
+        cursor.beginEditBlock()
+        cursor.select(QTextCursor.Document)
+        cursor.setCharFormat(QTextFormat())
+        cursor.endEditBlock()
+
         lines1 = text1.splitlines()
         lines2 = text2.splitlines()
-        
+
         len1, len2 = len(lines1), len(lines2)
         max_len = max(len1, len2)
-        
+
         for i in range(max_len):
             line1 = lines1[i] if i < len1 else ""
             line2 = lines2[i] if i < len2 else ""
             if line1 != line2:
-                differences += f"Line {i+1}:\nFile 1: {line1}\nFile 2: {line2}\n\n"
-        
-        return differences
+                cursor.movePosition(QTextCursor.Start)
+                for _ in range(i):
+                    cursor.movePosition(QTextCursor.Down)
+                cursor.select(QTextCursor.LineUnderCursor)
+                cursor.mergeCharFormat(format)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
