@@ -1,6 +1,6 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter
-from PyQt5.QtCore import Qt, QEvent
+from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap
 import fitz  # PyMuPDF
 import tempfile
@@ -105,11 +105,17 @@ class PDFComparer(QMainWindow):
 
         for page_num in range(len(doc)):
             page = doc.load_page(page_num)
-            words1_set = set((word[4] for word in words1[page_num]))
-            words2_set = set((word[4] for word in words2[page_num]))
 
-            for word in words1[page_num]:
-                if word[4] not in words2_set:
+            if page_num < len(words1) and page_num < len(words2):
+                words1_set = set((word[4] for word in words1[page_num]))
+                words2_set = set((word[4] for word in words2[page_num]))
+
+                for word in words1[page_num]:
+                    if word[4] not in words2_set:
+                        highlight = fitz.Rect(word[:4])
+                        page.add_highlight_annot(highlight)
+            elif page_num < len(words1):
+                for word in words1[page_num]:
                     highlight = fitz.Rect(word[:4])
                     page.add_highlight_annot(highlight)
 
