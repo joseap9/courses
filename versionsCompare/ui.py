@@ -84,18 +84,19 @@ class MainWindow(QMainWindow):
 
                 # Find the rectangle positions
                 quads = page.search_for(content)
-                for quad in quads:
-                    if prefix == '+':
-                        color = (0, 0, 1)  # Blue for added
-                    elif prefix == '-':
-                        color = (1, 0, 0)  # Red for removed
-                    else:
-                        color = (0, 1, 0)  # Green for modified
+                if quads:
+                    for quad in quads:
+                        if prefix == '+':
+                            color = (0, 0, 1)  # Blue for added
+                        elif prefix == '-':
+                            color = (1, 0, 0)  # Red for removed
+                        else:
+                            color = (0, 1, 0)  # Green for modified
 
-                    page.add_highlight_annot(quad)
-                    highlight = page.first_annot
-                    highlight.set_colors(stroke=color)
-                    highlight.update()
+                        page.add_highlight_annot(quad)
+                        highlight = page.first_annot
+                        highlight.set_colors(stroke=color)
+                        highlight.update()
 
         self.display_pdf(doc, is_pdf1)
 
