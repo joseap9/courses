@@ -1,6 +1,6 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QTextEdit, QHBoxLayout
-from PyQt5.QtGui import QTextCursor, QTextFormat, QColor
+from PyQt5.QtGui import QTextCursor, QTextCharFormat, QColor
 import fitz  # PyMuPDF
 
 class PDFComparer(QMainWindow):
@@ -67,12 +67,12 @@ class PDFComparer(QMainWindow):
 
     def highlight_differences(self, viewer, text1, text2):
         cursor = viewer.textCursor()
-        format = QTextFormat()
-        format.setBackground(QColor("yellow"))
+        highlight_format = QTextCharFormat()
+        highlight_format.setBackground(QColor("yellow"))
 
         cursor.beginEditBlock()
         cursor.select(QTextCursor.Document)
-        cursor.setCharFormat(QTextFormat())
+        cursor.setCharFormat(QTextCharFormat())  # Clear formatting
         cursor.endEditBlock()
 
         lines1 = text1.splitlines()
@@ -89,7 +89,7 @@ class PDFComparer(QMainWindow):
                 for _ in range(i):
                     cursor.movePosition(QTextCursor.Down)
                 cursor.select(QTextCursor.LineUnderCursor)
-                cursor.mergeCharFormat(format)
+                cursor.mergeCharFormat(highlight_format)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
