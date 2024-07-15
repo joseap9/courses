@@ -1,10 +1,11 @@
 import fitz
-from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QPushButton, QFileDialog, QLabel, QHBoxLayout, QGraphicsView, QGraphicsScene, QGraphicsPixmapItem
+from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QPushButton, QFileDialog, QLabel, QHBoxLayout, QGraphicsView, QGraphicsScene, QGraphicsPixmapItem, QApplication
 from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import Qt
 import difflib
 from pdfminer.high_level import extract_text
 from PIL import Image, ImageDraw, ImageFont
+import io
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -83,18 +84,22 @@ class MainWindow(QMainWindow):
                 quads = page.search_for(content)
                 if quads:
                     for quad in quads:
-                        if prefix == '+':
-                            color = (0, 0, 1)  # Blue for added
-                        elif prefix == '-':
-                            color = (1, 0, 0)  # Red for removed
+                        rect = quad.rect
+                        pix = page.get_pixmap()
+                        img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                        draw = ImageDraw.Draw(img)
+                        color = "blue" if prefix == '+' else "red"
+                        draw.rectangle([rect.x0, rect.y0, rect.x1, rect.y1], outline=color, width=2)
+                        buf = io.BytesIO()
+                        img.save(buf, format="PNG")
+                        buf.seek(0)
+                        image = Image.open(buf)
+                        pixmap = QPixmap.fromImage(QImage(image.tobytes(), image.width, image.height, QImage.Format_RGB888))
+                        if is_pdf1:
+                            self.pdf1_scene.addPixmap(pixmap)
                         else:
-                            color = (0, 1, 0)  # Green for modified
-
-                        highlight = page.add_highlight_annot(quad)
-                        highlight.set_colors(stroke=color)
-                        highlight.update()
-
-        self.display_pdf(doc, is_pdf1)
+                            self.pdf2_scene.addPixmap(pixmap)
+                        buf.close()
 
     def display_pdf(self, doc, is_pdf1):
         scene = QGraphicsScene()
