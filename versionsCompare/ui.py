@@ -61,8 +61,12 @@ class MainWindow(QMainWindow):
         self.list_differences(diffs)
 
     def extract_text_from_pdf(self, pdf_path):
-        text = extract_text(pdf_path)
-        return text.splitlines()
+        try:
+            text = extract_text(pdf_path)
+            return text.splitlines()
+        except Exception as e:
+            print(f"Error extracting text from PDF {pdf_path}: {e}")
+            return []
 
     def get_diff(self, text1, text2):
         diff = difflib.ndiff(text1, text2)
