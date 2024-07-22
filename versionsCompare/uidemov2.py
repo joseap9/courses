@@ -222,11 +222,11 @@ class PDFComparer(QMainWindow):
         radio_yes.clicked.connect(lambda: self.save_tag(word, "Si Aplica"))
         radio_other.clicked.connect(lambda: self.save_tag(word, "Otro"))
 
-        self.highlight_word(page_num, word, True)
+        self.highlight_specific_difference(page_num, word)
 
     def navigate_difference(self, step):
         if 0 <= self.current_diff_index < len(self.differences):
-            self.highlight_word(self.differences[self.current_diff_index][0], self.differences[self.current_diff_index][1], False)
+            self.highlight_specific_difference(self.differences[self.current_diff_index][0], self.differences[self.current_diff_index][1], False)
 
         self.current_diff_index += step
         if self.current_diff_index < 0:
@@ -236,7 +236,7 @@ class PDFComparer(QMainWindow):
 
         self.show_difference()
 
-    def highlight_word(self, page_num, word, highlight):
+    def highlight_specific_difference(self, page_num, word, highlight=True):
         doc1 = fitz.open(self.pdf1_path)
         doc2 = fitz.open(self.pdf2_path)
 
