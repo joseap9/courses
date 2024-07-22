@@ -1,7 +1,7 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QTextEdit, QSizePolicy
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QPixmap
+from PyQt5.QtGui import QPixmap, QIcon
 import fitz  # PyMuPDF
 import tempfile
 
@@ -198,18 +198,26 @@ class PDFComparer(QMainWindow):
                 self.pdf2_scroll.verticalScrollBar().setValue(int(word_rect[1]) - 50)
                 self.pdf1_scroll.verticalScrollBar().setValue(int(word_rect[1]) - 50)
 
-            self.highlight_current_difference(page_num, word_rect, pdf_source)
+            self.highlight_current_difference(page_num, word_rect)
 
-    def highlight_current_difference(self, page_num, word_rect, pdf_source):
+    def highlight_current_difference(self, page_num, word_rect):
         doc1 = fitz.open(self.pdf1_path)
         doc2 = fitz.open(self.pdf2_path)
 
-        if pdf_source == 'pdf1':
-            doc1[page_num].draw_rect(word_rect, color=(1, 0, 0), width=2)
-            self.display_pdfs(self.pdf1_layout, self.save_temp_pdf(doc1))
-        else:
-            doc2[page_num].draw_rect(word_rect, color=(1, 0, 0), width=2)
-            self.display_pdfs(self.pdf2_layout, self.save_temp_pdf(doc2))
+        highlight = fitz.Rect(word_rect)
+
+        doc1[page_num].draw_rect(highlight, color=(1, 0, 0), width=2)
+        doc2[page_num].draw_rect(highlight, color=(1, 0, 0), width=2)
+
+        icon_rect = fitz.Rect(
+            highlight.x0, highlight.y0 - 10, highlight.x0 + 10, highlight.y0
+        )
+        icon_text = ">"
+        doc1[page_num].insert_text(icon_rect.br, icon_text, color=(1, 0, 0), fontsize=12)
+        doc2[page_num].insert_text(icon_rect.br, icon_text, color=(1, 0, 0), fontsize=12)
+
+        self.display_pdfs(self.pdf1_layout, self.save_temp_pdf(doc1))
+        self.display_pdfs(self.pdf2_layout, self.save_temp_pdf(doc2))
 
     def save_temp_pdf(self, doc):
         temp_pdf_path = tempfile.mktemp(suffix=".pdf")
