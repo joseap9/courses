@@ -240,7 +240,7 @@ class PDFComparer(QMainWindow):
         doc1 = fitz.open(self.pdf1_path)
         doc2 = fitz.open(self.pdf2_path)
 
-        color = (1, 0.5, 0.5) if highlight else (1, 1, 0)  # Rosa si se está resaltando, amarillo si no
+        color = (1, 0, 0) if highlight else (1, 1, 0)  # Rojo si se está resaltando, amarillo si no
 
         for doc, words in [(doc1, self.pdf1_words), (doc2, self.pdf2_words)]:
             page = doc.load_page(page_num)
