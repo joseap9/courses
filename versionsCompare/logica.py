@@ -153,6 +153,13 @@ class PDFComparerLogic:
 
         highlight = fitz.Rect(word_rect)
 
+        # Resaltar amarillo todas las diferencias
+        for difference in self.differences:
+            if difference[0] == page_num:
+                rect = fitz.Rect(difference[1])
+                doc1[page_num].add_highlight_annot(rect)
+                doc2[page_num].add_highlight_annot(rect)
+
         # Resaltar rojo la diferencia actual
         doc1[page_num].draw_rect(highlight, color=(1, 0, 0), width=2)
         doc2[page_num].draw_rect(highlight, color=(1, 0, 0), width=2)
@@ -171,8 +178,16 @@ class PDFComparerLogic:
         doc1[page_num].insert_text(icon_rect.br, icon_text, color=(1, 0, 0), fontsize=12)
         doc2[page_num].insert_text(icon_rect.br, icon_text, color=(1, 0, 0), fontsize=12)
 
-        self.display_pdfs(self.pdf1_layout, self.save_temp_pdf(doc1))
-        self.display_pdfs(self.pdf2_layout, self.save_temp_pdf(doc2))
+        # Guardar y volver a mostrar PDFs resaltados
+        temp_pdf1_path = self.save_temp_pdf(doc1)
+        temp_pdf2_path = self.save_temp_pdf(doc2)
+
+        self.display_pdfs(self.pdf1_layout, temp_pdf1_path)
+        self.display_pdfs(self.pdf2_layout, temp_pdf2_path)
+
+        # Mantener la posición de scroll después de actualizar la visualización
+        self.pdf1_scroll.verticalScrollBar().setValue(int(word_rect[1]) - 50)
+        self.pdf2_scroll.verticalScrollBar().setValue(int(word_rect[1]) - 50)
 
     def save_temp_pdf(self, doc):
         temp_pdf_path = tempfile.mktemp(suffix=".pdf")
