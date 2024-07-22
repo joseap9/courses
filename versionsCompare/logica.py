@@ -94,11 +94,11 @@ class PDFComparerLogic:
                 for word in words1[page_num]:
                     if word[4] not in words2_set:
                         highlight = fitz.Rect(word[:4])
-                        page.add_highlight_annot(highlight)
+                        page.add_highlight_annot(highlight, color=(1, 1, 0))  # Resaltar amarillo
             elif page_num < len(words1):
                 for word in words1[page_num]:
                     highlight = fitz.Rect(word[:4])
-                    page.add_highlight_annot(highlight)
+                    page.add_highlight_annot(highlight, color=(1, 1, 0))  # Resaltar amarillo
 
         temp_pdf_path = tempfile.mktemp(suffix=".pdf")
         doc.save(temp_pdf_path)
@@ -148,13 +148,6 @@ class PDFComparerLogic:
         doc2 = fitz.open(self.pdf2_path)
 
         highlight = fitz.Rect(word_rect)
-
-        # Resaltar amarillo todas las diferencias
-        for difference in self.differences:
-            if difference[0] == page_num:
-                rect = fitz.Rect(difference[1])
-                doc1[page_num].add_highlight_annot(rect)
-                doc2[page_num].add_highlight_annot(rect)
 
         # Resaltar rojo la diferencia actual
         doc1[page_num].draw_rect(highlight, color=(1, 0, 0), width=2)
