@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import (
     QLabel, QScrollArea, QSplitter, QFormLayout, QRadioButton, QButtonGroup, QLineEdit
 )
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QPixmap, QColor, QPalette
+from PyQt5.QtGui import QPixmap
 import fitz  # PyMuPDF
 import tempfile
 
@@ -50,12 +50,13 @@ class PDFComparer(QMainWindow):
         self.summary_layout = QVBoxLayout()
         self.summary_container.setLayout(self.summary_layout)
         self.splitter.addWidget(self.summary_container)
+        self.splitter.setSizes([400, 400, 200])  # Adjust sizes of the columns
 
         self.summary_label = QLabel(self)
         self.summary_layout.addWidget(self.summary_label)
 
         self.tagging_container = QWidget()
-        self.tagging_layout = QFormLayout()
+        self.tagging_layout = QVBoxLayout()
         self.tagging_container.setLayout(self.tagging_layout)
         self.summary_layout.addWidget(self.tagging_container)
 
@@ -65,6 +66,10 @@ class PDFComparer(QMainWindow):
         self.next_button.clicked.connect(lambda: self.navigate_difference(1))
         self.summary_layout.addWidget(self.prev_button)
         self.summary_layout.addWidget(self.next_button)
+
+        self.save_button = QPushButton("Save Tags", self)
+        self.save_button.clicked.connect(self.save_tags)
+        self.summary_layout.addWidget(self.save_button)
 
         container = QWidget()
         container.setLayout(self.layout)
@@ -122,15 +127,15 @@ class PDFComparer(QMainWindow):
             self.pdf1_text, self.pdf1_words = self.extract_text_and_positions(self.pdf1_path)
             self.pdf2_text, self.pdf2_words = self.extract_text_and_positions(self.pdf2_path)
 
-            temp_pdf1_path = self.highlight_differences(self.pdf1_path, self.pdf1_words, self.pdf2_words)
-            temp_pdf2_path = self.highlight_differences(self.pdf2_path, self.pdf2_words, self.pdf1_words)
+            temp_pdf1_path = self.highlight_differences(self.pdf1_path, self.pdf1_words, self.pdf2_words, "yellow")
+            temp_pdf2_path = self.highlight_differences(self.pdf2_path, self.pdf2_words, self.pdf1_words, "yellow")
 
             self.display_pdfs(self.pdf1_layout, temp_pdf1_path)
             self.display_pdfs(self.pdf2_layout, temp_pdf2_path)
 
             self.show_summary()
 
-    def highlight_differences(self, file_path, words1, words2):
+    def highlight_differences(self, file_path, words1, words2, color):
         doc = fitz.open(file_path)
         differences = []
 
@@ -187,8 +192,14 @@ class PDFComparer(QMainWindow):
         diff = self.differences[self.current_diff_index]
         page_num, word = diff
 
+        # Clear previous tagging content
+        for i in reversed(range(self.tagging_layout.count())):
+            widget = self.tagging_layout.itemAt(i).widget()
+            if widget:
+                widget.deleteLater()
+
         description = QLabel(f"PDF 1: {self.pdf1_path.split('/')[-1]}\nPDF 2: {self.pdf2_path.split('/')[-1]}\nPage: {page_num + 1}\nWord: {word[4]}")
-        self.tagging_layout.addRow(description)
+        self.tagging_layout.addWidget(description)
 
         button_group = QButtonGroup(self.tagging_container)
         radio_no = QRadioButton("No Aplica")
@@ -198,18 +209,20 @@ class PDFComparer(QMainWindow):
         button_group.addButton(radio_yes)
         button_group.addButton(radio_other)
 
-        self.tagging_layout.addRow(radio_no)
-        self.tagging_layout.addRow(radio_yes)
-        self.tagging_layout.addRow(radio_other)
+        self.tagging_layout.addWidget(radio_no)
+        self.tagging_layout.addWidget(radio_yes)
+        self.tagging_layout.addWidget(radio_other)
 
-        if self.current_diff_index > 0:
-            prev_diff = self.differences[self.current_diff_index - 1]
-            prev_page_num, prev_word = prev_diff
-            self.highlight_word(prev_page_num, prev_word, False)
+        # Save current selection
+        radio_no.clicked.connect(lambda: self.save_tag(word, "No Aplica"))
+        radio_yes.clicked.connect(lambda: self.save_tag(word, "Si Aplica"))
+        radio_other.clicked.connect(lambda: self.save_tag(word, "Otro"))
 
         self.highlight_word(page_num, word, True)
 
     def navigate_difference(self, step):
+        self.highlight_word(self.differences[self.current_diff_index][0], self.differences[self.current_diff_index][1], False)
+
         self.current_diff_index += step
         if self.current_diff_index < 0:
             self.current_diff_index = 0
@@ -222,10 +235,7 @@ class PDFComparer(QMainWindow):
         doc1 = fitz.open(self.pdf1_path)
         doc2 = fitz.open(self.pdf2_path)
 
-        if highlight:
-            color = (1, 0.5, 0.5)  # Color rosa
-        else:
-            color = (1, 1, 0)  # Color amarillo
+        color = (1, 0.5, 0.5) if highlight else (1, 1, 0)  # Rosa si se está resaltando, amarillo si no
 
         for doc, words in [(doc1, self.pdf1_words), (doc2, self.pdf2_words)]:
             page = doc.load_page(page_num)
@@ -245,6 +255,15 @@ class PDFComparer(QMainWindow):
 
         self.display_pdfs(self.pdf1_layout, temp_pdf1_path)
         self.display_pdfs(self.pdf2_layout, temp_pdf2_path)
+
+    def save_tag(self, word, tag):
+        self.tagged_differences.append((word, tag))
+
+    def save_tags(self):
+        for word, tag in self.tagged_differences:
+            print(f"Word: {word[4]}, Tag: {tag}")
+
+        QMessageBox.information(self, "Saved", "Tags have been saved and printed to the console.")
 
 
 if __name__ == "__main__":
