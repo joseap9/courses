@@ -2,6 +2,7 @@ import fitz  # PyMuPDF
 import tempfile
 from PyQt5.QtWidgets import QFileDialog, QLabel
 from PyQt5.QtGui import QPixmap
+from PyQt5.QtCore import Qt  # Asegurarse de importar Qt
 
 class PDFComparerLogic:
     def __init__(self):
@@ -54,8 +55,8 @@ class PDFComparerLogic:
 
             self.differences = self.find_differences(self.pdf1_words, self.pdf2_words)
 
-            temp_pdf1_path = self.highlight_differences(self.pdf1_path, self.pdf1_words, self.pdf2_words)
-            temp_pdf2_path = self.highlight_differences(self.pdf2_path, self.pdf2_words, self.pdf1_words)
+            temp_pdf1_path = self.highlight_all_differences(self.pdf1_path, self.pdf1_words, self.pdf2_words)
+            temp_pdf2_path = self.highlight_all_differences(self.pdf2_path, self.pdf2_words, self.pdf1_words)
 
             self.display_pdfs(self.pdf1_layout, temp_pdf1_path)
             self.display_pdfs(self.pdf2_layout, temp_pdf2_path)
@@ -80,7 +81,7 @@ class PDFComparerLogic:
             differences.extend(page_differences)
         return differences
 
-    def highlight_differences(self, file_path, words1, words2):
+    def highlight_all_differences(self, file_path, words1, words2):
         doc = fitz.open(file_path)
 
         for page_num in range(len(doc)):
@@ -115,7 +116,7 @@ class PDFComparerLogic:
             temp_image_path = tempfile.mktemp(suffix=".png")
             pix.save(temp_image_path)
             label = QLabel(self)
-            label.setPixmap(QPixmap(temp_image_path).scaled(600, 800, Qt.KeepAspectRatio))
+            label.setPixmap(QPixmap(temp_image_path).scaled(600, 800, Qt.KeepAspectRatio, Qt.SmoothTransformation))
             layout.addWidget(label)
 
     def next_difference(self):
@@ -148,6 +149,14 @@ class PDFComparerLogic:
 
         highlight = fitz.Rect(word_rect)
 
+        # Resaltar amarillo todas las diferencias
+        for difference in self.differences:
+            if difference[0] == page_num:
+                rect = fitz.Rect(difference[1])
+                doc1[page_num].add_highlight_annot(rect)
+                doc2[page_num].add_highlight_annot(rect)
+
+        # Resaltar rojo la diferencia actual
         doc1[page_num].draw_rect(highlight, color=(1, 0, 0), width=2)
         doc2[page_num].draw_rect(highlight, color=(1, 0, 0), width=2)
 
