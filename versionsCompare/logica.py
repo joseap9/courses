@@ -153,12 +153,11 @@ class PDFComparerLogic:
 
         highlight = fitz.Rect(word_rect)
 
-        # Resaltar amarillo todas las diferencias
+        # Resaltar amarillo todas las diferencias en ambas páginas
         for difference in self.differences:
-            if difference[0] == page_num:
-                rect = fitz.Rect(difference[1])
-                doc1[page_num].add_highlight_annot(rect)
-                doc2[page_num].add_highlight_annot(rect)
+            rect = fitz.Rect(difference[1])
+            doc1[difference[0]].add_highlight_annot(rect)
+            doc2[difference[0]].add_highlight_annot(rect)
 
         # Resaltar rojo la diferencia actual
         doc1[page_num].draw_rect(highlight, color=(1, 0, 0), width=2)
