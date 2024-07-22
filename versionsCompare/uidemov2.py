@@ -1,7 +1,7 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QFrame, QTextEdit
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QTextEdit, QSizePolicy
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QPixmap, QIcon
+from PyQt5.QtGui import QPixmap
 import fitz  # PyMuPDF
 import tempfile
 
@@ -51,8 +51,8 @@ class PDFComparer(QMainWindow):
         self.diff_navigation_layout.addWidget(self.next_button)
         self.layout.addLayout(self.diff_navigation_layout)
 
-        self.diff_desc = QTextEdit(self)
-        self.diff_desc.setReadOnly(True)
+        self.diff_desc = QLabel(self)
+        self.diff_desc.setFixedHeight(40)  # Ajustar la altura a 5% de la altura total (800px * 0.05 = 40px)
         self.layout.addWidget(self.diff_desc)
 
         container = QWidget()
