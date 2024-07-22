@@ -1,7 +1,7 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QFrame
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QFrame, QTextEdit
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QPixmap
+from PyQt5.QtGui import QPixmap, QIcon
 import fitz  # PyMuPDF
 import tempfile
 
@@ -50,6 +50,10 @@ class PDFComparer(QMainWindow):
         self.diff_navigation_layout.addWidget(self.prev_button)
         self.diff_navigation_layout.addWidget(self.next_button)
         self.layout.addLayout(self.diff_navigation_layout)
+
+        self.diff_desc = QTextEdit(self)
+        self.diff_desc.setReadOnly(True)
+        self.layout.addWidget(self.diff_desc)
 
         container = QWidget()
         container.setLayout(self.layout)
@@ -126,10 +130,10 @@ class PDFComparer(QMainWindow):
 
             for word in words1[page_num]:
                 if word[4] not in words2_set:
-                    page_differences.append((page_num, word[:4], 'pdf1'))
+                    page_differences.append((page_num, word[:4], 'pdf1', word[4]))
             for word in words2[page_num]:
                 if word[4] not in words1_set:
-                    page_differences.append((page_num, word[:4], 'pdf2'))
+                    page_differences.append((page_num, word[:4], 'pdf2', word[4]))
 
             differences.extend(page_differences)
         return differences
@@ -184,13 +188,34 @@ class PDFComparer(QMainWindow):
 
     def scroll_to_difference(self):
         if self.current_diff_index != -1:
-            page_num, word_rect, pdf_source = self.differences[self.current_diff_index]
+            page_num, word_rect, pdf_source, word_text = self.differences[self.current_diff_index]
+            self.diff_desc.setText(f"Page: {page_num+1}, Source: {pdf_source}, Word: {word_text}")
+
             if pdf_source == 'pdf1':
                 self.pdf1_scroll.verticalScrollBar().setValue(int(word_rect[1]) - 50)
                 self.pdf2_scroll.verticalScrollBar().setValue(int(word_rect[1]) - 50)
             else:
                 self.pdf2_scroll.verticalScrollBar().setValue(int(word_rect[1]) - 50)
                 self.pdf1_scroll.verticalScrollBar().setValue(int(word_rect[1]) - 50)
+
+            self.highlight_current_difference(page_num, word_rect, pdf_source)
+
+    def highlight_current_difference(self, page_num, word_rect, pdf_source):
+        doc1 = fitz.open(self.pdf1_path)
+        doc2 = fitz.open(self.pdf2_path)
+
+        if pdf_source == 'pdf1':
+            doc1[page_num].draw_rect(word_rect, color=(1, 0, 0), width=2)
+            self.display_pdfs(self.pdf1_layout, self.save_temp_pdf(doc1))
+        else:
+            doc2[page_num].draw_rect(word_rect, color=(1, 0, 0), width=2)
+            self.display_pdfs(self.pdf2_layout, self.save_temp_pdf(doc2))
+
+    def save_temp_pdf(self, doc):
+        temp_pdf_path = tempfile.mktemp(suffix=".pdf")
+        doc.save(temp_pdf_path)
+        doc.close()
+        return temp_pdf_path
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
