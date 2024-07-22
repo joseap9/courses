@@ -2,7 +2,7 @@ import fitz  # PyMuPDF
 import tempfile
 from PyQt5.QtWidgets import QFileDialog, QLabel
 from PyQt5.QtGui import QPixmap
-from PyQt5.QtCore import Qt  # Asegurarse de importar Qt
+from PyQt5.QtCore import Qt
 
 class PDFComparerLogic:
     def __init__(self):
@@ -94,11 +94,15 @@ class PDFComparerLogic:
                 for word in words1[page_num]:
                     if word[4] not in words2_set:
                         highlight = fitz.Rect(word[:4])
-                        page.add_highlight_annot(highlight, color=(1, 1, 0))  # Resaltar amarillo
+                        annot = page.add_highlight_annot(highlight)
+                        annot.set_colors(stroke=(1, 1, 0))  # Resaltar amarillo
+                        annot.update()
             elif page_num < len(words1):
                 for word in words1[page_num]:
                     highlight = fitz.Rect(word[:4])
-                    page.add_highlight_annot(highlight, color=(1, 1, 0))  # Resaltar amarillo
+                    annot = page.add_highlight_annot(highlight)
+                    annot.set_colors(stroke=(1, 1, 0))  # Resaltar amarillo
+                    annot.update()
 
         temp_pdf_path = tempfile.mktemp(suffix=".pdf")
         doc.save(temp_pdf_path)
