@@ -23,6 +23,7 @@ class PDFComparer(QMainWindow):
         self.layout.addWidget(self.button2)
 
         self.splitter = QSplitter(Qt.Horizontal)
+        self.splitter.setSizes([40, 40, 20])
         self.layout.addWidget(self.splitter)
 
         self.pdf1_scroll = QScrollArea(self)
@@ -142,21 +143,24 @@ class PDFComparer(QMainWindow):
     def highlight_differences(self, file_path, words1, words2):
         doc = fitz.open(file_path)
 
-        for page_num in range(len(doc)):
-            page = doc.load_page(page_num)
+        max_pages = max(len(words1), len(words2))
+
+        for page_num in range(max_pages):
+            page = doc.load_page(page_num) if page_num < len(doc) else None
 
             if page_num < len(words1) and page_num < len(words2):
                 words1_set = set((word[4] for word in words1[page_num]))
                 words2_set = set((word[4] for word in words2[page_num]))
 
                 for word in words1[page_num]:
-                    if word[4] not in words2_set:
+                    if word[4] not in words2_set and page:
                         highlight = fitz.Rect(word[:4])
                         page.add_highlight_annot(highlight)
             elif page_num < len(words1):
                 for word in words1[page_num]:
-                    highlight = fitz.Rect(word[:4])
-                    page.add_highlight_annot(highlight)
+                    if page:
+                        highlight = fitz.Rect(word[:4])
+                        page.add_highlight_annot(highlight)
 
         temp_pdf_path = tempfile.mktemp(suffix=".pdf")
         doc.save(temp_pdf_path)
@@ -180,9 +184,11 @@ class PDFComparer(QMainWindow):
     def find_differences(self, words1, words2):
         differences = []
 
-        for page_num in range(len(words1)):
-            words1_set = set((word[4] for word in words1[page_num]))
-            words2_set = set((word[4] for word in words2[page_num]))
+        max_pages = max(len(words1), len(words2))
+
+        for page_num in range(max_pages):
+            words1_set = set((word[4] for word in words1[page_num])) if page_num < len(words1) else set()
+            words2_set = set((word[4] for word in words2[page_num])) if page_num < len(words2) else set()
             diff1 = words1_set - words2_set
             diff2 = words2_set - words1_set
 
