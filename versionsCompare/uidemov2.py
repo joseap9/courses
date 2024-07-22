@@ -1,7 +1,7 @@
 import sys
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout,
-    QLabel, QScrollArea, QSplitter, QFormLayout, QRadioButton, QButtonGroup, QLineEdit
+    QLabel, QScrollArea, QSplitter, QFormLayout, QRadioButton, QButtonGroup, QMessageBox
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap
@@ -50,7 +50,7 @@ class PDFComparer(QMainWindow):
         self.summary_layout = QVBoxLayout()
         self.summary_container.setLayout(self.summary_layout)
         self.splitter.addWidget(self.summary_container)
-        self.splitter.setSizes([400, 400, 200])  # Adjust sizes of the columns
+        self.splitter.setSizes([500, 500, 400])  # Adjust sizes of the columns
 
         self.summary_label = QLabel(self)
         self.summary_layout.addWidget(self.summary_label)
@@ -127,8 +127,8 @@ class PDFComparer(QMainWindow):
             self.pdf1_text, self.pdf1_words = self.extract_text_and_positions(self.pdf1_path)
             self.pdf2_text, self.pdf2_words = self.extract_text_and_positions(self.pdf2_path)
 
-            temp_pdf1_path = self.highlight_differences(self.pdf1_path, self.pdf1_words, self.pdf2_words, "yellow")
-            temp_pdf2_path = self.highlight_differences(self.pdf2_path, self.pdf2_words, self.pdf1_words, "yellow")
+            temp_pdf1_path = self.highlight_differences(self.pdf1_path, self.pdf1_words, self.pdf2_words, (1, 1, 0))
+            temp_pdf2_path = self.highlight_differences(self.pdf2_path, self.pdf2_words, self.pdf1_words, (1, 1, 0))
 
             self.display_pdfs(self.pdf1_layout, temp_pdf1_path)
             self.display_pdfs(self.pdf2_layout, temp_pdf2_path)
@@ -149,13 +149,17 @@ class PDFComparer(QMainWindow):
                 for word in words1[page_num]:
                     if word[4] not in words2_set:
                         highlight = fitz.Rect(word[:4])
-                        page.add_highlight_annot(highlight)
+                        annot = page.add_highlight_annot(highlight)
+                        annot.set_colors(stroke=color)
+                        annot.update()
                         differences.append((page_num, word))
 
             elif page_num < len(words1):
                 for word in words1[page_num]:
                     highlight = fitz.Rect(word[:4])
-                    page.add_highlight_annot(highlight)
+                    annot = page.add_highlight_annot(highlight)
+                    annot.set_colors(stroke=color)
+                    annot.update()
                     differences.append((page_num, word))
 
         self.differences.extend(differences)
@@ -221,7 +225,8 @@ class PDFComparer(QMainWindow):
         self.highlight_word(page_num, word, True)
 
     def navigate_difference(self, step):
-        self.highlight_word(self.differences[self.current_diff_index][0], self.differences[self.current_diff_index][1], False)
+        if 0 <= self.current_diff_index < len(self.differences):
+            self.highlight_word(self.differences[self.current_diff_index][0], self.differences[self.current_diff_index][1], False)
 
         self.current_diff_index += step
         if self.current_diff_index < 0:
@@ -239,8 +244,7 @@ class PDFComparer(QMainWindow):
 
         for doc, words in [(doc1, self.pdf1_words), (doc2, self.pdf2_words)]:
             page = doc.load_page(page_num)
-            word_list = page.get_text("words")
-            for w in word_list:
+            for w in words[page_num]:
                 if w == word:
                     annot = page.add_highlight_annot(fitz.Rect(w[:4]))
                     annot.set_colors(stroke=color)
