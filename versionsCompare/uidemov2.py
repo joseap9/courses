@@ -1,11 +1,10 @@
 import sys
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout,
-    QLabel, QScrollArea, QSplitter, QMessageBox, QDialog, QFormLayout, QRadioButton,
-    QButtonGroup, QLineEdit
+    QLabel, QScrollArea, QSplitter, QFormLayout, QRadioButton, QButtonGroup, QLineEdit
 )
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QPixmap
+from PyQt5.QtGui import QPixmap, QColor, QPalette
 import fitz  # PyMuPDF
 import tempfile
 
@@ -15,7 +14,7 @@ class PDFComparer(QMainWindow):
         super().__init__()
 
         self.setWindowTitle("PDF Comparer")
-        self.setGeometry(100, 100, 1200, 800)
+        self.setGeometry(100, 100, 1400, 800)
 
         self.layout = QVBoxLayout()
 
@@ -47,6 +46,26 @@ class PDFComparer(QMainWindow):
         self.splitter.addWidget(self.pdf1_scroll)
         self.splitter.addWidget(self.pdf2_scroll)
 
+        self.summary_container = QWidget()
+        self.summary_layout = QVBoxLayout()
+        self.summary_container.setLayout(self.summary_layout)
+        self.splitter.addWidget(self.summary_container)
+
+        self.summary_label = QLabel(self)
+        self.summary_layout.addWidget(self.summary_label)
+
+        self.tagging_container = QWidget()
+        self.tagging_layout = QFormLayout()
+        self.tagging_container.setLayout(self.tagging_layout)
+        self.summary_layout.addWidget(self.tagging_container)
+
+        self.next_button = QPushButton("Next", self)
+        self.prev_button = QPushButton("Previous", self)
+        self.prev_button.clicked.connect(lambda: self.navigate_difference(-1))
+        self.next_button.clicked.connect(lambda: self.navigate_difference(1))
+        self.summary_layout.addWidget(self.prev_button)
+        self.summary_layout.addWidget(self.next_button)
+
         container = QWidget()
         container.setLayout(self.layout)
         self.setCentralWidget(container)
@@ -61,6 +80,7 @@ class PDFComparer(QMainWindow):
 
         self.differences = []  # Lista para almacenar las diferencias
         self.current_diff_index = -1  # Índice de la diferencia actual
+        self.tagged_differences = []  # Lista para almacenar las etiquetas de diferencias
 
     def sync_scroll(self, value):
         if self.sender() == self.pdf1_scroll.verticalScrollBar():
@@ -155,12 +175,7 @@ class PDFComparer(QMainWindow):
             layout.addWidget(label)
 
     def show_summary(self):
-        msg = QMessageBox()
-        msg.setIcon(QMessageBox.Information)
-        msg.setText(f"Total Differences Found: {len(self.differences)}")
-        msg.setWindowTitle("Summary of Differences")
-        msg.setStandardButtons(QMessageBox.Ok)
-        msg.exec_()
+        self.summary_label.setText(f"Total Differences Found: {len(self.differences)}")
 
         self.current_diff_index = 0
         self.show_difference()
@@ -172,15 +187,10 @@ class PDFComparer(QMainWindow):
         diff = self.differences[self.current_diff_index]
         page_num, word = diff
 
-        dialog = QDialog(self)
-        dialog.setWindowTitle(f"Difference {self.current_diff_index + 1} of {len(self.differences)}")
-
-        layout = QFormLayout(dialog)
-
         description = QLabel(f"PDF 1: {self.pdf1_path.split('/')[-1]}\nPDF 2: {self.pdf2_path.split('/')[-1]}\nPage: {page_num + 1}\nWord: {word[4]}")
-        layout.addRow(description)
+        self.tagging_layout.addRow(description)
 
-        button_group = QButtonGroup(dialog)
+        button_group = QButtonGroup(self.tagging_container)
         radio_no = QRadioButton("No Aplica")
         radio_yes = QRadioButton("Si Aplica")
         radio_other = QRadioButton("Otro")
@@ -188,26 +198,18 @@ class PDFComparer(QMainWindow):
         button_group.addButton(radio_yes)
         button_group.addButton(radio_other)
 
-        layout.addRow(radio_no)
-        layout.addRow(radio_yes)
-        layout.addRow(radio_other)
+        self.tagging_layout.addRow(radio_no)
+        self.tagging_layout.addRow(radio_yes)
+        self.tagging_layout.addRow(radio_other)
 
-        next_button = QPushButton("Next", dialog)
-        prev_button = QPushButton("Previous", dialog)
-        close_button = QPushButton("Close", dialog)
+        if self.current_diff_index > 0:
+            prev_diff = self.differences[self.current_diff_index - 1]
+            prev_page_num, prev_word = prev_diff
+            self.highlight_word(prev_page_num, prev_word, False)
 
-        next_button.clicked.connect(lambda: self.navigate_difference(dialog, 1))
-        prev_button.clicked.connect(lambda: self.navigate_difference(dialog, -1))
-        close_button.clicked.connect(dialog.accept)
+        self.highlight_word(page_num, word, True)
 
-        layout.addRow(prev_button, next_button)
-        layout.addRow(close_button)
-
-        dialog.setLayout(layout)
-        dialog.exec_()
-
-    def navigate_difference(self, dialog, step):
-        dialog.accept()
+    def navigate_difference(self, step):
         self.current_diff_index += step
         if self.current_diff_index < 0:
             self.current_diff_index = 0
@@ -215,6 +217,34 @@ class PDFComparer(QMainWindow):
             self.current_diff_index = len(self.differences) - 1
 
         self.show_difference()
+
+    def highlight_word(self, page_num, word, highlight):
+        doc1 = fitz.open(self.pdf1_path)
+        doc2 = fitz.open(self.pdf2_path)
+
+        if highlight:
+            color = (1, 0.5, 0.5)  # Color rosa
+        else:
+            color = (1, 1, 0)  # Color amarillo
+
+        for doc, words in [(doc1, self.pdf1_words), (doc2, self.pdf2_words)]:
+            page = doc.load_page(page_num)
+            word_list = page.get_text("words")
+            for w in word_list:
+                if w == word:
+                    annot = page.add_highlight_annot(fitz.Rect(w[:4]))
+                    annot.set_colors(stroke=color)
+                    annot.update()
+
+        temp_pdf1_path = tempfile.mktemp(suffix=".pdf")
+        temp_pdf2_path = tempfile.mktemp(suffix=".pdf")
+        doc1.save(temp_pdf1_path)
+        doc2.save(temp_pdf2_path)
+        doc1.close()
+        doc2.close()
+
+        self.display_pdfs(self.pdf1_layout, temp_pdf1_path)
+        self.display_pdfs(self.pdf2_layout, temp_pdf2_path)
 
 
 if __name__ == "__main__":
