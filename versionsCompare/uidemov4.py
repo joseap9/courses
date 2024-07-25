@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QFileDialog, QVBoxLayout, QWidget, QScrollArea, QSplitter
+from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QFileDialog, QVBoxLayout, QWidget, QScrollArea, QSplitter, QPushButton
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap, QCursor
 import fitz  # PyMuPDF
@@ -14,16 +14,12 @@ class PDFComparer(QMainWindow):
 
         self.layout = QVBoxLayout()
 
-        self.button1 = QLabel("Select First PDF", self)
-        self.button1.setStyleSheet("QLabel { background-color : lightgray; }")
-        self.button1.setAlignment(Qt.AlignCenter)
-        self.button1.mousePressEvent = self.load_first_pdf
+        self.button1 = QPushButton("Select First PDF", self)
+        self.button1.clicked.connect(self.load_first_pdf)
         self.layout.addWidget(self.button1)
 
-        self.button2 = QLabel("Select Second PDF", self)
-        self.button2.setStyleSheet("QLabel { background-color : lightgray; }")
-        self.button2.setAlignment(Qt.AlignCenter)
-        self.button2.mousePressEvent = self.load_second_pdf
+        self.button2 = QPushButton("Select Second PDF", self)
+        self.button2.clicked.connect(self.load_second_pdf)
         self.layout.addWidget(self.button2)
 
         self.splitter = QSplitter(Qt.Horizontal)
@@ -68,7 +64,7 @@ class PDFComparer(QMainWindow):
         elif self.sender() == self.pdf2_scroll.verticalScrollBar():
             self.pdf1_scroll.verticalScrollBar().setValue(value)
 
-    def load_first_pdf(self, event):
+    def load_first_pdf(self):
         options = QFileDialog.Options()
         fileName, _ = QFileDialog.getOpenFileName(self, "Select First PDF", "", "PDF Files (*.pdf);;All Files (*)", options=options)
         if fileName:
@@ -76,7 +72,7 @@ class PDFComparer(QMainWindow):
             self.pdf1_path = fileName
             self.compare_pdfs()
 
-    def load_second_pdf(self, event):
+    def load_second_pdf(self):
         options = QFileDialog.Options()
         fileName, _ = QFileDialog.getOpenFileName(self, "Select Second PDF", "", "PDF Files (*.pdf);;All Files (*)", options=options)
         if fileName:
@@ -165,7 +161,7 @@ class PDFComparer(QMainWindow):
         rect = fitz.Rect(0, 0, 0, 0)
         for word in page.get_text("words"):
             bbox = fitz.Rect(word[:4])
-            if bbox.contains(event.pos().x(), event.pos().y()):
+            if bbox.contains(fitz.Point(event.pos().x(), event.pos().y())):
                 rect = bbox
                 break
 
