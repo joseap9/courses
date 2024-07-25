@@ -5,6 +5,27 @@ from PyQt5.QtGui import QPixmap, QCursor
 import fitz  # PyMuPDF
 import tempfile
 
+class ClickableLabel(QLabel):
+    def __init__(self, page_num, pdf_num, rects, parent=None):
+        super().__init__(parent)
+        self.page_num = page_num
+        self.pdf_num = pdf_num
+        self.rects = rects
+
+    def mousePressEvent(self, event):
+        for rect in self.rects:
+            if rect.contains(fitz.Point(event.pos().x(), event.pos().y())):
+                self.parent().on_pdf_click(self.page_num, self.pdf_num, rect)
+                break
+
+    def mouseMoveEvent(self, event):
+        for rect in self.rects:
+            if rect.contains(fitz.Point(event.pos().x(), event.pos().y())):
+                self.setCursor(QCursor(Qt.PointingHandCursor))
+                return
+        self.setCursor(QCursor(Qt.ArrowCursor))
+
+
 class PDFComparer(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -149,25 +170,28 @@ class PDFComparer(QMainWindow):
             pix = page.get_pixmap()
             temp_image_path = tempfile.mktemp(suffix=".png")
             pix.save(temp_image_path)
-            label = QLabel(self)
+
+            # Obtener las áreas resaltadas
+            highlights = [fitz.Rect(annot.rect) for annot in page.annots() if annot.type == fitz.PDF_ANNOT_HIGHLIGHT]
+
+            label = ClickableLabel(page_num, pdf_num, highlights, self)
             label.setPixmap(QPixmap(temp_image_path).scaled(600, 800, Qt.KeepAspectRatio))
             label.setAlignment(Qt.AlignTop)
-            label.mousePressEvent = lambda event, pn=page_num, fp=file_path, pnum=pdf_num: self.on_pdf_click(event, pn, fp, pnum)
             layout.addWidget(label)
 
-    def on_pdf_click(self, event, page_num, file_path, pdf_num):
+    def on_pdf_click(self, page_num, pdf_num, rect):
+        if pdf_num == 1:
+            self.temp_pdf1_path = self.add_highlight_to_pdf(self.temp_pdf1_path, page_num, rect)
+            self.display_pdfs(self.pdf1_layout, self.temp_pdf1_path, 1)
+            self.highlight_corresponding_difference(page_num, rect, 2)
+        else:
+            self.temp_pdf2_path = self.add_highlight_to_pdf(self.temp_pdf2_path, page_num, rect)
+            self.display_pdfs(self.pdf2_layout, self.temp_pdf2_path, 2)
+            self.highlight_corresponding_difference(page_num, rect, 1)
+
+    def add_highlight_to_pdf(self, file_path, page_num, rect):
         doc = fitz.open(file_path)
         page = doc.load_page(page_num)
-        rect = fitz.Rect(0, 0, 0, 0)
-        for word in page.get_text("words"):
-            bbox = fitz.Rect(word[:4])
-            if bbox.contains(fitz.Point(event.pos().x(), event.pos().y())):
-                rect = bbox
-                break
-
-        if rect.is_empty:
-            return
-
         highlight = page.add_rect_annot(rect)
         highlight.set_colors(stroke=(1, 0, 0), fill=None)
         highlight.update()
@@ -175,37 +199,15 @@ class PDFComparer(QMainWindow):
         temp_pdf_path = tempfile.mktemp(suffix=".pdf")
         doc.save(temp_pdf_path)
         doc.close()
-
-        if pdf_num == 1:
-            self.temp_pdf1_path = temp_pdf_path
-            self.display_pdfs(self.pdf1_layout, temp_pdf_path, 1)
-            self.highlight_corresponding_difference(page_num, rect, 2)
-        else:
-            self.temp_pdf2_path = temp_pdf_path
-            self.display_pdfs(self.pdf2_layout, temp_pdf_path, 2)
-            self.highlight_corresponding_difference(page_num, rect, 1)
+        return temp_pdf_path
 
     def highlight_corresponding_difference(self, page_num, rect, pdf_num):
         if pdf_num == 1:
-            doc = fitz.open(self.temp_pdf1_path)
+            self.temp_pdf1_path = self.add_highlight_to_pdf(self.temp_pdf1_path, page_num, rect)
+            self.display_pdfs(self.pdf1_layout, self.temp_pdf1_path, 1)
         else:
-            doc = fitz.open(self.temp_pdf2_path)
-
-        page = doc.load_page(page_num)
-        highlight = page.add_rect_annot(rect)
-        highlight.set_colors(stroke=(1, 0, 0), fill=None)
-        highlight.update()
-
-        temp_pdf_path = tempfile.mktemp(suffix=".pdf")
-        doc.save(temp_pdf_path)
-        doc.close()
-
-        if pdf_num == 1:
-            self.temp_pdf1_path = temp_pdf_path
-            self.display_pdfs(self.pdf1_layout, temp_pdf_path, 1)
-        else:
-            self.temp_pdf2_path = temp_pdf_path
-            self.display_pdfs(self.pdf2_layout, temp_pdf_path, 2)
+            self.temp_pdf2_path = self.add_highlight_to_pdf(self.temp_pdf2_path, page_num, rect)
+            self.display_pdfs(self.pdf2_layout, self.temp_pdf2_path, 2)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
