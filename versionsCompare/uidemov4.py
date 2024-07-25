@@ -1,7 +1,7 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QFileDialog, QVBoxLayout, QWidget, QScrollArea, QSplitter, QPushButton
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QPixmap, QCursor
+from PyQt5.QtCore import Qt, QRectF
+from PyQt5.QtGui import QPixmap, QCursor, QImage, QPainter, QColor
 import fitz  # PyMuPDF
 import tempfile
 
@@ -11,16 +11,19 @@ class ClickableLabel(QLabel):
         self.page_num = page_num
         self.pdf_num = pdf_num
         self.rects = rects
+        self.setMouseTracking(True)
 
     def mousePressEvent(self, event):
+        pos = event.pos()
         for rect in self.rects:
-            if rect.contains(fitz.Point(event.pos().x(), event.pos().y())):
+            if rect.contains(fitz.Point(pos.x(), pos.y())):
                 self.parent().on_pdf_click(self.page_num, self.pdf_num, rect)
                 break
 
     def mouseMoveEvent(self, event):
+        pos = event.pos()
         for rect in self.rects:
-            if rect.contains(fitz.Point(event.pos().x(), event.pos().y())):
+            if rect.contains(fitz.Point(pos.x(), pos.y())):
                 self.setCursor(QCursor(Qt.PointingHandCursor))
                 return
         self.setCursor(QCursor(Qt.ArrowCursor))
