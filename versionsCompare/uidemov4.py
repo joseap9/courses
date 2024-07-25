@@ -1,6 +1,6 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QFileDialog, QVBoxLayout, QWidget, QScrollArea, QSplitter, QPushButton
-from PyQt5.QtCore import Qt, QRectF
+from PyQt5.QtCore import Qt, QRectF, QPointF
 from PyQt5.QtGui import QPixmap, QCursor, QImage, QPainter, QColor
 import fitz  # PyMuPDF
 import tempfile
@@ -206,11 +206,11 @@ class PDFComparer(QMainWindow):
 
     def highlight_corresponding_difference(self, page_num, rect, pdf_num):
         if pdf_num == 1:
-            self.temp_pdf1_path = self.add_highlight_to_pdf(self.temp_pdf1_path, page_num, rect)
-            self.display_pdfs(self.pdf1_layout, self.temp_pdf1_path, 1)
-        else:
             self.temp_pdf2_path = self.add_highlight_to_pdf(self.temp_pdf2_path, page_num, rect)
             self.display_pdfs(self.pdf2_layout, self.temp_pdf2_path, 2)
+        else:
+            self.temp_pdf1_path = self.add_highlight_to_pdf(self.temp_pdf1_path, page_num, rect)
+            self.display_pdfs(self.pdf1_layout, self.temp_pdf1_path, 1)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
