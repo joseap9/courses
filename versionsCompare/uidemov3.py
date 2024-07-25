@@ -176,16 +176,30 @@ class PDFComparer(QMainWindow):
     def highlight_current_difference(self):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
             page_num, word = self.differences[self.current_difference_index]
-            doc = fitz.open(self.pdf1_path)
-            page = doc.load_page(page_num)
-            highlight = fitz.Rect(word[:4])
-            extra_highlight = page.add_rect_annot(highlight)
-            extra_highlight.set_colors(stroke=(1, 0, 0))  # Color rojo en formato (R, G, B) en rango 0-1
-            extra_highlight.update()
-            temp_pdf_path = tempfile.mktemp(suffix=".pdf")
-            doc.save(temp_pdf_path)
-            doc.close()
-            self.display_pdfs(self.pdf1_layout, temp_pdf_path)
+
+            # Highlight in first PDF
+            doc1 = fitz.open(self.pdf1_path)
+            page1 = doc1.load_page(page_num)
+            highlight1 = fitz.Rect(word[:4])
+            extra_highlight1 = page1.add_rect_annot(highlight1)
+            extra_highlight1.set_colors(stroke=(1, 0, 0), fill=None)  # Red color for the border
+            extra_highlight1.update()
+            temp_pdf1_path = tempfile.mktemp(suffix=".pdf")
+            doc1.save(temp_pdf1_path)
+            doc1.close()
+            self.display_pdfs(self.pdf1_layout, temp_pdf1_path)
+
+            # Highlight in second PDF
+            doc2 = fitz.open(self.pdf2_path)
+            page2 = doc2.load_page(page_num)
+            highlight2 = fitz.Rect(word[:4])
+            extra_highlight2 = page2.add_rect_annot(highlight2)
+            extra_highlight2.set_colors(stroke=(1, 0, 0), fill=None)  # Red color for the border
+            extra_highlight2.update()
+            temp_pdf2_path = tempfile.mktemp(suffix=".pdf")
+            doc2.save(temp_pdf2_path)
+            doc2.close()
+            self.display_pdfs(self.pdf2_layout, temp_pdf2_path)
 
     def next_difference(self):
         if self.current_difference_index < len(self.differences) - 1:
