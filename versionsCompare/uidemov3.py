@@ -1,7 +1,7 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QPixmap, QColor
+from PyQt5.QtGui import QPixmap
 import fitz  # PyMuPDF
 import tempfile
 
@@ -179,9 +179,8 @@ class PDFComparer(QMainWindow):
             doc = fitz.open(self.pdf1_path)
             page = doc.load_page(page_num)
             highlight = fitz.Rect(word[:4])
-            extra_highlight = page.add_freetext_annot(highlight, text="")
-            extra_highlight.set_colors({"stroke": (1, 0, 0), "fill": None})  # Rojo para el borde
-            extra_highlight.set_fontsize(0)
+            extra_highlight = page.add_rect_annot(highlight)
+            extra_highlight.set_colors(stroke=(1, 0, 0))  # Color rojo en formato (R, G, B) en rango 0-1
             extra_highlight.update()
             temp_pdf_path = tempfile.mktemp(suffix=".pdf")
             doc.save(temp_pdf_path)
