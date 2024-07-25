@@ -1,7 +1,7 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QPixmap, QPen, QColor
+from PyQt5.QtGui import QPixmap, QColor
 import fitz  # PyMuPDF
 import tempfile
 
@@ -114,6 +114,7 @@ class PDFComparer(QMainWindow):
             if self.differences:
                 self.current_difference_index = 0
                 self.update_navigation_buttons()
+                self.highlight_current_difference()
 
             temp_pdf1_path = self.highlight_differences(self.pdf1_path, self.pdf1_words, self.pdf2_words)
             temp_pdf2_path = self.highlight_differences(self.pdf2_path, self.pdf2_words, self.pdf1_words)
@@ -178,8 +179,9 @@ class PDFComparer(QMainWindow):
             doc = fitz.open(self.pdf1_path)
             page = doc.load_page(page_num)
             highlight = fitz.Rect(word[:4])
-            extra_highlight = page.add_rect_annot(highlight)
-            extra_highlight.set_colors(stroke=QColor("red"))
+            extra_highlight = page.add_freetext_annot(highlight, text="")
+            extra_highlight.set_colors({"stroke": (1, 0, 0), "fill": None})  # Rojo para el borde
+            extra_highlight.set_fontsize(0)
             extra_highlight.update()
             temp_pdf_path = tempfile.mktemp(suffix=".pdf")
             doc.save(temp_pdf_path)
