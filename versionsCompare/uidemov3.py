@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QSpacerItem, QSizePolicy
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap
 import fitz  # PyMuPDF
@@ -56,6 +56,9 @@ class PDFComparer(QMainWindow):
         # Right layout for navigation buttons
         self.right_layout = QVBoxLayout()
         self.right_layout.setAlignment(Qt.AlignBottom)  # Align buttons to the bottom
+
+        self.difference_label = QLabel(self)
+        self.right_layout.addWidget(self.difference_label)
 
         self.prev_button = QPushButton("Previous", self)
         self.prev_button.clicked.connect(self.prev_difference)
@@ -192,6 +195,7 @@ class PDFComparer(QMainWindow):
     def update_navigation_buttons(self):
         self.prev_button.setEnabled(self.current_difference_index > 0)
         self.next_button.setEnabled(self.current_difference_index < len(self.differences) - 1)
+        self.update_difference_label()
 
     def highlight_current_difference(self):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
@@ -222,6 +226,13 @@ class PDFComparer(QMainWindow):
             doc2.close()
             self.display_pdfs(self.pdf2_layout, temp_pdf2_path)
             self.temp_pdf2_path = temp_pdf2_path
+
+            self.update_difference_label()
+
+    def update_difference_label(self):
+        if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
+            page_num, word = self.differences[self.current_difference_index]
+            self.difference_label.setText(f"Difference {self.current_difference_index + 1} of {len(self.differences)}: Page {page_num + 1}, Word: '{word[4]}'")
 
     def next_difference(self):
         if self.current_difference_index < len(self.differences) - 1:
