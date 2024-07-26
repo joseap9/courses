@@ -3,8 +3,6 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog,
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap
 import fitz  # PyMuPDF
-import difflib
-from pdfminer.high_level import extract_text
 import tempfile
 
 class PDFComparer(QMainWindow):
@@ -14,7 +12,7 @@ class PDFComparer(QMainWindow):
         self.setWindowTitle("PDF Comparer")
         self.setGeometry(100, 100, 1200, 800)
 
-        self.main_layout = QVBoxLayout()
+        self.main_layout = QVBoxLayout()  # Main layout with vertical alignment
 
         # Top layout for select buttons
         self.top_layout = QHBoxLayout()
@@ -57,7 +55,7 @@ class PDFComparer(QMainWindow):
 
         # Right layout for navigation buttons
         self.right_layout = QVBoxLayout()
-        self.right_layout.setAlignment(Qt.AlignBottom)
+        self.right_layout.setAlignment(Qt.AlignBottom)  # Align buttons to the bottom
 
         self.difference_label = QLabel(self)
         self.right_layout.addWidget(self.difference_label)
@@ -72,8 +70,8 @@ class PDFComparer(QMainWindow):
         self.next_button.setEnabled(False)
         self.right_layout.addWidget(self.next_button)
 
-        self.middle_layout.addLayout(self.left_layout, 8)
-        self.middle_layout.addLayout(self.right_layout, 1)
+        self.middle_layout.addLayout(self.left_layout, 8)  # Give more space to PDFs
+        self.middle_layout.addLayout(self.right_layout, 1)  # Give less space to buttons
 
         self.main_layout.addLayout(self.middle_layout)
 
@@ -117,38 +115,69 @@ class PDFComparer(QMainWindow):
             self.compare_pdfs()
 
     def extract_text_and_positions(self, file_path):
-        text = extract_text(file_path)
-        return text.split()
+        document = fitz.open(file_path)
+        text = []
+        words = []
+
+        for page_num in range(document.page_count):
+            page = document.load_page(page_num)
+            text.append(page.get_text())
+            word_list = page.get_text("words")
+            words.append(word_list)
+
+        return text, words
 
     def compare_pdfs(self):
         if self.pdf1_path and self.pdf2_path:
-            self.pdf1_text = self.extract_text_and_positions(self.pdf1_path)
-            self.pdf2_text = self.extract_text_and_positions(self.pdf2_path)
+            self.pdf1_text, self.pdf1_words = self.extract_text_and_positions(self.pdf1_path)
+            self.pdf2_text, self.pdf2_words = self.extract_text_and_positions(self.pdf2_path)
 
-            self.differences = self.find_differences(self.pdf1_text, self.pdf2_text)
+            self.differences = self.find_differences(self.pdf1_words, self.pdf2_words)
             if self.differences:
                 self.current_difference_index = 0
                 self.update_navigation_buttons()
 
-            self.temp_pdf1_path = self.highlight_differences(self.pdf1_path, self.pdf1_text, self.pdf2_text)
-            self.temp_pdf2_path = self.highlight_differences(self.pdf2_path, self.pdf2_text, self.pdf1_text)
+            self.temp_pdf1_path = self.highlight_differences(self.pdf1_path, self.pdf1_words, self.pdf2_words)
+            self.temp_pdf2_path = self.highlight_differences(self.pdf2_path, self.pdf2_words, self.pdf1_words)
 
             self.display_pdfs(self.pdf1_layout, self.temp_pdf1_path)
             self.display_pdfs(self.pdf2_layout, self.temp_pdf2_path)
 
             self.highlight_current_difference()
 
-    def find_differences(self, text1, text2):
-        d = difflib.Differ()
-        differences = list(d.compare(text1, text2))
-        return [(i, diff) for i, diff in enumerate(differences) if diff[0] in ('-', '+')]
+    def find_differences(self, words1, words2):
+        differences = []
+        for page_num in range(min(len(words1), len(words2))):
+            words1_set = set((word[4] for word in words1[page_num]))
+            words2_set = set((word[4] for word in words2[page_num]))
+            page_differences = [(page_num, word, self.find_matching_word(word, words2[page_num])) for word in words1[page_num] if word[4] not in words2_set]
+            differences.extend(page_differences)
+        return differences
 
-    def highlight_differences(self, file_path, text1, text2):
+    def find_matching_word(self, word, words_list):
+        for w in words_list:
+            if word[:4] == w[:4]:
+                return w[4]
+        return "N/A"
+
+    def highlight_differences(self, file_path, words1, words2):
         doc = fitz.open(file_path)
+
         for page_num in range(len(doc)):
             page = doc.load_page(page_num)
-            # Lógica para resaltar diferencias basada en text1 y text2
-            # ...
+
+            if page_num < len(words1) and page_num < len(words2):
+                words1_set = set((word[4] for word in words1[page_num]))
+                words2_set = set((word[4] for word in words2[page_num]))
+
+                for word in words1[page_num]:
+                    if word[4] not in words2_set:
+                        highlight = fitz.Rect(word[:4])
+                        page.add_highlight_annot(highlight)
+            elif page_num < len(words1):
+                for word in words1[page_num]:
+                    highlight = fitz.Rect(word[:4])
+                    page.add_highlight_annot(highlight)
 
         temp_pdf_path = tempfile.mktemp(suffix=".pdf")
         doc.save(temp_pdf_path)
@@ -176,16 +205,40 @@ class PDFComparer(QMainWindow):
 
     def highlight_current_difference(self):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
-            index, diff = self.differences[self.current_difference_index]
-            # Resaltar la diferencia actual en los PDFs
-            # ...
+            page_num, word, matching_word = self.differences[self.current_difference_index]
+
+            # Load and highlight in first PDF
+            doc1 = fitz.open(self.temp_pdf1_path)
+            page1 = doc1.load_page(page_num)
+            highlight1 = fitz.Rect(word[:4])
+            extra_highlight1 = page1.add_rect_annot(highlight1)
+            extra_highlight1.set_colors(stroke=(1, 0, 0), fill=None)  # Red color for the border
+            extra_highlight1.update()
+            temp_pdf1_path = tempfile.mktemp(suffix=".pdf")
+            doc1.save(temp_pdf1_path)
+            doc1.close()
+            self.display_pdfs(self.pdf1_layout, temp_pdf1_path)
+            self.temp_pdf1_path = temp_pdf1_path
+
+            # Load and highlight in second PDF
+            doc2 = fitz.open(self.temp_pdf2_path)
+            page2 = doc2.load_page(page_num)
+            highlight2 = fitz.Rect(word[:4])
+            extra_highlight2 = page2.add_rect_annot(highlight2)
+            extra_highlight2.set_colors(stroke=(1, 0, 0), fill=None)  # Red color for the border
+            extra_highlight2.update()
+            temp_pdf2_path = tempfile.mktemp(suffix=".pdf")
+            doc2.save(temp_pdf2_path)
+            doc2.close()
+            self.display_pdfs(self.pdf2_layout, temp_pdf2_path)
+            self.temp_pdf2_path = temp_pdf2_path
 
             self.update_difference_label()
 
     def update_difference_label(self):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
-            index, diff = self.differences[self.current_difference_index]
-            self.difference_label.setText(f"Difference {self.current_difference_index + 1} of {len(self.differences)}: {diff}")
+            page_num, word, matching_word = self.differences[self.current_difference_index]
+            self.difference_label.setText(f"Difference {self.current_difference_index + 1} of {len(self.differences)}: Page {page_num + 1}, Word in PDF1: '{word[4]}', Word in PDF2: '{matching_word}'")
 
     def next_difference(self):
         if self.current_difference_index < len(self.differences) - 1:
