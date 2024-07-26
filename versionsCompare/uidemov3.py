@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QSpacerItem, QSizePolicy
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QSpacerItem, QSizePolicy, QTextEdit
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap
 import fitz  # PyMuPDF
@@ -53,9 +53,13 @@ class PDFComparer(QMainWindow):
         self.splitter.addWidget(self.pdf1_scroll)
         self.splitter.addWidget(self.pdf2_scroll)
 
-        # Right layout for navigation buttons
+        # Right layout for navigation buttons and difference description
         self.right_layout = QVBoxLayout()
         self.right_layout.setAlignment(Qt.AlignBottom)  # Align buttons to the bottom
+
+        self.difference_description = QTextEdit(self)
+        self.difference_description.setReadOnly(True)
+        self.right_layout.addWidget(self.difference_description)
 
         self.prev_button = QPushButton("Previous", self)
         self.prev_button.clicked.connect(self.prev_difference)
@@ -133,6 +137,7 @@ class PDFComparer(QMainWindow):
             if self.differences:
                 self.current_difference_index = 0
                 self.update_navigation_buttons()
+                self.update_difference_description()
 
             self.temp_pdf1_path = self.highlight_differences(self.pdf1_path, self.pdf1_words, self.pdf2_words)
             self.temp_pdf2_path = self.highlight_differences(self.pdf2_path, self.pdf2_words, self.pdf1_words)
@@ -147,7 +152,7 @@ class PDFComparer(QMainWindow):
         for page_num in range(min(len(words1), len(words2))):
             words1_set = set((word[4] for word in words1[page_num]))
             words2_set = set((word[4] for word in words2[page_num]))
-            page_differences = [(page_num, word) for word in words1[page_num] if word[4] not in words2_set]
+            page_differences = [(page_num, word1, word2) for word1, word2 in zip(words1[page_num], words2[page_num]) if word1[4] != word2[4]]
             differences.extend(page_differences)
         return differences
 
@@ -193,14 +198,20 @@ class PDFComparer(QMainWindow):
         self.prev_button.setEnabled(self.current_difference_index > 0)
         self.next_button.setEnabled(self.current_difference_index < len(self.differences) - 1)
 
+    def update_difference_description(self):
+        if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
+            page_num, word1, word2 = self.differences[self.current_difference_index]
+            description = f"Page {page_num + 1}\nDifference:\nPDF1: {word1[4]}\nPDF2: {word2[4]}"
+            self.difference_description.setText(description)
+
     def highlight_current_difference(self):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
-            page_num, word = self.differences[self.current_difference_index]
+            page_num, word1, word2 = self.differences[self.current_difference_index]
 
             # Load and highlight in first PDF
             doc1 = fitz.open(self.temp_pdf1_path)
             page1 = doc1.load_page(page_num)
-            highlight1 = fitz.Rect(word[:4])
+            highlight1 = fitz.Rect(word1[:4])
             extra_highlight1 = page1.add_rect_annot(highlight1)
             extra_highlight1.set_colors(stroke=(1, 0, 0), fill=None)  # Red color for the border
             extra_highlight1.update()
@@ -213,7 +224,7 @@ class PDFComparer(QMainWindow):
             # Load and highlight in second PDF
             doc2 = fitz.open(self.temp_pdf2_path)
             page2 = doc2.load_page(page_num)
-            highlight2 = fitz.Rect(word[:4])
+            highlight2 = fitz.Rect(word2[:4])
             extra_highlight2 = page2.add_rect_annot(highlight2)
             extra_highlight2.set_colors(stroke=(1, 0, 0), fill=None)  # Red color for the border
             extra_highlight2.update()
@@ -227,12 +238,14 @@ class PDFComparer(QMainWindow):
         if self.current_difference_index < len(self.differences) - 1:
             self.current_difference_index += 1
             self.update_navigation_buttons()
+            self.update_difference_description()
             self.highlight_current_difference()
 
     def prev_difference(self):
         if self.current_difference_index > 0:
             self.current_difference_index -= 1
             self.update_navigation_buttons()
+            self.update_difference_description()
             self.highlight_current_difference()
 
 if __name__ == "__main__":
