@@ -150,15 +150,30 @@ class PDFComparer(QMainWindow):
         for page_num in range(min(len(words1), len(words2))):
             words1_set = set((word[4] for word in words1[page_num]))
             words2_set = set((word[4] for word in words2[page_num]))
-            page_differences = [(page_num, word, self.find_matching_word(word, words2[page_num])) for word in words1[page_num] if word[4] not in words2_set]
+            page_differences = [(page_num, word, self.find_closest_word(word, words2[page_num])) for word in words1[page_num] if word[4] not in words2_set]
             differences.extend(page_differences)
         return differences
 
-    def find_matching_word(self, word, words_list):
+    def find_closest_word(self, word, words_list):
+        # Find the word in words_list that is closest to the given word
+        min_distance = float('inf')
+        closest_word = None
         for w in words_list:
-            if word[:4] == w[:4]:
-                return w[4]
-        return "N/A"
+            distance = self.euclidean_distance(word, w)
+            if distance < min_distance:
+                min_distance = distance
+                closest_word = w
+        return closest_word[4] if closest_word else "N/A"
+
+    def euclidean_distance(self, word1, word2):
+        # Calculate Euclidean distance between the centers of the two words
+        x1, y1, x2, y2 = word1[:4]
+        x1_center = (x1 + x2) / 2
+        y1_center = (y1 + y2) / 2
+        x3, y3, x4, y4 = word2[:4]
+        x3_center = (x3 + x4) / 2
+        y3_center = (y3 + y4) / 2
+        return ((x1_center - x3_center) ** 2 + (y1_center - y3_center) ** 2) ** 0.5
 
     def highlight_differences(self, file_path, words1, words2):
         doc = fitz.open(file_path)
