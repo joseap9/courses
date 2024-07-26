@@ -126,11 +126,11 @@ class PDFComparer(QMainWindow):
             self.pdf1_text, self.pdf1_words = self.extract_text_and_positions(self.pdf1_path)
             self.pdf2_text, self.pdf2_words = self.extract_text_and_positions(self.pdf2_path)
 
-            temp_pdf1_path = self.highlight_differences(self.pdf1_path, self.pdf1_words, self.pdf2_words)
-            temp_pdf2_path = self.highlight_differences(self.pdf2_path, self.pdf2_words, self.pdf1_words)
+            temp_pdf1_path, highlighted_areas1 = self.highlight_differences(self.pdf1_path, self.pdf1_words, self.pdf2_words)
+            temp_pdf2_path, highlighted_areas2 = self.highlight_differences(self.pdf2_path, self.pdf2_words, self.pdf1_words)
 
-            self.display_pdfs(self.pdf1_layout, temp_pdf1_path)
-            self.display_pdfs(self.pdf2_layout, temp_pdf2_path)
+            self.display_pdfs(self.pdf1_layout, temp_pdf1_path, highlighted_areas1)
+            self.display_pdfs(self.pdf2_layout, temp_pdf2_path, highlighted_areas2)
 
     def highlight_differences(self, file_path, words1, words2):
         doc = fitz.open(file_path)
@@ -147,19 +147,19 @@ class PDFComparer(QMainWindow):
                     if word[4] not in words2_set:
                         highlight = fitz.Rect(word[:4])
                         page.add_highlight_annot(highlight)
-                        highlighted_areas.append((QRect(highlight.x0, highlight.y0, highlight.width, highlight.height), "yellow"))
+                        highlighted_areas.append((QRect(int(highlight.x0), int(highlight.y0), int(highlight.width), int(highlight.height)), "yellow"))
             elif page_num < len(words1):
                 for word in words1[page_num]:
                     highlight = fitz.Rect(word[:4])
                     page.add_highlight_annot(highlight)
-                    highlighted_areas.append((QRect(highlight.x0, highlight.y0, highlight.width, highlight.height), "yellow"))
+                    highlighted_areas.append((QRect(int(highlight.x0), int(highlight.y0), int(highlight.width), int(highlight.height)), "yellow"))
 
         temp_pdf_path = tempfile.mktemp(suffix=".pdf")
         doc.save(temp_pdf_path)
         doc.close()
         return temp_pdf_path, highlighted_areas
 
-    def display_pdfs(self, layout, file_path):
+    def display_pdfs(self, layout, file_path, highlighted_areas):
         for i in reversed(range(layout.count())):
             layout.itemAt(i).widget().deleteLater()
 
@@ -172,7 +172,7 @@ class PDFComparer(QMainWindow):
             label = ClickableLabel(self)
             label.setPixmap(QPixmap(temp_image_path).scaled(600, 800, Qt.KeepAspectRatio))
             # Add highlights to the label
-            label.highlighted_areas = self.highlighted_areas
+            label.highlighted_areas = highlighted_areas
             layout.addWidget(label)
 
 if __name__ == "__main__":
