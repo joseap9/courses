@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QFrame
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap
 import fitz  # PyMuPDF
@@ -12,31 +12,13 @@ class PDFComparer(QMainWindow):
         self.setWindowTitle("PDF Comparer")
         self.setGeometry(100, 100, 1200, 800)
 
-        self.layout = QVBoxLayout()
+        self.main_layout = QHBoxLayout()  # Main layout
 
-        self.button1 = QPushButton("Select First PDF", self)
-        self.button1.clicked.connect(self.load_first_pdf)
-        self.layout.addWidget(self.button1)
-
-        self.button2 = QPushButton("Select Second PDF", self)
-        self.button2.clicked.connect(self.load_second_pdf)
-        self.layout.addWidget(self.button2)
-
-        self.navigation_layout = QHBoxLayout()
-        self.prev_button = QPushButton("Previous", self)
-        self.prev_button.clicked.connect(self.prev_difference)
-        self.prev_button.setEnabled(False)
-        self.navigation_layout.addWidget(self.prev_button)
-
-        self.next_button = QPushButton("Next", self)
-        self.next_button.clicked.connect(self.next_difference)
-        self.next_button.setEnabled(False)
-        self.navigation_layout.addWidget(self.next_button)
-
-        self.layout.addLayout(self.navigation_layout)
+        # Left layout for PDFs
+        self.left_layout = QVBoxLayout()
 
         self.splitter = QSplitter(Qt.Horizontal)
-        self.layout.addWidget(self.splitter)
+        self.left_layout.addWidget(self.splitter)
 
         self.pdf1_scroll = QScrollArea(self)
         self.pdf1_container = QWidget()
@@ -55,8 +37,36 @@ class PDFComparer(QMainWindow):
         self.splitter.addWidget(self.pdf1_scroll)
         self.splitter.addWidget(self.pdf2_scroll)
 
+        # Right layout for buttons
+        self.right_layout = QVBoxLayout()
+
+        self.button1 = QPushButton("Select First PDF", self)
+        self.button1.clicked.connect(self.load_first_pdf)
+        self.right_layout.addWidget(self.button1)
+
+        self.button2 = QPushButton("Select Second PDF", self)
+        self.button2.clicked.connect(self.load_second_pdf)
+        self.right_layout.addWidget(self.button2)
+
+        self.navigation_layout = QHBoxLayout()
+        self.prev_button = QPushButton("Previous", self)
+        self.prev_button.clicked.connect(self.prev_difference)
+        self.prev_button.setEnabled(False)
+        self.navigation_layout.addWidget(self.prev_button)
+
+        self.next_button = QPushButton("Next", self)
+        self.next_button.clicked.connect(self.next_difference)
+        self.next_button.setEnabled(False)
+        self.navigation_layout.addWidget(self.next_button)
+
+        self.right_layout.addLayout(self.navigation_layout)
+
+        # Add left and right layouts to main layout
+        self.main_layout.addLayout(self.left_layout, 8)  # Give more space to PDFs
+        self.main_layout.addLayout(self.right_layout, 2)  # Give less space to buttons
+
         container = QWidget()
-        container.setLayout(self.layout)
+        container.setLayout(self.main_layout)
         self.setCentralWidget(container)
 
         self.pdf1_text = None
