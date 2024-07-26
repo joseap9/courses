@@ -4,7 +4,6 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap
 import fitz  # PyMuPDF
 import tempfile
-import Levenshtein
 
 class PDFComparer(QMainWindow):
     def __init__(self):
@@ -181,17 +180,11 @@ class PDFComparer(QMainWindow):
         min_distance = float('inf')
         closest_word = None
         for w in words_list:
-            distance = self.combined_distance(word, w)
+            distance = self.euclidean_distance(word, w)
             if distance < min_distance:
                 min_distance = distance
                 closest_word = w
         return closest_word[4] if closest_word and min_distance < 50 else "ND"
-
-    def combined_distance(self, word1, word2):
-        # Combine Euclidean distance and Levenshtein distance for better accuracy
-        euclidean_dist = self.euclidean_distance(word1, word2)
-        text_dist = Levenshtein.distance(word1[4], word2[4])
-        return euclidean_dist + text_dist
 
     def euclidean_distance(self, word1, word2):
         x1, y1, x2, y2 = word1[:4]
