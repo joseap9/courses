@@ -163,7 +163,7 @@ class PDFComparer(QMainWindow):
             if distance < min_distance:
                 min_distance = distance
                 closest_word = w
-        return closest_word[4] if closest_word and min_distance < 10 else "ND"
+        return closest_word[4] if closest_word and min_distance < 50 else "ND"
 
     def combined_distance(self, word1, word2):
         # Combine Euclidean distance and Levenshtein distance for better accuracy
