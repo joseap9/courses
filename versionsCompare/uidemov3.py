@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QFrame
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QFrame, QSpacerItem, QSizePolicy
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap
 import fitz  # PyMuPDF
@@ -39,6 +39,7 @@ class PDFComparer(QMainWindow):
 
         # Right layout for buttons
         self.right_layout = QVBoxLayout()
+        self.right_layout.setAlignment(Qt.AlignTop)  # Align buttons to the top
 
         self.button1 = QPushButton("Select First PDF", self)
         self.button1.clicked.connect(self.load_first_pdf)
@@ -48,7 +49,11 @@ class PDFComparer(QMainWindow):
         self.button2.clicked.connect(self.load_second_pdf)
         self.right_layout.addWidget(self.button2)
 
-        self.navigation_layout = QHBoxLayout()
+        self.right_layout.addSpacerItem(QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding))  # Spacer to push navigation buttons to bottom
+
+        self.navigation_layout = QVBoxLayout()
+        self.navigation_layout.setAlignment(Qt.AlignBottom)  # Align navigation buttons to the bottom
+
         self.prev_button = QPushButton("Previous", self)
         self.prev_button.clicked.connect(self.prev_difference)
         self.prev_button.setEnabled(False)
@@ -62,8 +67,8 @@ class PDFComparer(QMainWindow):
         self.right_layout.addLayout(self.navigation_layout)
 
         # Add left and right layouts to main layout
-        self.main_layout.addLayout(self.left_layout, 8)  # Give more space to PDFs
-        self.main_layout.addLayout(self.right_layout, 2)  # Give less space to buttons
+        self.main_layout.addLayout(self.left_layout, 10)  # Give more space to PDFs
+        self.main_layout.addLayout(self.right_layout, 1)  # Give less space to buttons
 
         container = QWidget()
         container.setLayout(self.main_layout)
