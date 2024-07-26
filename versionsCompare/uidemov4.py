@@ -4,6 +4,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap
 import fitz  # PyMuPDF
 import tempfile
+import Levenshtein
 
 class PDFComparer(QMainWindow):
     def __init__(self):
@@ -155,18 +156,22 @@ class PDFComparer(QMainWindow):
         return differences
 
     def find_closest_word(self, word, words_list):
-        # Find the word in words_list that is closest to the given word
         min_distance = float('inf')
         closest_word = None
         for w in words_list:
-            distance = self.euclidean_distance(word, w)
+            distance = self.combined_distance(word, w)
             if distance < min_distance:
                 min_distance = distance
                 closest_word = w
-        return closest_word[4] if closest_word else "N/A"
+        return closest_word[4] if closest_word and min_distance < 10 else "ND"
+
+    def combined_distance(self, word1, word2):
+        # Combine Euclidean distance and Levenshtein distance for better accuracy
+        euclidean_dist = self.euclidean_distance(word1, word2)
+        text_dist = Levenshtein.distance(word1[4], word2[4])
+        return euclidean_dist + text_dist
 
     def euclidean_distance(self, word1, word2):
-        # Calculate Euclidean distance between the centers of the two words
         x1, y1, x2, y2 = word1[:4]
         x1_center = (x1 + x2) / 2
         y1_center = (y1 + y2) / 2
