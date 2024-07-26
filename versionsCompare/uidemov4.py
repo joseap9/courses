@@ -1,7 +1,7 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter
-from PyQt5.QtCore import Qt, pyqtSignal, QObject
-from PyQt5.QtGui import QPixmap, QPainter, QColor
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QLabel, QScrollArea, QSplitter
+from PyQt5.QtCore import Qt, QRectF, pyqtSignal
+from PyQt5.QtGui import QPixmap
 import fitz  # PyMuPDF
 import tempfile
 
@@ -14,7 +14,7 @@ class ClickableLabel(QLabel):
 
     def mousePressEvent(self, event):
         for highlight in self.highlighted_areas:
-            if highlight[0].contains(event.pos().x(), event.pos().y()):
+            if highlight[0].contains(event.pos()):
                 self.clicked.emit(highlight[1])
                 break
 
@@ -63,7 +63,6 @@ class PDFComparer(QMainWindow):
         self.pdf2_text = None
         self.pdf1_path = None
         self.pdf2_path = None
-        self.differences = []
 
         self.pdf1_scroll.verticalScrollBar().valueChanged.connect(self.sync_scroll)
         self.pdf2_scroll.verticalScrollBar().valueChanged.connect(self.sync_scroll)
@@ -108,13 +107,13 @@ class PDFComparer(QMainWindow):
             self.pdf1_text, self.pdf1_words = self.extract_text_and_positions(self.pdf1_path)
             self.pdf2_text, self.pdf2_words = self.extract_text_and_positions(self.pdf2_path)
 
-            temp_pdf1_path = self.highlight_differences(self.pdf1_path, self.pdf1_words, self.pdf2_words, 'first')
-            temp_pdf2_path = self.highlight_differences(self.pdf2_path, self.pdf2_words, self.pdf1_words, 'second')
+            temp_pdf1_path = self.highlight_differences(self.pdf1_path, self.pdf1_words, self.pdf2_words)
+            temp_pdf2_path = self.highlight_differences(self.pdf2_path, self.pdf2_words, self.pdf1_words)
 
             self.display_pdfs(self.pdf1_layout, temp_pdf1_path, 'first')
             self.display_pdfs(self.pdf2_layout, temp_pdf2_path, 'second')
 
-    def highlight_differences(self, file_path, words1, words2, tag):
+    def highlight_differences(self, file_path, words1, words2):
         doc = fitz.open(file_path)
         self.differences = []
 
@@ -129,12 +128,12 @@ class PDFComparer(QMainWindow):
                     if word[4] not in words2_set:
                         highlight = fitz.Rect(word[:4])
                         page.add_highlight_annot(highlight)
-                        self.differences.append((page_num, highlight, tag))
+                        self.differences.append((page_num, highlight, file_path))
             elif page_num < len(words1):
                 for word in words1[page_num]:
                     highlight = fitz.Rect(word[:4])
                     page.add_highlight_annot(highlight)
-                    self.differences.append((page_num, highlight, tag))
+                    self.differences.append((page_num, highlight, file_path))
 
         temp_pdf_path = tempfile.mktemp(suffix=".pdf")
         doc.save(temp_pdf_path)
@@ -172,7 +171,7 @@ class PDFComparer(QMainWindow):
                 page1 = doc1.load_page(diff[0])
                 page2 = doc2.load_page(diff[0])
 
-                if diff[2] == 'first':
+                if diff[2] == self.pdf1_path:
                     page1.add_rect_annot(rect, color=(1, 0, 0))
                     corresponding_rect = self.find_corresponding_rect(diff[0], rect, self.pdf2_words)
                     if corresponding_rect:
@@ -183,9 +182,12 @@ class PDFComparer(QMainWindow):
                     if corresponding_rect:
                         page1.add_rect_annot(corresponding_rect, color=(1, 0, 0))
 
-        doc1.save(self.pdf1_path)
-        doc2.save(self.pdf2_path)
-        self.compare_pdfs()
+        temp_pdf1_path = tempfile.mktemp(suffix=".pdf")
+        doc1.save(temp_pdf1_path)
+        temp_pdf2_path = tempfile.mktemp(suffix=".pdf")
+        doc2.save(temp_pdf2_path)
+        self.display_pdfs(self.pdf1_layout, temp_pdf1_path, 'first')
+        self.display_pdfs(self.pdf2_layout, temp_pdf2_path, 'second')
 
     def find_corresponding_rect(self, page_num, rect, words):
         for word in words[page_num]:
