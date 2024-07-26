@@ -1,7 +1,7 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QLabel, QScrollArea, QSplitter
 from PyQt5.QtCore import Qt, QRect
-from PyQt5.QtGui import QPixmap, QMouseEvent, QCursor
+from PyQt5.QtGui import QPixmap, QMouseEvent, QCursor, QPainter, QColor
 import fitz  # PyMuPDF
 import tempfile
 
@@ -9,9 +9,10 @@ class ClickableLabel(QLabel):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.highlights = []
+        self.highlighted_areas = []
 
     def mouseMoveEvent(self, event):
-        cursor_in_highlight = any(rect.contains(event.pos()) for rect in self.highlights)
+        cursor_in_highlight = any(rect.contains(event.pos()) for rect, color in self.highlighted_areas)
         if cursor_in_highlight:
             self.setCursor(QCursor(Qt.PointingHandCursor))
         else:
@@ -19,7 +20,7 @@ class ClickableLabel(QLabel):
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
-            for rect in self.highlights:
+            for rect, color in self.highlighted_areas:
                 if rect.contains(event.pos()):
                     self.change_highlight_color(rect)
                     break
@@ -133,6 +134,7 @@ class PDFComparer(QMainWindow):
 
     def highlight_differences(self, file_path, words1, words2):
         doc = fitz.open(file_path)
+        highlighted_areas = []
 
         for page_num in range(len(doc)):
             page = doc.load_page(page_num)
@@ -145,15 +147,17 @@ class PDFComparer(QMainWindow):
                     if word[4] not in words2_set:
                         highlight = fitz.Rect(word[:4])
                         page.add_highlight_annot(highlight)
+                        highlighted_areas.append((QRect(highlight.x0, highlight.y0, highlight.width, highlight.height), "yellow"))
             elif page_num < len(words1):
                 for word in words1[page_num]:
                     highlight = fitz.Rect(word[:4])
                     page.add_highlight_annot(highlight)
+                    highlighted_areas.append((QRect(highlight.x0, highlight.y0, highlight.width, highlight.height), "yellow"))
 
         temp_pdf_path = tempfile.mktemp(suffix=".pdf")
         doc.save(temp_pdf_path)
         doc.close()
-        return temp_pdf_path
+        return temp_pdf_path, highlighted_areas
 
     def display_pdfs(self, layout, file_path):
         for i in reversed(range(layout.count())):
@@ -167,6 +171,8 @@ class PDFComparer(QMainWindow):
             pix.save(temp_image_path)
             label = ClickableLabel(self)
             label.setPixmap(QPixmap(temp_image_path).scaled(600, 800, Qt.KeepAspectRatio))
+            # Add highlights to the label
+            label.highlighted_areas = self.highlighted_areas
             layout.addWidget(label)
 
 if __name__ == "__main__":
