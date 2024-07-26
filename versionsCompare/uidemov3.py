@@ -201,7 +201,10 @@ class PDFComparer(QMainWindow):
     def update_difference_description(self):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
             page_num, word1, word2 = self.differences[self.current_difference_index]
-            description = f"Page {page_num + 1}\nDifference:\nPDF1: {word1[4]}\nPDF2: {word2[4]}"
+            if word1[4] == word2[4]:
+                description = f"Page {page_num + 1}\nDifference:\nPDF1: {word1[4]}\nPDF2: {word2[4]}"
+            else:
+                description = f"Page {page_num + 1}\nDifference:\nPDF1: {word1[4]} (not in this PDF)\nPDF2: {word2[4]} (not in this PDF)"
             self.difference_description.setText(description)
 
     def highlight_current_difference(self):
