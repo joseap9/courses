@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QRadioButton, QLineEdit, QButtonGroup
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap
 import fitz  # PyMuPDF
@@ -54,12 +54,33 @@ class PDFComparer(QMainWindow):
         self.splitter.addWidget(self.pdf1_scroll)
         self.splitter.addWidget(self.pdf2_scroll)
 
-        # Right layout for navigation buttons
+        # Right layout for navigation buttons and labels
         self.right_layout = QVBoxLayout()
         self.right_layout.setAlignment(Qt.AlignBottom)  # Align buttons to the bottom
 
         self.difference_label = QLabel(self)
         self.right_layout.addWidget(self.difference_label)
+
+        self.radio_button_group = QButtonGroup(self)
+
+        self.radio_no_aplica = QRadioButton("No Aplica", self)
+        self.radio_no_aplica.setChecked(True)
+        self.radio_button_group.addButton(self.radio_no_aplica)
+        self.right_layout.addWidget(self.radio_no_aplica)
+
+        self.radio_aplica = QRadioButton("Aplica", self)
+        self.radio_button_group.addButton(self.radio_aplica)
+        self.right_layout.addWidget(self.radio_aplica)
+
+        self.radio_otro = QRadioButton("Otro", self)
+        self.radio_button_group.addButton(self.radio_otro)
+        self.radio_otro.toggled.connect(self.toggle_other_input)
+        self.right_layout.addWidget(self.radio_otro)
+
+        self.other_input = QLineEdit(self)
+        self.other_input.setPlaceholderText("Escriba el otro aquí")
+        self.other_input.setVisible(False)
+        self.right_layout.addWidget(self.other_input)
 
         self.prev_button = QPushButton("Previous", self)
         self.prev_button.clicked.connect(self.prev_difference)
@@ -92,6 +113,7 @@ class PDFComparer(QMainWindow):
         self.current_difference_index = -1
         self.temp_pdf1_path = None
         self.temp_pdf2_path = None
+        self.labels = {}  # Dictionary to store labels for differences
 
     def sync_scroll(self, value):
         if self.sender() == self.pdf1_scroll.verticalScrollBar():
@@ -255,22 +277,57 @@ class PDFComparer(QMainWindow):
 
             self.update_difference_label()
 
+            # Restore previous label if exists
+            if (page_num, word[4]) in self.labels:
+                label = self.labels[(page_num, word[4])]
+                if label == "No Aplica":
+                    self.radio_no_aplica.setChecked(True)
+                elif label == "Aplica":
+                    self.radio_aplica.setChecked(True)
+                else:
+                    self.radio_otro.setChecked(True)
+                    self.other_input.setText(label)
+                    self.other_input.setVisible(True)
+            else:
+                self.radio_no_aplica.setChecked(True)
+                self.other_input.setVisible(False)
+                self.other_input.clear()
+
     def update_difference_label(self):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
             page_num, word, matching_word = self.differences[self.current_difference_index]
             self.difference_label.setText(f"Difference {self.current_difference_index + 1} of {len(self.differences)}: Page {page_num + 1}, Word in PDF1: '{word[4]}', Word in PDF2: '{matching_word}'")
 
+    def toggle_other_input(self):
+        if self.radio_otro.isChecked():
+            self.other_input.setVisible(True)
+        else:
+            self.other_input.setVisible(False)
+            self.other_input.clear()
+
     def next_difference(self):
         if self.current_difference_index < len(self.differences) - 1:
+            self.save_current_label()
             self.current_difference_index += 1
             self.update_navigation_buttons()
             self.highlight_current_difference()
 
     def prev_difference(self):
         if self.current_difference_index > 0:
+            self.save_current_label()
             self.current_difference_index -= 1
             self.update_navigation_buttons()
             self.highlight_current_difference()
+
+    def save_current_label(self):
+        if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
+            page_num, word, _ = self.differences[self.current_difference_index]
+            if self.radio_no_aplica.isChecked():
+                self.labels[(page_num, word[4])] = "No Aplica"
+            elif self.radio_aplica.isChecked():
+                self.labels[(page_num, word[4])] = "Aplica"
+            elif self.radio_otro.isChecked():
+                self.labels[(page_num, word[4])] = self.other_input.text()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
