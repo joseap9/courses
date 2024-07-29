@@ -178,8 +178,8 @@ class PDFComparer(QMainWindow):
         self.temp_pdf1_path = self.highlight_differences(self.pdf1_path, self.pdf1_words, self.pdf2_words)
         self.temp_pdf2_path = self.highlight_differences(self.pdf2_path, self.pdf2_words, self.pdf1_words)
 
-        self.display_pdfs(self.pdf1_layout, self.temp_pdf1_path)
-        self.display_pdfs(self.pdf2_layout, self.temp_pdf2_path)
+        self.display_pdfs(self.pdf1_layout, self.temp_pdf1_path, page_num)
+        self.display_pdfs(self.pdf2_layout, self.temp_pdf2_path, page_num)
 
         self.highlight_current_difference()
 
@@ -233,12 +233,12 @@ class PDFComparer(QMainWindow):
         doc.close()
         return temp_pdf_path
 
-    def display_pdfs(self, layout, file_path):
+    def display_pdfs(self, layout, file_path, page_num):
         for i in reversed(range(layout.count())):
             layout.itemAt(i).widget().deleteLater()
 
         doc = fitz.open(file_path)
-        page = doc.load_page(self.current_page)
+        page = doc.load_page(page_num)
         pix = page.get_pixmap()
         temp_image_path = tempfile.mktemp(suffix=".png")
         pix.save(temp_image_path)
@@ -250,7 +250,7 @@ class PDFComparer(QMainWindow):
         self.prev_button.setEnabled(self.current_difference_index > 0)
         self.next_button.setEnabled(self.current_difference_index < len(self.differences) - 1)
         self.prev_page_button.setEnabled(self.current_page > 0)
-        self.next_page_button.setEnabled(True)  # Enable by default, can add a check for total pages if needed
+        self.next_page_button.setEnabled(self.current_page < min(len(self.pdf1_text), len(self.pdf2_text)) - 1)  # Enable only if there are more pages
         self.update_difference_label()
 
     def highlight_current_difference(self):
@@ -267,7 +267,7 @@ class PDFComparer(QMainWindow):
             temp_pdf1_path = tempfile.mktemp(suffix=".pdf")
             doc1.save(temp_pdf1_path)
             doc1.close()
-            self.display_pdfs(self.pdf1_layout, temp_pdf1_path)
+            self.display_pdfs(self.pdf1_layout, temp_pdf1_path, page_num)
             self.temp_pdf1_path = temp_pdf1_path
 
             # Load and highlight in second PDF
@@ -280,7 +280,7 @@ class PDFComparer(QMainWindow):
             temp_pdf2_path = tempfile.mktemp(suffix=".pdf")
             doc2.save(temp_pdf2_path)
             doc2.close()
-            self.display_pdfs(self.pdf2_layout, temp_pdf2_path)
+            self.display_pdfs(self.pdf2_layout, temp_pdf2_path, page_num)
             self.temp_pdf2_path = temp_pdf2_path
 
             self.update_difference_label()
