@@ -3,9 +3,7 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog,
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap
 import fitz  # PyMuPDF
-from concurrent.futures import ThreadPoolExecutor
 import tempfile
-from PIL import Image
 
 class PDFComparer(QMainWindow):
     def __init__(self):
@@ -166,8 +164,7 @@ class PDFComparer(QMainWindow):
 
     def compare_pdfs(self):
         if self.pdf1_path and self.pdf2_path:
-            self.thread_pool = ThreadPoolExecutor(max_workers=2)
-            self.thread_pool.submit(self.process_page, self.current_page)
+            self.process_page(self.current_page)
 
     def process_page(self, page_num):
         self.pdf1_text, self.pdf1_words = self.extract_text_and_positions(self.pdf1_path, page_num)
@@ -246,9 +243,6 @@ class PDFComparer(QMainWindow):
             pix = page.get_pixmap()
             temp_image_path = tempfile.mktemp(suffix=".png")
             pix.save(temp_image_path)
-            img = Image.open(temp_image_path)
-            img = img.resize((600, 800), Image.ANTIALIAS)
-            img.save(temp_image_path)
             label = QLabel(self)
             label.setPixmap(QPixmap(temp_image_path).scaled(600, 800, Qt.KeepAspectRatio))
             layout.addWidget(label)
