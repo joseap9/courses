@@ -238,14 +238,13 @@ class PDFComparer(QMainWindow):
             layout.itemAt(i).widget().deleteLater()
 
         doc = fitz.open(file_path)
-        for page_num in range(len(doc)):
-            page = doc.load_page(page_num)
-            pix = page.get_pixmap()
-            temp_image_path = tempfile.mktemp(suffix=".png")
-            pix.save(temp_image_path)
-            label = QLabel(self)
-            label.setPixmap(QPixmap(temp_image_path).scaled(600, 800, Qt.KeepAspectRatio))
-            layout.addWidget(label)
+        page = doc.load_page(self.current_page)
+        pix = page.get_pixmap()
+        temp_image_path = tempfile.mktemp(suffix=".png")
+        pix.save(temp_image_path)
+        label = QLabel(self)
+        label.setPixmap(QPixmap(temp_image_path).scaled(600, 800, Qt.KeepAspectRatio))
+        layout.addWidget(label)
 
     def update_navigation_buttons(self):
         self.prev_button.setEnabled(self.current_difference_index > 0)
