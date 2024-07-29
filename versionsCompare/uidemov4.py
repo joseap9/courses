@@ -1,9 +1,28 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QRadioButton, QLineEdit, QButtonGroup
-from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QRadioButton, QLineEdit, QButtonGroup, QProgressBar
+from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from PyQt5.QtGui import QPixmap
 import fitz  # PyMuPDF
 import tempfile
+
+class PDFLoader(QThread):
+    page_loaded = pyqtSignal(int, QPixmap)
+
+    def __init__(self, file_path, layout, width=600):
+        super().__init__()
+        self.file_path = file_path
+        self.layout = layout
+        self.width = width
+
+    def run(self):
+        doc = fitz.open(self.file_path)
+        for page_num in range(len(doc)):
+            page = doc.load_page(page_num)
+            pix = page.get_pixmap()
+            temp_image_path = tempfile.mktemp(suffix=".png")
+            pix.save(temp_image_path)
+            pixmap = QPixmap(temp_image_path).scaled(self.width, 800, Qt.KeepAspectRatio)
+            self.page_loaded.emit(page_num, pixmap)
 
 class PDFComparer(QMainWindow):
     def __init__(self):
@@ -114,6 +133,17 @@ class PDFComparer(QMainWindow):
         self.temp_pdf2_path = None
         self.labels = {}  # Dictionary to store labels for differences
 
+        # Loading progress bar
+        self.loading_label = QLabel(self)
+        self.loading_label.setText("Loading PDFs...")
+        self.loading_label.setAlignment(Qt.AlignCenter)
+        self.loading_label.setVisible(False)
+        self.main_layout.addWidget(self.loading_label)
+
+        self.loading_progress = QProgressBar(self)
+        self.loading_progress.setVisible(False)
+        self.main_layout.addWidget(self.loading_progress)
+
     def sync_scroll(self, value):
         if self.sender() == self.pdf1_scroll.verticalScrollBar():
             self.pdf2_scroll.verticalScrollBar().setValue(value)
@@ -162,8 +192,8 @@ class PDFComparer(QMainWindow):
             self.temp_pdf1_path = self.highlight_differences(self.pdf1_path, self.pdf1_words, self.pdf2_words)
             self.temp_pdf2_path = self.highlight_differences(self.pdf2_path, self.pdf2_words, self.pdf1_words)
 
-            self.display_pdfs(self.pdf1_layout, self.temp_pdf1_path)
-            self.display_pdfs(self.pdf2_layout, self.temp_pdf2_path)
+            self.load_pdfs_lazy(self.pdf1_layout, self.temp_pdf1_path)
+            self.load_pdfs_lazy(self.pdf2_layout, self.temp_pdf2_path)
 
             self.highlight_current_difference()
 
@@ -219,19 +249,26 @@ class PDFComparer(QMainWindow):
         doc.close()
         return temp_pdf_path
 
-    def display_pdfs(self, layout, file_path):
+    def load_pdfs_lazy(self, layout, file_path):
         for i in reversed(range(layout.count())):
             layout.itemAt(i).widget().deleteLater()
 
-        doc = fitz.open(file_path)
-        for page_num in range(len(doc)):
-            page = doc.load_page(page_num)
-            pix = page.get_pixmap()
-            temp_image_path = tempfile.mktemp(suffix=".png")
-            pix.save(temp_image_path)
-            label = QLabel(self)
-            label.setPixmap(QPixmap(temp_image_path).scaled(600, 800, Qt.KeepAspectRatio))
-            layout.addWidget(label)
+        self.loading_label.setVisible(True)
+        self.loading_progress.setVisible(True)
+
+        self.loader_thread = PDFLoader(file_path, layout)
+        self.loader_thread.page_loaded.connect(self.add_page_to_layout)
+        self.loader_thread.finished.connect(self.hide_loading_icon)
+        self.loader_thread.start()
+
+    def add_page_to_layout(self, page_num, pixmap):
+        label = QLabel(self)
+        label.setPixmap(pixmap)
+        self.pdf1_layout.addWidget(label)
+
+    def hide_loading_icon(self):
+        self.loading_label.setVisible(False)
+        self.loading_progress.setVisible(False)
 
     def update_navigation_buttons(self):
         self.prev_button.setEnabled(self.current_difference_index > 0)
@@ -252,7 +289,7 @@ class PDFComparer(QMainWindow):
             temp_pdf1_path = tempfile.mktemp(suffix=".pdf")
             doc1.save(temp_pdf1_path)
             doc1.close()
-            self.display_pdfs(self.pdf1_layout, temp_pdf1_path)
+            self.load_pdfs_lazy(self.pdf1_layout, temp_pdf1_path)
             self.temp_pdf1_path = temp_pdf1_path
 
             # Load and highlight in second PDF
@@ -265,7 +302,7 @@ class PDFComparer(QMainWindow):
             temp_pdf2_path = tempfile.mktemp(suffix=".pdf")
             doc2.save(temp_pdf2_path)
             doc2.close()
-            self.display_pdfs(self.pdf2_layout, temp_pdf2_path)
+            self.load_pdfs_lazy(self.pdf2_layout, temp_pdf2_path)
             self.temp_pdf2_path = temp_pdf2_path
 
             self.update_difference_label()
