@@ -1,10 +1,12 @@
 from distutils.core import setup
 import py2exe
 import sys
+import os
 
 sys.argv.append('py2exe')
 
-# setup function to specify the details of the executable
+script_path = os.path.join('src', 'uidemo.py')
+
 setup(
     options={
         'py2exe': {
@@ -12,7 +14,6 @@ setup(
         }
     },
     windows=[{
-        'script': 'uidemo.py',
-        'icon_resources': [(1, 'icon.ico')]  # opcional, si tienes un icono para tu app
+        'script': script_path,
     }],
 )
