@@ -3,8 +3,8 @@ from cx_Freeze import setup, Executable
 
 # Incluir las librerías necesarias
 build_exe_options = {
-    "packages": ["os", "sys", "PyQt5", "fitz", "tempfile"],
-    "includes": ["PyQt5.QtWidgets", "PyQt5.QtCore", "PyQt5.QtGui"],
+    "packages": ["os", "sys", "PyQt5", "fitz", "tempfile", "pymupdf"],
+    "includes": ["PyQt5.QtWidgets", "PyQt5.QtCore", "PyQt5.QtGui", "mupdf"],
     "excludes": ["tkinter"],  # Excluir tkinter si no se usa
 }
 
