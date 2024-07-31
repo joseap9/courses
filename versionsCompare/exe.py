@@ -2,7 +2,8 @@ import sys
 import os
 
 # Redirigir stdout y stderr a un archivo de log
-log_file = os.path.join(os.path.dirname(__file__), 'app.log')
+# Asegurarse de que el archivo de log se crea en el mismo directorio que el ejecutable
+log_file = os.path.join(os.path.dirname(sys.executable), 'app.log')
 sys.stdout = open(log_file, 'w')
 sys.stderr = sys.stdout
 
