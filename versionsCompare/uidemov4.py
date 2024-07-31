@@ -110,8 +110,8 @@ class PDFComparer(QMainWindow):
         container.setLayout(self.main_layout)
         self.setCentralWidget(container)
 
-        self.pdf1_text = None
-        self.pdf2_text = None
+        self.pdf1_text = []
+        self.pdf2_text = []
         self.pdf1_path = None
         self.pdf2_path = None
 
@@ -137,8 +137,10 @@ class PDFComparer(QMainWindow):
         if fileName:
             self.button1.setText(fileName.split('/')[-1])
             self.pdf1_path = fileName
+            self.pdf1_text, _ = self.extract_text_and_positions(fileName, 0)
             self.current_page = 0
             self.compare_pdfs()
+            self.next_page_button.setEnabled(True)
 
     def load_second_pdf(self):
         options = QFileDialog.Options()
@@ -146,8 +148,10 @@ class PDFComparer(QMainWindow):
         if fileName:
             self.button2.setText(fileName.split('/')[-1])
             self.pdf2_path = fileName
+            self.pdf2_text, _ = self.extract_text_and_positions(fileName, 0)
             self.current_page = 0
             self.compare_pdfs()
+            self.next_page_button.setEnabled(True)
 
     def extract_text_and_positions(self, file_path, page_num):
         document = fitz.open(file_path)
@@ -250,7 +254,7 @@ class PDFComparer(QMainWindow):
         self.prev_button.setEnabled(self.current_difference_index > 0)
         self.next_button.setEnabled(self.current_difference_index < len(self.differences) - 1)
         self.prev_page_button.setEnabled(self.current_page > 0)
-        self.next_page_button.setEnabled(self.current_page < min(len(self.pdf1_text), len(self.pdf2_text)) - 1)  # Enable only if there are more pages
+        self.next_page_button.setEnabled(self.current_page < min(len(self.pdf1_text), len(self.pdf2_text)) - 1)
         self.update_difference_label()
 
     def highlight_current_difference(self):
