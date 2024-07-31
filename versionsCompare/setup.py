@@ -10,8 +10,9 @@ script_path = os.path.join('src', 'uidemo.py')
 setup(
     options={
         'py2exe': {
-            'includes': ['sip', 'PyQt5.QtWidgets', 'PyQt5.QtCore', 'PyQt5.QtGui'],
-            'packages': ['os', 'sys', 'fitz', 'tempfile'],
+            'includes': ['PyQt5.QtWidgets', 'PyQt5.QtCore', 'PyQt5.QtGui', 'fitz', 'tempfile'],
+            'dll_excludes': ['MSVCP90.dll'],  # Excluir MSVC DLLs si es necesario
+            'excludes': ['tkinter'],  # Excluir tkinter si no se usa
         }
     },
     windows=[{
