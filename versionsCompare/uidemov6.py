@@ -1,7 +1,7 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QPixmap, QPainter, QColor, QPen
+from PyQt5.QtGui import QPixmap
 import fitz  # PyMuPDF
 import tempfile
 
@@ -10,7 +10,7 @@ class PDFComparer(QMainWindow):
         super().__init__()
 
         self.setWindowTitle("PDF Comparer")
-        self.setGeometry(100, 100, 1600, 800)
+        self.setGeometry(100, 100, 1200, 800)
 
         self.layout = QVBoxLayout()
 
@@ -23,17 +23,29 @@ class PDFComparer(QMainWindow):
         self.layout.addWidget(self.button2)
 
         self.navigation_layout = QHBoxLayout()
-        self.prev_button = QPushButton("Prev", self)
+        self.prev_button = QPushButton("Prev Page", self)
         self.prev_button.clicked.connect(self.prev_page)
         self.prev_button.setEnabled(False)
         self.navigation_layout.addWidget(self.prev_button)
 
-        self.next_button = QPushButton("Next", self)
+        self.next_button = QPushButton("Next Page", self)
         self.next_button.clicked.connect(self.next_page)
         self.next_button.setEnabled(False)
         self.navigation_layout.addWidget(self.next_button)
 
+        self.diff_navigation_layout = QHBoxLayout()
+        self.prev_diff_button = QPushButton("Prev Different", self)
+        self.prev_diff_button.clicked.connect(self.prev_diff)
+        self.prev_diff_button.setEnabled(False)
+        self.diff_navigation_layout.addWidget(self.prev_diff_button)
+
+        self.next_diff_button = QPushButton("Next Different", self)
+        self.next_diff_button.clicked.connect(self.next_diff)
+        self.next_diff_button.setEnabled(False)
+        self.diff_navigation_layout.addWidget(self.next_diff_button)
+
         self.layout.addLayout(self.navigation_layout)
+        self.layout.addLayout(self.diff_navigation_layout)
 
         self.splitter = QSplitter(Qt.Horizontal)
         self.layout.addWidget(self.splitter)
@@ -55,26 +67,9 @@ class PDFComparer(QMainWindow):
         self.splitter.addWidget(self.pdf1_scroll)
         self.splitter.addWidget(self.pdf2_scroll)
 
-        self.differences_navigation_layout = QVBoxLayout()
-        self.prev_diff_button = QPushButton("Prev Different", self)
-        self.prev_diff_button.clicked.connect(self.prev_difference)
-        self.prev_diff_button.setEnabled(False)
-        self.differences_navigation_layout.addWidget(self.prev_diff_button)
-
-        self.next_diff_button = QPushButton("Next Different", self)
-        self.next_diff_button.clicked.connect(self.next_difference)
-        self.next_diff_button.setEnabled(False)
-        self.differences_navigation_layout.addWidget(self.next_diff_button)
-
-        self.splitter2 = QSplitter(Qt.Vertical)
-        self.splitter2.addWidget(self.splitter)
-        self.diff_navigation_widget = QWidget()
-        self.diff_navigation_widget.setLayout(self.differences_navigation_layout)
-        self.splitter2.addWidget(self.diff_navigation_widget)
-
         container = QWidget()
         container.setLayout(self.layout)
-        self.setCentralWidget(self.splitter2)
+        self.setCentralWidget(container)
 
         self.pdf1_text = None
         self.pdf2_text = None
@@ -88,8 +83,9 @@ class PDFComparer(QMainWindow):
         self.total_pages = 0
         self.temp_pdf1_paths = []
         self.temp_pdf2_paths = []
-        self.current_difference = 0
+
         self.differences = []
+        self.current_diff = -1
 
     def sync_scroll(self, value):
         if self.sender() == self.pdf1_scroll.verticalScrollBar():
@@ -121,10 +117,10 @@ class PDFComparer(QMainWindow):
         self.next_button.setEnabled(False)
         self.prev_diff_button.setEnabled(False)
         self.next_diff_button.setEnabled(False)
-        self.current_difference = 0
-        self.differences = []
         self.pdf1_layout.update()
         self.pdf2_layout.update()
+        self.differences = []
+        self.current_diff = -1
         if self.pdf1_path and self.pdf2_path:
             self.compare_pdfs()
 
@@ -149,11 +145,65 @@ class PDFComparer(QMainWindow):
             self.total_pages = min(len(self.pdf1_words), len(self.pdf2_words))
             self.load_page_pair(self.current_page)
             self.next_button.setEnabled(True)
-            self.update_differences_navigation()
+            self.find_differences()
+
+    def find_differences(self):
+        for page_num in range(self.total_pages):
+            page_diffs = []
+            words1_set = set((word[4] for word in self.pdf1_words[page_num]))
+            words2_set = set((word[4] for word in self.pdf2_words[page_num]))
+
+            for word in self.pdf1_words[page_num]:
+                if word[4] not in words2_set:
+                    page_diffs.append(word[:4])
+            for word in self.pdf2_words[page_num]:
+                if word[4] not in words1_set:
+                    page_diffs.append(word[:4])
+
+            if page_diffs:
+                self.differences.append((page_num, page_diffs))
+
+        if self.differences:
+            self.next_diff_button.setEnabled(True)
+            self.load_differences()
+
+    def load_differences(self):
+        if self.differences:
+            self.current_diff = 0
+            self.highlight_difference()
+
+    def highlight_difference(self):
+        if self.current_diff >= 0 and self.current_diff < len(self.differences):
+            page_num, diff_positions = self.differences[self.current_diff]
+            self.current_page = page_num
+            self.display_pdfs(self.pdf1_layout, self.temp_pdf1_paths[self.current_page])
+            self.display_pdfs(self.pdf2_layout, self.temp_pdf2_paths[self.current_page])
+            self.highlight_positions(self.pdf1_layout, diff_positions, self.pdf1_path)
+            self.highlight_positions(self.pdf2_layout, diff_positions, self.pdf2_path)
+            self.prev_diff_button.setEnabled(self.current_diff > 0)
+            self.next_diff_button.setEnabled(self.current_diff < len(self.differences) - 1)
+
+    def highlight_positions(self, layout, positions, file_path):
+        for i in reversed(range(layout.count())):
+            layout.itemAt(i).widget().deleteLater()
+
+        doc = fitz.open(file_path)
+        page = doc.load_page(self.current_page)
+        pix = page.get_pixmap()
+        temp_image_path = tempfile.mktemp(suffix=".png")
+        pix.save(temp_image_path)
+        label = QLabel(self)
+        label.setPixmap(QPixmap(temp_image_path).scaled(600, 800, Qt.KeepAspectRatio))
+
+        for position in positions:
+            rect = fitz.Rect(position)
+            highlight = fitz.Rect(rect.x0, rect.y0, rect.x1, rect.y1)
+            page.add_highlight_annot(highlight)
+
+        layout.addWidget(label)
 
     def highlight_differences(self, file_path, words1, words2, page_num):
         doc = fitz.open(file_path)
-        page_differences = []
 
         if page_num < len(words1) and page_num < len(words2):
             words1_set = set((word[4] for word in words1[page_num]))
@@ -163,36 +213,31 @@ class PDFComparer(QMainWindow):
                 if word[4] not in words2_set:
                     highlight = fitz.Rect(word[:4])
                     doc[page_num].add_highlight_annot(highlight)
-                    page_differences.append(highlight)
         elif page_num < len(words1):
             for word in words1[page_num]:
                 highlight = fitz.Rect(word[:4])
                 doc[page_num].add_highlight_annot(highlight)
-                page_differences.append(highlight)
 
         temp_pdf_path = tempfile.mktemp(suffix=".pdf")
         doc.save(temp_pdf_path)
         doc.close()
-        return temp_pdf_path, page_differences
+        return temp_pdf_path
 
     def load_page_pair(self, page_num):
-        temp_pdf1_path, pdf1_differences = self.highlight_differences(self.pdf1_path, self.pdf1_words, self.pdf2_words, page_num)
-        temp_pdf2_path, pdf2_differences = self.highlight_differences(self.pdf2_path, self.pdf2_words, self.pdf1_words, page_num)
+        temp_pdf1_path = self.highlight_differences(self.pdf1_path, self.pdf1_words, self.pdf2_words, page_num)
+        temp_pdf2_path = self.highlight_differences(self.pdf2_path, self.pdf2_words, self.pdf1_words, page_num)
 
         if len(self.temp_pdf1_paths) <= page_num:
             self.temp_pdf1_paths.append(temp_pdf1_path)
             self.temp_pdf2_paths.append(temp_pdf2_path)
-            self.differences.append(pdf1_differences)
         else:
             self.temp_pdf1_paths[page_num] = temp_pdf1_path
             self.temp_pdf2_paths[page_num] = temp_pdf2_path
-            self.differences[page_num] = pdf1_differences
 
         self.display_pdfs(self.pdf1_layout, temp_pdf1_path)
         self.display_pdfs(self.pdf2_layout, temp_pdf2_path)
-        self.update_differences_navigation()
 
-    def display_pdfs(self, layout, file_path, highlight_rect=None):
+    def display_pdfs(self, layout, file_path):
         for i in reversed(range(layout.count())):
             layout.itemAt(i).widget().deleteLater()
 
@@ -201,18 +246,8 @@ class PDFComparer(QMainWindow):
         pix = page.get_pixmap()
         temp_image_path = tempfile.mktemp(suffix=".png")
         pix.save(temp_image_path)
-
-        pixmap = QPixmap(temp_image_path)
-        if highlight_rect:
-            painter = QPainter(pixmap)
-            pen = QPen(QColor("red"))
-            pen.setWidth(3)
-            painter.setPen(pen)
-            painter.drawRect(highlight_rect.x0, highlight_rect.y0, highlight_rect.width, highlight_rect.height)
-            painter.end()
-
         label = QLabel(self)
-        label.setPixmap(pixmap.scaled(600, 800, Qt.KeepAspectRatio))
+        label.setPixmap(QPixmap(temp_image_path).scaled(600, 800, Qt.KeepAspectRatio))
         layout.addWidget(label)
 
     def next_page(self):
@@ -226,8 +261,6 @@ class PDFComparer(QMainWindow):
                 self.display_pdfs(self.pdf2_layout, self.temp_pdf2_paths[self.current_page])
             if self.current_page == self.total_pages - 1:
                 self.next_button.setEnabled(False)
-            self.current_difference = 0
-            self.update_differences_navigation()
 
     def prev_page(self):
         if self.current_page > 0:
@@ -237,34 +270,16 @@ class PDFComparer(QMainWindow):
             self.display_pdfs(self.pdf2_layout, self.temp_pdf2_paths[self.current_page])
             if self.current_page == 0:
                 self.prev_button.setEnabled(False)
-            self.current_difference = 0
-            self.update_differences_navigation()
 
-    def next_difference(self):
-        if self.current_difference < len(self.differences[self.current_page]) - 1:
-            self.current_difference += 1
-            self.update_differences_navigation()
-        self.update_difference_highlight()
+    def next_diff(self):
+        if self.current_diff < len(self.differences) - 1:
+            self.current_diff += 1
+            self.highlight_difference()
 
-    def prev_difference(self):
-        if self.current_difference > 0:
-            self.current_difference -= 1
-            self.update_differences_navigation()
-        self.update_difference_highlight()
-
-    def update_differences_navigation(self):
-        if self.differences[self.current_page]:
-            self.next_diff_button.setEnabled(self.current_difference < len(self.differences[self.current_page]) - 1)
-            self.prev_diff_button.setEnabled(self.current_difference > 0)
-        else:
-            self.next_diff_button.setEnabled(False)
-            self.prev_diff_button.setEnabled(False)
-
-    def update_difference_highlight(self):
-        if self.differences[self.current_page]:
-            highlight_rect = self.differences[self.current_page][self.current_difference]
-            self.display_pdfs(self.pdf1_layout, self.temp_pdf1_paths[self.current_page], highlight_rect)
-            self.display_pdfs(self.pdf2_layout, self.temp_pdf2_paths[self.current_page], highlight_rect)
+    def prev_diff(self):
+        if self.current_diff > 0:
+            self.current_diff -= 1
+            self.highlight_difference()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
