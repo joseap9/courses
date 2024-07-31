@@ -100,8 +100,6 @@ class PDFComparer(QMainWindow):
         self.temp_pdf2_paths = []
         self.prev_button.setEnabled(False)
         self.next_button.setEnabled(False)
-        self.pdf1_layout.update()
-        self.pdf2_layout.update()
         if self.pdf1_path and self.pdf2_path:
             self.compare_pdfs()
 
@@ -152,8 +150,12 @@ class PDFComparer(QMainWindow):
         temp_pdf1_path = self.highlight_differences(self.pdf1_path, self.pdf1_words, self.pdf2_words, page_num)
         temp_pdf2_path = self.highlight_differences(self.pdf2_path, self.pdf2_words, self.pdf1_words, page_num)
 
-        self.temp_pdf1_paths.append(temp_pdf1_path)
-        self.temp_pdf2_paths.append(temp_pdf2_path)
+        if len(self.temp_pdf1_paths) <= page_num:
+            self.temp_pdf1_paths.append(temp_pdf1_path)
+            self.temp_pdf2_paths.append(temp_pdf2_path)
+        else:
+            self.temp_pdf1_paths[page_num] = temp_pdf1_path
+            self.temp_pdf2_paths[page_num] = temp_pdf2_path
 
         self.display_pdfs(self.pdf1_layout, temp_pdf1_path)
         self.display_pdfs(self.pdf2_layout, temp_pdf2_path)
