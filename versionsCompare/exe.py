@@ -1,6 +1,6 @@
 import sys
 import os
-
+import traceback
 # Redirigir stdout y stderr a un archivo de log
 # Asegurarse de que el archivo de log se crea en el mismo directorio que el ejecutable
 log_file = os.path.join(os.path.dirname(sys.executable), 'app.log')
@@ -148,7 +148,10 @@ class PDFComparer(QMainWindow):
             layout.addWidget(label)
 
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    comparer = PDFComparer()
-    comparer.show()
-    sys.exit(app.exec_())
+    try:
+        app = QApplication(sys.argv)
+        comparer = PDFComparer()
+        comparer.show()
+        sys.exit(app.exec_())
+    except Exception as e:
+        traceback.print_exc()
