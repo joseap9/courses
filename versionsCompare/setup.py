@@ -8,8 +8,11 @@ build_exe_options = {
     "includes": ["PyQt5.QtWidgets", "PyQt5.QtCore", "PyQt5.QtGui"],
     "excludes": ["tkinter"],  # Excluir tkinter si no se usa
     "include_files": [
-        os.path.join('venv', 'Lib', 'site-packages', 'PyQt5'),
-        os.path.join('venv', 'Lib', 'site-packages', 'pymupdf'),
+        # Añadir el archivo app.log si es necesario
+        'app.log',
+        # Añadir directorios de paquetes necesarios
+        (os.path.join('venv', 'Lib', 'site-packages', 'PyQt5'), 'PyQt5'),
+        (os.path.join('venv', 'Lib', 'site-packages', 'pymupdf'), 'pymupdf')
     ],
     "path": sys.path + [os.path.join('venv', 'Lib', 'site-packages')],
 }
