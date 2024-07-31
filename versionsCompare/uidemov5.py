@@ -100,6 +100,8 @@ class PDFComparer(QMainWindow):
         self.temp_pdf2_paths = []
         self.prev_button.setEnabled(False)
         self.next_button.setEnabled(False)
+        self.pdf1_layout.update()
+        self.pdf2_layout.update()
         if self.pdf1_path and self.pdf2_path:
             self.compare_pdfs()
 
@@ -165,16 +167,13 @@ class PDFComparer(QMainWindow):
             layout.itemAt(i).widget().deleteLater()
 
         doc = fitz.open(file_path)
-        for page_num in range(len(doc)):
-            if page_num > self.current_page:
-                break
-            page = doc.load_page(page_num)
-            pix = page.get_pixmap()
-            temp_image_path = tempfile.mktemp(suffix=".png")
-            pix.save(temp_image_path)
-            label = QLabel(self)
-            label.setPixmap(QPixmap(temp_image_path).scaled(600, 800, Qt.KeepAspectRatio))
-            layout.addWidget(label)
+        page = doc.load_page(self.current_page)
+        pix = page.get_pixmap()
+        temp_image_path = tempfile.mktemp(suffix=".png")
+        pix.save(temp_image_path)
+        label = QLabel(self)
+        label.setPixmap(QPixmap(temp_image_path).scaled(600, 800, Qt.KeepAspectRatio))
+        layout.addWidget(label)
 
     def next_page(self):
         if self.current_page < self.total_pages - 1:
