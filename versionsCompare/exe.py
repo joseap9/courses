@@ -126,7 +126,7 @@ class PDFComparer(QMainWindow):
 
         temp_dir = os.path.join(os.path.dirname(sys.executable), 'temp_files')
         os.makedirs(temp_dir, exist_ok=True)
-        temp_pdf_path = os.path.join(temp_dir, os.path.basename(tempfile.mktemp(suffix=".pdf")))
+        temp_pdf_path = os.path.join(temp_dir, f"temp_{os.path.basename(file_path)}")
 
         doc.save(temp_pdf_path)
         doc.close()
@@ -140,7 +140,7 @@ class PDFComparer(QMainWindow):
         for page_num in range(len(doc)):
             page = doc.load_page(page_num)
             pix = page.get_pixmap()
-            temp_image_path = os.path.join(tempfile.gettempdir(), f"temp_image_{page_num}.png")
+            temp_image_path = os.path.join(os.path.dirname(sys.executable), 'temp_files', f"temp_image_{page_num}.png")
             pix.save(temp_image_path)
             label = QLabel(self)
             label.setPixmap(QPixmap(temp_image_path).scaled(600, 800, Qt.KeepAspectRatio))
