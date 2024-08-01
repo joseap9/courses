@@ -1,7 +1,5 @@
 import sys
-import os
-import traceback
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QScrollArea, QSplitter, QLabel, QMessageBox
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QScrollArea, QSplitter, QLabel
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap
 import fitz  # PyMuPDF
@@ -92,24 +90,14 @@ class PDFComparer(QMainWindow):
 
     def compare_pdfs(self):
         if self.pdf1_path and self.pdf2_path:
-            try:
-                self.pdf1_text, self.pdf1_words = self.extract_text_and_positions(self.pdf1_path)
-                self.pdf2_text, self.pdf2_words = self.extract_text_and_positions(self.pdf2_path)
+            self.pdf1_text, self.pdf1_words = self.extract_text_and_positions(self.pdf1_path)
+            self.pdf2_text, self.pdf2_words = self.extract_text_and_positions(self.pdf2_path)
 
-                pdf1_pixmaps = self.highlight_differences(self.pdf1_path, self.pdf1_words, self.pdf2_words)
-                pdf2_pixmaps = self.highlight_differences(self.pdf2_path, self.pdf2_words, self.pdf1_words)
+            self.highlight_differences(self.pdf1_path, self.pdf1_words, self.pdf2_words, self.pdf1_layout)
+            self.highlight_differences(self.pdf2_path, self.pdf2_words, self.pdf1_words, self.pdf2_layout)
 
-                self.display_pixmaps(self.pdf1_layout, pdf1_pixmaps)
-                self.display_pixmaps(self.pdf2_layout, pdf2_pixmaps)
-            except Exception as e:
-                error_message = f"Error during PDF comparison: {str(e)}"
-                print(error_message)
-                traceback.print_exc()
-                self.show_error_message(error_message)
-
-    def highlight_differences(self, file_path, words1, words2):
+    def highlight_differences(self, file_path, words1, words2, layout):
         doc = fitz.open(file_path)
-        pixmaps = []
 
         for page_num in range(len(doc)):
             page = doc.load_page(page_num)
@@ -127,28 +115,18 @@ class PDFComparer(QMainWindow):
                     highlight = fitz.Rect(word[:4])
                     page.add_highlight_annot(highlight)
 
-            pix = page.get_pixmap()
-            pixmaps.append(pix)
+        self.display_pdfs(layout, doc)
 
-        doc.close()
-        return pixmaps
-
-    def display_pixmaps(self, layout, pixmaps):
+    def display_pdfs(self, layout, doc):
         for i in reversed(range(layout.count())):
             layout.itemAt(i).widget().deleteLater()
 
-        for pix in pixmaps:
+        for page_num in range(len(doc)):
+            page = doc.load_page(page_num)
+            pix = page.get_pixmap()
             label = QLabel(self)
-            label.setPixmap(QPixmap.fromImage(pix.tobytes()))
+            label.setPixmap(QPixmap.fromImage(pix.get_image()))
             layout.addWidget(label)
-
-    def show_error_message(self, message):
-        msg_box = QMessageBox(self)
-        msg_box.setIcon(QMessageBox.Critical)
-        msg_box.setText("An error occurred")
-        msg_box.setInformativeText(message)
-        msg_box.setWindowTitle("Error")
-        msg_box.exec_()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
