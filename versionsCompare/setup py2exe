@@ -2,15 +2,11 @@ from distutils.core import setup
 import py2exe
 import sys
 import os
-import shutil
 
 sys.argv.append('py2exe')
 
-# Definir la ruta correcta de PyQt5 en el entorno virtual
-venv_path = r'C:\Users\fxb8co\Documents\Versions Compare\Python Scripts\Version Compare V1 Py2exe\venv\Lib\site-packages\PyQt5'
-dll_path = os.path.join('dist', 'PyQt5', 'Qt5', 'bin')
+script_path = os.path.join('src', 'uidemo.py')
 
-# Definir las opciones y la configuración del setup
 setup(
     options={
         'py2exe': {
@@ -20,23 +16,6 @@ setup(
         }
     },
     windows=[{
-        'script': 'main.py',  # Asegúrate de que 'main.py' esté en el directorio correcto
+        'script': script_path,
     }],
-    data_files=[(
-        "PyQt5/Qt5/bin", [
-            os.path.join(venv_path, "Qt5/bin/Qt5Core.dll"),
-            os.path.join(venv_path, "Qt5/bin/Qt5Gui.dll"),
-            os.path.join(venv_path, "Qt5/bin/Qt5Widgets.dll"),
-        ]
-    )]
 )
-
-# Copiar las DLLs necesarias de PyQt5 manualmente
-if os.path.exists(venv_path):
-    if not os.path.exists(dll_path):
-        os.makedirs(dll_path)
-
-    for dll in os.listdir(os.path.join(venv_path, 'Qt5', 'bin')):
-        shutil.copy(os.path.join(venv_path, 'Qt5', 'bin', dll), dll_path)
-else:
-    print(f"Path {venv_path} does not exist. Please check the path and try again.")
