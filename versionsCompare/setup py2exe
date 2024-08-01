@@ -31,10 +31,12 @@ setup(
 venv_path = os.path.join(os.path.dirname(sys.executable), 'Lib', 'site-packages', 'PyQt5')
 dll_path = os.path.join('dist', 'PyQt5', 'Qt5', 'bin')
 
-# Crea el directorio de destino si no existe
-if not os.path.exists(dll_path):
-    os.makedirs(dll_path)
+# Verificar y corregir la ruta de la DLL de PyQt5
+if os.path.exists(venv_path):
+    if not os.path.exists(dll_path):
+        os.makedirs(dll_path)
 
-# Copia todas las DLLs necesarias de PyQt5 a la carpeta de destino
-for dll in os.listdir(os.path.join(venv_path, 'Qt5', 'bin')):
-    shutil.copy(os.path.join(venv_path, 'Qt5', 'bin', dll), dll_path)
+    for dll in os.listdir(os.path.join(venv_path, 'Qt5', 'bin')):
+        shutil.copy(os.path.join(venv_path, 'Qt5', 'bin', dll), dll_path)
+else:
+    print(f"Path {venv_path} does not exist. Please check the path and try again.")
