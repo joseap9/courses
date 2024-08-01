@@ -5,12 +5,6 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog,
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap
 import fitz  # PyMuPDF
-import tempfile
-
-# Redirigir stdout y stderr a un archivo de log
-log_file = os.path.join(os.path.dirname(sys.executable), 'app.log')
-sys.stdout = open(log_file, 'w')
-sys.stderr = sys.stdout
 
 class PDFComparer(QMainWindow):
     def __init__(self):
@@ -130,7 +124,10 @@ class PDFComparer(QMainWindow):
                     highlight = fitz.Rect(word[:4])
                     page.add_highlight_annot(highlight)
 
-        temp_pdf_path = tempfile.mktemp(suffix=".pdf")
+        temp_dir = os.path.join(os.path.dirname(sys.executable), 'temp_files')
+        os.makedirs(temp_dir, exist_ok=True)
+        temp_pdf_path = os.path.join(temp_dir, os.path.basename(tempfile.mktemp(suffix=".pdf")))
+
         doc.save(temp_pdf_path)
         doc.close()
         return temp_pdf_path
@@ -150,11 +147,7 @@ class PDFComparer(QMainWindow):
             layout.addWidget(label)
 
 if __name__ == "__main__":
-    try:
-        app = QApplication(sys.argv)
-        comparer = PDFComparer()
-        comparer.show()
-        sys.exit(app.exec_())
-    except Exception as e:
-        print("Error during application startup:", e)
-        traceback.print_exc()
+    app = QApplication(sys.argv)
+    comparer = PDFComparer()
+    comparer.show()
+    sys.exit(app.exec_())

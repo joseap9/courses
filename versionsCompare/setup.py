@@ -4,7 +4,7 @@ import os
 
 build_exe_options = {
     "packages": ["os", "sys", "PyQt5", "tempfile", "fitz", "traceback"],
-    "includes": ["PyQt5.QtWidgets", "PyQt5.QtCore", "PyQt5.QtGui"],
+    "includes": ["PyQt5.QtWidgets", "PyQt5.QtCore", "PyQt5.QtGui", "lief", "setuptools", "wheel", "pkg_resources"],
     "excludes": ["tkinter"],
     "include_files": [
         'app.log',
