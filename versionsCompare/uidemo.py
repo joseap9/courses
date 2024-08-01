@@ -1,12 +1,4 @@
 import sys
-import os
-
-# Redirigir stdout y stderr a un archivo de log
-log_file = os.path.join(os.path.dirname(__file__), 'app.log')
-sys.stdout = open(log_file, 'w')
-sys.stderr = sys.stdout
-
-# Tu código original aquí
 from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QScrollArea, QSplitter
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap

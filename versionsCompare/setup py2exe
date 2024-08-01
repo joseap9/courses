@@ -1,0 +1,19 @@
+from distutils.core import setup
+import py2exe
+import sys
+
+sys.argv.append('py2exe')
+
+setup(
+    options={
+        'py2exe': {
+            'includes': ['fitz', 'PyQt5'],
+            'excludes': ['PIL', 'java.lang', 'readline', 'resource', 'pandas', 'asyncio', 'fontTools'],
+            'dll_excludes': ['w9xpopen.exe'],
+            'bundle_files': 1,
+            'compressed': True,
+        }
+    },
+    windows=[{'script': 'main.py'}],
+    zipfile=None,
+)
