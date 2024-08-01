@@ -4,13 +4,24 @@ import sys
 import os
 import shutil
 
-# Asegúrate de que py2exe es llamado con los argumentos correctos
 sys.argv.append('py2exe')
 
-# Ruta de la carpeta de PyQt5 en tu entorno virtual
-venv_path = os.path.join(os.path.dirname(sys.executable), 'Lib', 'site-packages', 'PyQt5')
+# Incluir las librerías necesarias y excluir las que no se utilizan
+setup(
+    options={
+        'py2exe': {
+            'includes': ['PyQt5.QtWidgets', 'PyQt5.QtCore', 'PyQt5.QtGui', 'fitz', 'tempfile'],
+            'dll_excludes': ['MSVCP90.dll'],  # Excluir MSVC DLLs si es necesario
+            'excludes': ['tkinter'],  # Excluir tkinter si no se usa
+        }
+    },
+    windows=[{
+        'script': 'main.py',  # Asegúrate de que 'main.py' esté en el directorio correcto
+    }],
+)
 
-# Ruta de destino de las DLLs
+# Copiar las DLLs necesarias de PyQt5 manualmente
+venv_path = os.path.join(os.path.dirname(sys.executable), 'Lib', 'site-packages', 'PyQt5')
 dll_path = os.path.join('dist', 'PyQt5', 'Qt', 'bin')
 
 # Crea el directorio de destino si no existe
@@ -20,17 +31,3 @@ if not os.path.exists(dll_path):
 # Copia todas las DLLs necesarias de PyQt5 a la carpeta de destino
 for dll in os.listdir(os.path.join(venv_path, 'Qt', 'bin')):
     shutil.copy(os.path.join(venv_path, 'Qt', 'bin', dll), dll_path)
-
-setup(
-    options={
-        'py2exe': {
-            'includes': ['fitz', 'PyQt5', 'sip', 'PyQt5.QtCore', 'PyQt5.QtGui', 'PyQt5.QtWidgets'],
-            'excludes': ['PIL', 'java.lang', 'readline', 'resource', 'pandas', 'asyncio', 'fontTools'],
-            'dll_excludes': ['w9xpopen.exe'],
-            'bundle_files': 1,
-            'compressed': True,
-        }
-    },
-    windows=[{'script': 'main.py'}],
-    zipfile=None,
-)
