@@ -4,7 +4,7 @@ import os
 
 # Configurar las opciones de build_exe
 build_exe_options = {
-    "packages": ["os", "sys", "PyQt5", "tempfile", "pymupdf"],
+    "packages": ["os", "sys", "PyQt5", "tempfile", "fitz"],  # Asegúrate de que fitz esté aquí
     "includes": ["PyQt5.QtWidgets", "PyQt5.QtCore", "PyQt5.QtGui"],
     "excludes": ["tkinter"],  # Excluir tkinter si no se usa
     "include_files": [
@@ -12,7 +12,8 @@ build_exe_options = {
         'app.log',
         # Añadir directorios de paquetes necesarios
         (os.path.join('venv', 'Lib', 'site-packages', 'PyQt5'), 'PyQt5'),
-        (os.path.join('venv', 'Lib', 'site-packages', 'pymupdf'), 'pymupdf')
+        (os.path.join('venv', 'Lib', 'site-packages', 'pymupdf'), 'pymupdf'),  # Asegúrate de incluir pymupdf correctamente
+        (os.path.join('venv', 'Lib', 'site-packages', 'fitz'), 'fitz')  # Añadir fitz
     ],
     "path": sys.path + [os.path.join('venv', 'Lib', 'site-packages')],
 }

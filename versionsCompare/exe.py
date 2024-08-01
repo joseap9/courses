@@ -1,18 +1,16 @@
 import sys
 import os
 import traceback
-# Redirigir stdout y stderr a un archivo de log
-# Asegurarse de que el archivo de log se crea en el mismo directorio que el ejecutable
-log_file = os.path.join(os.path.dirname(sys.executable), 'app.log')
-sys.stdout = open(log_file, 'w')
-sys.stderr = sys.stdout
-
-# Tu código original aquí
 from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QScrollArea, QSplitter, QLabel
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap
 import fitz  # PyMuPDF
 import tempfile
+
+# Redirigir stdout y stderr a un archivo de log
+log_file = os.path.join(os.path.dirname(sys.executable), 'app.log')
+sys.stdout = open(log_file, 'w')
+sys.stderr = sys.stdout
 
 class PDFComparer(QMainWindow):
     def __init__(self):
@@ -100,14 +98,18 @@ class PDFComparer(QMainWindow):
 
     def compare_pdfs(self):
         if self.pdf1_path and self.pdf2_path:
-            self.pdf1_text, self.pdf1_words = self.extract_text_and_positions(self.pdf1_path)
-            self.pdf2_text, self.pdf2_words = self.extract_text_and_positions(self.pdf2_path)
+            try:
+                self.pdf1_text, self.pdf1_words = self.extract_text_and_positions(self.pdf1_path)
+                self.pdf2_text, self.pdf2_words = self.extract_text_and_positions(self.pdf2_path)
 
-            temp_pdf1_path = self.highlight_differences(self.pdf1_path, self.pdf1_words, self.pdf2_words)
-            temp_pdf2_path = self.highlight_differences(self.pdf2_path, self.pdf2_words, self.pdf1_words)
+                temp_pdf1_path = self.highlight_differences(self.pdf1_path, self.pdf1_words, self.pdf2_words)
+                temp_pdf2_path = self.highlight_differences(self.pdf2_path, self.pdf2_words, self.pdf1_words)
 
-            self.display_pdfs(self.pdf1_layout, temp_pdf1_path)
-            self.display_pdfs(self.pdf2_layout, temp_pdf2_path)
+                self.display_pdfs(self.pdf1_layout, temp_pdf1_path)
+                self.display_pdfs(self.pdf2_layout, temp_pdf2_path)
+            except Exception as e:
+                print("Error during PDF comparison:", e)
+                traceback.print_exc()
 
     def highlight_differences(self, file_path, words1, words2):
         doc = fitz.open(file_path)
@@ -154,4 +156,5 @@ if __name__ == "__main__":
         comparer.show()
         sys.exit(app.exec_())
     except Exception as e:
+        print("Error during application startup:", e)
         traceback.print_exc()
