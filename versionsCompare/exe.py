@@ -1,10 +1,9 @@
 import sys
 import os
 import traceback
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QScrollArea, QSplitter, QLabel
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QScrollArea, QSplitter, QLabel, QMessageBox
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap
-import tempfile
 import fitz  # PyMuPDF
 
 class PDFComparer(QMainWindow):
@@ -97,17 +96,20 @@ class PDFComparer(QMainWindow):
                 self.pdf1_text, self.pdf1_words = self.extract_text_and_positions(self.pdf1_path)
                 self.pdf2_text, self.pdf2_words = self.extract_text_and_positions(self.pdf2_path)
 
-                temp_pdf1_path = self.highlight_differences(self.pdf1_path, self.pdf1_words, self.pdf2_words)
-                temp_pdf2_path = self.highlight_differences(self.pdf2_path, self.pdf2_words, self.pdf1_words)
+                pdf1_pixmaps = self.highlight_differences(self.pdf1_path, self.pdf1_words, self.pdf2_words)
+                pdf2_pixmaps = self.highlight_differences(self.pdf2_path, self.pdf2_words, self.pdf1_words)
 
-                self.display_pdfs(self.pdf1_layout, temp_pdf1_path)
-                self.display_pdfs(self.pdf2_layout, temp_pdf2_path)
+                self.display_pixmaps(self.pdf1_layout, pdf1_pixmaps)
+                self.display_pixmaps(self.pdf2_layout, pdf2_pixmaps)
             except Exception as e:
-                print("Error during PDF comparison:", e)
+                error_message = f"Error during PDF comparison: {str(e)}"
+                print(error_message)
                 traceback.print_exc()
+                self.show_error_message(error_message)
 
     def highlight_differences(self, file_path, words1, words2):
         doc = fitz.open(file_path)
+        pixmaps = []
 
         for page_num in range(len(doc)):
             page = doc.load_page(page_num)
@@ -125,27 +127,28 @@ class PDFComparer(QMainWindow):
                     highlight = fitz.Rect(word[:4])
                     page.add_highlight_annot(highlight)
 
-        temp_dir = os.path.join(os.path.dirname(sys.executable), 'temp_files')
-        os.makedirs(temp_dir, exist_ok=True)
-        temp_pdf_path = os.path.join(temp_dir, os.path.basename(tempfile.mktemp(suffix=".pdf")))
+            pix = page.get_pixmap()
+            pixmaps.append(pix)
 
-        doc.save(temp_pdf_path)
         doc.close()
-        return temp_pdf_path
+        return pixmaps
 
-    def display_pdfs(self, layout, file_path):
+    def display_pixmaps(self, layout, pixmaps):
         for i in reversed(range(layout.count())):
             layout.itemAt(i).widget().deleteLater()
 
-        doc = fitz.open(file_path)
-        for page_num in range(len(doc)):
-            page = doc.load_page(page_num)
-            pix = page.get_pixmap()
-            temp_image_path = os.path.join(tempfile.gettempdir(), f"temp_image_{page_num}.png")
-            pix.save(temp_image_path)
+        for pix in pixmaps:
             label = QLabel(self)
-            label.setPixmap(QPixmap(temp_image_path).scaled(600, 800, Qt.KeepAspectRatio))
+            label.setPixmap(QPixmap.fromImage(pix.tobytes()))
             layout.addWidget(label)
+
+    def show_error_message(self, message):
+        msg_box = QMessageBox(self)
+        msg_box.setIcon(QMessageBox.Critical)
+        msg_box.setText("An error occurred")
+        msg_box.setInformativeText(message)
+        msg_box.setWindowTitle("Error")
+        msg_box.exec_()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
