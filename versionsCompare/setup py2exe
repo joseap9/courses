@@ -6,7 +6,7 @@ import shutil
 
 sys.argv.append('py2exe')
 
-# Incluir las librerías necesarias y excluir las que no se utilizan
+# Definir las opciones y la configuración del setup
 setup(
     options={
         'py2exe': {
@@ -18,16 +18,23 @@ setup(
     windows=[{
         'script': 'main.py',  # Asegúrate de que 'main.py' esté en el directorio correcto
     }],
+    data_files=[(
+        "PyQt5/Qt5/bin", [
+            "venv/Lib/site-packages/PyQt5/Qt5/bin/Qt5Core.dll",
+            "venv/Lib/site-packages/PyQt5/Qt5/bin/Qt5Gui.dll",
+            "venv/Lib/site-packages/PyQt5/Qt5/bin/Qt5Widgets.dll",
+        ]
+    )]
 )
 
 # Copiar las DLLs necesarias de PyQt5 manualmente
 venv_path = os.path.join(os.path.dirname(sys.executable), 'Lib', 'site-packages', 'PyQt5')
-dll_path = os.path.join('dist', 'PyQt5', 'Qt', 'bin')
+dll_path = os.path.join('dist', 'PyQt5', 'Qt5', 'bin')
 
 # Crea el directorio de destino si no existe
 if not os.path.exists(dll_path):
     os.makedirs(dll_path)
 
 # Copia todas las DLLs necesarias de PyQt5 a la carpeta de destino
-for dll in os.listdir(os.path.join(venv_path, 'Qt', 'bin')):
-    shutil.copy(os.path.join(venv_path, 'Qt', 'bin', dll), dll_path)
+for dll in os.listdir(os.path.join(venv_path, 'Qt5', 'bin')):
+    shutil.copy(os.path.join(venv_path, 'Qt5', 'bin', dll), dll_path)
