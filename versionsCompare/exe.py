@@ -1,7 +1,7 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QScrollArea, QSplitter, QLabel
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QPixmap
+from PyQt5.QtGui import QPixmap, QImage
 import fitz  # PyMuPDF
 
 class PDFComparer(QMainWindow):
@@ -124,8 +124,9 @@ class PDFComparer(QMainWindow):
         for page_num in range(len(doc)):
             page = doc.load_page(page_num)
             pix = page.get_pixmap()
+            img = QImage(pix.samples, pix.width, pix.height, pix.stride, QImage.Format_RGB888)
             label = QLabel(self)
-            label.setPixmap(QPixmap.fromImage(pix.get_image()))
+            label.setPixmap(QPixmap.fromImage(img))
             layout.addWidget(label)
 
 if __name__ == "__main__":
