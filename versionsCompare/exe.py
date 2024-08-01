@@ -143,7 +143,7 @@ class PDFComparer(QMainWindow):
         for page_num in range(len(doc)):
             page = doc.load_page(page_num)
             pix = page.get_pixmap()
-            temp_image_path = tempfile.mktemp(suffix=".png")
+            temp_image_path = os.path.join(tempfile.gettempdir(), f"temp_image_{page_num}.png")
             pix.save(temp_image_path)
             label = QLabel(self)
             label.setPixmap(QPixmap(temp_image_path).scaled(600, 800, Qt.KeepAspectRatio))

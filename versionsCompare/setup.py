@@ -2,25 +2,26 @@ import sys
 from cx_Freeze import setup, Executable
 import os
 
-# Configurar las opciones de build_exe
 build_exe_options = {
-    "packages": ["os", "sys", "PyQt5", "tempfile", "fitz"],  # Asegúrate de que fitz esté aquí
+    "packages": ["os", "sys", "PyQt5", "tempfile", "fitz", "traceback"],
     "includes": ["PyQt5.QtWidgets", "PyQt5.QtCore", "PyQt5.QtGui"],
-    "excludes": ["tkinter"],  # Excluir tkinter si no se usa
+    "excludes": ["tkinter"],
     "include_files": [
-        # Añadir el archivo app.log si es necesario
         'app.log',
-        # Añadir directorios de paquetes necesarios
         (os.path.join('venv', 'Lib', 'site-packages', 'PyQt5'), 'PyQt5'),
-        (os.path.join('venv', 'Lib', 'site-packages', 'pymupdf'), 'pymupdf'),  # Asegúrate de incluir pymupdf correctamente
-        (os.path.join('venv', 'Lib', 'site-packages', 'fitz'), 'fitz')  # Añadir fitz
+        (os.path.join('venv', 'Lib', 'site-packages', 'pymupdf'), 'pymupdf'),
+        (os.path.join('venv', 'Lib', 'site-packages', 'fitz'), 'fitz'),
+        (os.path.join('venv', 'Lib', 'site-packages', 'lief'), 'lief'),
+        (os.path.join('venv', 'Lib', 'site-packages', 'setuptools'), 'setuptools'),
+        (os.path.join('venv', 'Lib', 'site-packages', 'wheel'), 'wheel'),
+        (os.path.join('venv', 'Lib', 'site-packages', 'pkg_resources'), 'pkg_resources')
     ],
     "path": sys.path + [os.path.join('venv', 'Lib', 'site-packages')],
 }
 
 base = None
 if sys.platform == "win32":
-    base = "Win32GUI"  # Esto asegura que no se abra una consola de comandos
+    base = "Win32GUI"
 
 setup(
     name="PDFComparer",
