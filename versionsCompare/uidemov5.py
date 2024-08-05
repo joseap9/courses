@@ -1,9 +1,8 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QPixmap
+from PyQt5.QtGui import QPixmap, QImage
 import fitz  # PyMuPDF
-import tempfile
 
 class PDFComparer(QMainWindow):
     def __init__(self):
@@ -69,8 +68,8 @@ class PDFComparer(QMainWindow):
 
         self.current_page = 0
         self.total_pages = 0
-        self.temp_pdf1_paths = []
-        self.temp_pdf2_paths = []
+        self.temp_pdf1_pixmaps = []
+        self.temp_pdf2_pixmaps = []
 
     def sync_scroll(self, value):
         if self.sender() == self.pdf1_scroll.verticalScrollBar():
@@ -96,8 +95,8 @@ class PDFComparer(QMainWindow):
 
     def reset_comparison(self):
         self.current_page = 0
-        self.temp_pdf1_paths = []
-        self.temp_pdf2_paths = []
+        self.temp_pdf1_pixmaps = []
+        self.temp_pdf2_pixmaps = []
         self.prev_button.setEnabled(False)
         self.next_button.setEnabled(False)
         self.pdf1_layout.update()
@@ -127,63 +126,81 @@ class PDFComparer(QMainWindow):
             self.load_page_pair(self.current_page)
             self.next_button.setEnabled(True)
 
-    def highlight_differences(self, file_path, words1, words2, page_num):
+    def highlight_differences(self, file_path, base_words, comp_words, page_num):
         doc = fitz.open(file_path)
+        
+        if page_num < len(base_words) and page_num < len(comp_words):
+            base_words_set = set((tuple(word[:4]) for word in base_words[page_num]))
+            comp_words_set = set((tuple(word[:4]) for word in comp_words[page_num]))
 
-        if page_num < len(words1) and page_num < len(words2):
-            words1_set = set((word[4] for word in words1[page_num]))
-            words2_set = set((word[4] for word in words2[page_num]))
-
-            for word in words1[page_num]:
-                if word[4] not in words2_set:
+            for word in base_words[page_num]:
+                if tuple(word[:4]) not in comp_words_set:
                     highlight = fitz.Rect(word[:4])
                     doc[page_num].add_highlight_annot(highlight)
-        elif page_num < len(words1):
-            for word in words1[page_num]:
+        elif page_num < len(base_words):
+            for word in base_words[page_num]:
                 highlight = fitz.Rect(word[:4])
                 doc[page_num].add_highlight_annot(highlight)
 
-        temp_pdf_path = tempfile.mktemp(suffix=".pdf")
-        doc.save(temp_pdf_path)
-        doc.close()
-        return temp_pdf_path
+        page = doc.load_page(page_num)
+        pix = page.get_pixmap()
+        image = QImage(pix.samples, pix.width, pix.height, pix.stride, QImage.Format_RGB888)
+        pixmap = QPixmap.fromImage(image)
+        return pixmap
+
+    def highlight_differences_in_second_pdf(self, file_path, base_words, comp_words, page_num):
+        doc = fitz.open(file_path)
+        
+        if page_num < len(base_words) and page_num < len(comp_words):
+            base_words_set = set((tuple(word[:4]) for word in base_words[page_num]))
+            comp_words_set = set((tuple(word[:4]) for word in comp_words[page_num]))
+
+            for word in comp_words[page_num]:
+                if tuple(word[:4]) not in base_words_set:
+                    highlight = fitz.Rect(word[:4])
+                    doc[page_num].add_highlight_annot(highlight)
+        elif page_num < len(comp_words):
+            for word in comp_words[page_num]:
+                highlight = fitz.Rect(word[:4])
+                doc[page_num].add_highlight_annot(highlight)
+
+        page = doc.load_page(page_num)
+        pix = page.get_pixmap()
+        image = QImage(pix.samples, pix.width, pix.height, pix.stride, QImage.Format_RGB888)
+        pixmap = QPixmap.fromImage(image)
+        return pixmap
 
     def load_page_pair(self, page_num):
-        temp_pdf1_path = self.highlight_differences(self.pdf1_path, self.pdf1_words, self.pdf2_words, page_num)
-        temp_pdf2_path = self.highlight_differences(self.pdf2_path, self.pdf2_words, self.pdf1_words, page_num)
+        pixmap1 = self.highlight_differences(self.pdf1_path, self.pdf1_words, self.pdf2_words, page_num)
+        pixmap2 = self.highlight_differences_in_second_pdf(self.pdf2_path, self.pdf2_words, self.pdf1_words, page_num)
 
-        if len(self.temp_pdf1_paths) <= page_num:
-            self.temp_pdf1_paths.append(temp_pdf1_path)
-            self.temp_pdf2_paths.append(temp_pdf2_path)
+        if len(self.temp_pdf1_pixmaps) <= page_num:
+            self.temp_pdf1_pixmaps.append(pixmap1)
+            self.temp_pdf2_pixmaps.append(pixmap2)
         else:
-            self.temp_pdf1_paths[page_num] = temp_pdf1_path
-            self.temp_pdf2_paths[page_num] = temp_pdf2_path
+            self.temp_pdf1_pixmaps[page_num] = pixmap1
+            self.temp_pdf2_pixmaps[page_num] = pixmap2
 
-        self.display_pdfs(self.pdf1_layout, temp_pdf1_path)
-        self.display_pdfs(self.pdf2_layout, temp_pdf2_path)
+        self.display_pdfs(self.pdf1_layout, pixmap1)
+        self.display_pdfs(self.pdf2_layout, pixmap2)
 
-    def display_pdfs(self, layout, file_path):
+    def display_pdfs(self, layout, pixmap):
         for i in reversed(range(layout.count())):
             layout.itemAt(i).widget().deleteLater()
 
-        doc = fitz.open(file_path)
-        page = doc.load_page(self.current_page)
-        pix = page.get_pixmap()
-        temp_image_path = tempfile.mktemp(suffix=".png")
-        pix.save(temp_image_path)
         label = QLabel(self)
-        label.setPixmap(QPixmap(temp_image_path).scaled(600, 800, Qt.KeepAspectRatio))
+        label.setPixmap(pixmap.scaled(600, 800, Qt.KeepAspectRatio))
         layout.addWidget(label)
 
     def next_page(self):
         if self.current_page < self.total_pages - 1:
             self.current_page += 1
             self.prev_button.setEnabled(True)
-            if self.current_page >= len(self.temp_pdf1_paths):
+            if self.current_page >= len(self.temp_pdf1_pixmaps):
                 self.load_page_pair(self.current_page)
             else:
-                self.display_pdfs(self.pdf1_layout, self.temp_pdf1_paths[self.current_page])
-                self.display_pdfs(self.pdf2_layout, self.temp_pdf2_paths[self.current_page])
+                self.display_pdfs(self.pdf1_layout, self.temp_pdf1_pixmaps[self.current_page])
+                self.display_pdfs(self.pdf2_layout, self.temp_pdf2_pixmaps[self.current_page])
             if self.current_page == self.total_pages - 1:
                 self.next_button.setEnabled(False)
 
@@ -191,8 +208,8 @@ class PDFComparer(QMainWindow):
         if self.current_page > 0:
             self.current_page -= 1
             self.next_button.setEnabled(True)
-            self.display_pdfs(self.pdf1_layout, self.temp_pdf1_paths[self.current_page])
-            self.display_pdfs(self.pdf2_layout, self.temp_pdf2_paths[self.current_page])
+            self.display_pdfs(self.pdf1_layout, self.temp_pdf1_pixmaps[self.current_page])
+            self.display_pdfs(self.pdf2_layout, self.temp_pdf2_pixmaps[self.current_page])
             if self.current_page == 0:
                 self.prev_button.setEnabled(False)
 
