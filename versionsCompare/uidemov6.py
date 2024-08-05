@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QRadioButton, QLineEdit, QButtonGroup, QSpacerItem, QSizePolicy
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QRadioButton, QLineEdit, QButtonGroup, QSizePolicy
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap, QImage
 import fitz  # PyMuPDF
@@ -56,10 +56,7 @@ class PDFComparer(QMainWindow):
 
         # Right layout for navigation buttons and labels
         self.right_layout = QVBoxLayout()
-
-        # Add a spacer to reduce the height of the difference label area
-        spacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
-        self.right_layout.addItem(spacer)
+        self.right_layout.setSizeConstraint(QVBoxLayout.SetMinimumSize)
 
         self.difference_label = QLabel(self)
         self.right_layout.addWidget(self.difference_label)
@@ -95,7 +92,11 @@ class PDFComparer(QMainWindow):
         self.next_diff_button.setEnabled(False)
         self.right_layout.addWidget(self.next_diff_button)
 
-        self.layout.addLayout(self.right_layout)
+        # Set size policy to minimize space usage
+        self.right_container = QWidget()
+        self.right_container.setLayout(self.right_layout)
+        self.right_container.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
+        self.layout.addWidget(self.right_container)
 
         container = QWidget()
         container.setLayout(self.layout)
