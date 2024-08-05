@@ -215,10 +215,10 @@ class PDFComparer(QMainWindow):
 
     def find_differences(self, words1, words2):
         self.differences = []
-        if self.current_page < len(words1) and self.current_page < len(words2):
-            words1_set = set((word[4] for word in words1[self.current_page]))
-            words2_set = set((word[4] for word in words2[self.current_page]))
-            page_differences = [(self.current_page, word, self.find_closest_word(word, words2[self.current_page])) for word in words1[self.current_page] if word[4] not in words2_set]
+        for page_num in range(len(words1)):
+            words1_set = set((word[4] for word in words1[page_num]))
+            words2_set = set((word[4] for word in words2[page_num]))
+            page_differences = [(page_num, word, self.find_closest_word(word, words2[page_num])) for word in words1[page_num] if word[4] not in words2_set]
             self.differences.extend(page_differences)
         if self.differences:
             self.current_difference_index = 0
