@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QRadioButton, QLineEdit, QButtonGroup
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QRadioButton, QLineEdit, QButtonGroup, QSpacerItem, QSizePolicy
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap, QImage
 import fitz  # PyMuPDF
@@ -56,7 +56,10 @@ class PDFComparer(QMainWindow):
 
         # Right layout for navigation buttons and labels
         self.right_layout = QVBoxLayout()
-        self.right_layout.setAlignment(Qt.AlignBottom)  # Align buttons to the bottom
+
+        # Add a spacer to reduce the height of the difference label area
+        spacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        self.right_layout.addItem(spacer)
 
         self.difference_label = QLabel(self)
         self.right_layout.addWidget(self.difference_label)
@@ -258,7 +261,10 @@ class PDFComparer(QMainWindow):
             extra_highlight1.set_colors(stroke=(1, 0, 0), fill=None)  # Red color for the border
             extra_highlight1.update()
             self.display_pdfs(self.pdf1_layout, doc1, page_num)
-            self.temp_pdf1_paths[self.current_page] = doc1
+            if len(self.temp_pdf1_paths) <= self.current_page:
+                self.temp_pdf1_paths.append(doc1)
+            else:
+                self.temp_pdf1_paths[self.current_page] = doc1
 
             # Load and highlight in second PDF
             doc2 = fitz.open(self.pdf2_path)
@@ -268,7 +274,10 @@ class PDFComparer(QMainWindow):
             extra_highlight2.set_colors(stroke=(1, 0, 0), fill=None)  # Red color for the border
             extra_highlight2.update()
             self.display_pdfs(self.pdf2_layout, doc2, page_num)
-            self.temp_pdf2_paths[self.current_page] = doc2
+            if len(self.temp_pdf2_paths) <= self.current_page:
+                self.temp_pdf2_paths.append(doc2)
+            else:
+                self.temp_pdf2_paths[self.current_page] = doc2
 
             self.update_difference_label()
 
