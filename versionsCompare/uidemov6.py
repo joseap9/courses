@@ -171,6 +171,7 @@ class PDFComparer(QMainWindow):
             self.pdf2_text, self.pdf2_words = self.extract_text_and_positions(self.pdf2_path)
 
             self.total_pages = min(len(self.pdf1_words), len(self.pdf2_words))
+            self.find_differences(self.pdf1_words, self.pdf2_words)
             self.load_page_pair(self.current_page)
             self.next_button.setEnabled(True)
 
@@ -203,8 +204,7 @@ class PDFComparer(QMainWindow):
         self.display_pdfs(self.pdf1_layout, highlighted_doc1, page_num)
         self.display_pdfs(self.pdf2_layout, highlighted_doc2, page_num)
 
-        self.find_differences(self.pdf1_words, self.pdf2_words)
-        self.update_navigation_buttons()
+        self.highlight_current_difference()
 
     def display_pdfs(self, layout, doc, page_num):
         for i in reversed(range(layout.count())):
