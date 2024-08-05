@@ -232,7 +232,7 @@ class PDFComparer(QMainWindow):
             if distance < min_distance:
                 min_distance = distance
                 closest_word = w
-        return closest_word[4] if closest_word and min_distance < 50 else "ND"
+        return closest_word if closest_word and min_distance < 50 else None
 
     def euclidean_distance(self, word1, word2):
         x1, y1, x2, y2 = word1[:4]
@@ -270,10 +270,11 @@ class PDFComparer(QMainWindow):
             # Load and highlight in second PDF
             doc2 = fitz.open(self.pdf2_path)
             doc2 = self.highlight_differences(doc2, self.pdf2_words, self.pdf1_words, page_num)
-            highlight2 = fitz.Rect(word[:4])
-            extra_highlight2 = doc2[page_num].add_rect_annot(highlight2)
-            extra_highlight2.set_colors(stroke=(1, 0, 0), fill=None)  # Red color for the border
-            extra_highlight2.update()
+            if matching_word:
+                highlight2 = fitz.Rect(matching_word[:4])
+                extra_highlight2 = doc2[page_num].add_rect_annot(highlight2)
+                extra_highlight2.set_colors(stroke=(1, 0, 0), fill=None)  # Red color for the border
+                extra_highlight2.update()
             self.display_pdfs(self.pdf2_layout, doc2, page_num)
             if len(self.temp_pdf2_paths) <= self.current_page:
                 self.temp_pdf2_paths.append(doc2)
@@ -301,7 +302,8 @@ class PDFComparer(QMainWindow):
     def update_difference_label(self):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
             page_num, word, matching_word = self.differences[self.current_difference_index]
-            self.difference_label.setText(f"Difference {self.current_difference_index + 1} of {len(self.differences)}: Page {page_num + 1}, Word in PDF1: '{word[4]}', Word in PDF2: '{matching_word}'")
+            matching_word_text = matching_word[4] if matching_word else "ND"
+            self.difference_label.setText(f"Difference {self.current_difference_index + 1} of {len(self.differences)}: Page {page_num + 1}, Word in PDF1: '{word[4]}', Word in PDF2: '{matching_word_text}'")
 
     def toggle_other_input(self):
         if self.radio_otro.isChecked():
