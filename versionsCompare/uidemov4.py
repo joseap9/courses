@@ -193,16 +193,15 @@ class PDFComparer(QMainWindow):
             words2_set = set((word[4] for word in words2[page_num]))
 
             for word1 in words1[page_num]:
-                matching_words = [word2 for word2 in words2[page_num] if word2[4] not in words1_set]
                 if word1[4] not in words2_set:
                     highlight = fitz.Rect(word1[:4])
                     doc[page_num].add_highlight_annot(highlight)
-                    differences.append((word1, matching_words))
+                    differences.append(word1)
         elif page_num < len(words1):
             for word1 in words1[page_num]:
                 highlight = fitz.Rect(word1[:4])
                 doc[page_num].add_highlight_annot(highlight)
-                differences.append((word1, []))
+                differences.append(word1)
         return doc, differences
 
     def load_page_pair(self, page_num):
@@ -215,7 +214,7 @@ class PDFComparer(QMainWindow):
         self.display_pdfs(self.pdf1_layout, doc1, page_num)
         self.display_pdfs(self.pdf2_layout, doc2, page_num)
 
-        self.differences = [(d1, d2) for (d1, matches) in differences1 for d2 in matches]  # Combine differences from both PDFs
+        self.differences = list(zip(differences1, differences2))  # Combine differences from both PDFs
         self.current_difference_index = 0
         self.update_navigation_buttons()
 
@@ -236,20 +235,24 @@ class PDFComparer(QMainWindow):
 
             page_num = self.current_page
 
-            # Resalta en el primer PDF
-            doc1 = self.temp_pdf1_paths[self.current_page] if len(self.temp_pdf1_paths) > self.current_page else fitz.open(self.pdf1_path)
+            # Load and highlight in first PDF
+            doc1 = fitz.open(self.pdf1_path)
             highlight1 = fitz.Rect(word1[:4])
-            doc1[page_num].add_rect_annot(highlight1)
+            extra_highlight1 = doc1[page_num].add_rect_annot(highlight1)
+            extra_highlight1.set_colors(stroke=(1, 0, 0), fill=None)  # Red color for the border
+            extra_highlight1.update()
             self.display_pdfs(self.pdf1_layout, doc1, page_num)
             if len(self.temp_pdf1_paths) <= self.current_page:
                 self.temp_pdf1_paths.append(doc1)
             else:
                 self.temp_pdf1_paths[self.current_page] = doc1
 
-            # Resalta en el segundo PDF
-            doc2 = self.temp_pdf2_paths[self.current_page] if len(self.temp_pdf2_paths) > self.current_page else fitz.open(self.pdf2_path)
+            # Load and highlight in second PDF
+            doc2 = fitz.open(self.pdf2_path)
             highlight2 = fitz.Rect(word2[:4])
-            doc2[page_num].add_rect_annot(highlight2)
+            extra_highlight2 = doc2[page_num].add_rect_annot(highlight2)
+            extra_highlight2.set_colors(stroke=(1, 0, 0), fill=None)  # Red color for the border
+            extra_highlight2.update()
             self.display_pdfs(self.pdf2_layout, doc2, page_num)
             if len(self.temp_pdf2_paths) <= self.current_page:
                 self.temp_pdf2_paths.append(doc2)
@@ -280,18 +283,21 @@ class PDFComparer(QMainWindow):
 
     def next_difference(self):
         if self.current_difference_index < len(self.differences) - 1:
+            self.save_current_label()
             self.current_difference_index += 1
             self.update_navigation_buttons()
             self.highlight_current_difference()
 
     def prev_difference(self):
         if self.current_difference_index > 0:
+            self.save_current_label()
             self.current_difference_index -= 1
             self.update_navigation_buttons()
             self.highlight_current_difference()
 
     def next_page(self):
         if self.current_page < self.total_pages - 1:
+            self.save_current_label()
             self.current_page += 1
             self.prev_button.setEnabled(True)
             
@@ -307,6 +313,7 @@ class PDFComparer(QMainWindow):
 
     def prev_page(self):
         if self.current_page > 0:
+            self.save_current_label()
             self.current_page -= 1
             self.next_button.setEnabled(True)
             
