@@ -187,31 +187,35 @@ class PDFComparer(QMainWindow):
             self.next_button.setEnabled(True)
 
     def highlight_differences(self, doc, words1, words2, page_num):
+        differences = []
         if page_num < len(words1) and page_num < len(words2):
             words1_set = set((word[4] for word in words1[page_num]))
             words2_set = set((word[4] for word in words2[page_num]))
 
-            for word in words1[page_num]:
-                if word[4] not in words2_set:
-                    highlight = fitz.Rect(word[:4])
+            for word1 in words1[page_num]:
+                if word1[4] not in words2_set:
+                    highlight = fitz.Rect(word1[:4])
                     doc[page_num].add_highlight_annot(highlight)
+                    differences.append(word1)
         elif page_num < len(words1):
-            for word in words1[page_num]:
-                highlight = fitz.Rect(word[:4])
+            for word1 in words1[page_num]:
+                highlight = fitz.Rect(word1[:4])
                 doc[page_num].add_highlight_annot(highlight)
-        return doc
+                differences.append(word1)
+        return doc, differences
 
     def load_page_pair(self, page_num):
         doc1 = fitz.open(self.pdf1_path)
         doc2 = fitz.open(self.pdf2_path)
         
-        doc1 = self.highlight_differences(doc1, self.pdf1_words, self.pdf2_words, page_num)
-        doc2 = self.highlight_differences(doc2, self.pdf2_words, self.pdf1_words, page_num)
+        doc1, differences1 = self.highlight_differences(doc1, self.pdf1_words, self.pdf2_words, page_num)
+        doc2, differences2 = self.highlight_differences(doc2, self.pdf2_words, self.pdf1_words, page_num)
 
         self.display_pdfs(self.pdf1_layout, doc1, page_num)
         self.display_pdfs(self.pdf2_layout, doc2, page_num)
 
-        self.find_differences(self.pdf1_words, self.pdf2_words)
+        self.differences = list(zip(differences1, differences2))  # Combine differences from both PDFs
+        self.current_difference_index = 0
         self.update_navigation_buttons()
 
     def display_pdfs(self, layout, doc, page_num):
@@ -225,51 +229,15 @@ class PDFComparer(QMainWindow):
         label.setPixmap(QPixmap.fromImage(img))
         layout.addWidget(label)
 
-    def find_differences(self, words1, words2):
-        self.differences = []
-        if self.current_page < len(words1) and self.current_page < len(words2):
-            words1_set = set((word[4] for word in words1[self.current_page]))
-            words2_set = set((word[4] for word in words2[self.current_page]))
-            page_differences = [(self.current_page, word, self.find_closest_word(word, words2[self.current_page])) for word in words1[self.current_page] if word[4] not in words2_set]
-            self.differences.extend(page_differences)
-        if self.differences:
-            self.current_difference_index = 0
-            self.update_navigation_buttons()
-
-    def find_closest_word(self, word, words_list):
-        min_distance = float('inf')
-        closest_word = None
-        for w in words_list:
-            distance = self.euclidean_distance(word, w)
-            if distance < min_distance:
-                min_distance = distance
-                closest_word = w
-        return closest_word[4] if closest_word and min_distance < 50 else "ND"
-
-    def euclidean_distance(self, word1, word2):
-        x1, y1, x2, y2 = word1[:4]
-        x1_center = (x1 + x2) / 2
-        y1_center = (y1 + y2) / 2
-        x3, y3, x4, y4 = word2[:4]
-        x3_center = (x3 + x4) / 2
-        y3_center = (y3 + y4) / 2
-        return ((x1_center - x3_center) ** 2 + (y1_center - y3_center) ** 2) ** 0.5
-
-    def update_navigation_buttons(self):
-        self.prev_diff_button.setEnabled(self.current_difference_index > 0)
-        self.next_diff_button.setEnabled(self.current_difference_index < len(self.differences) - 1)
-        self.prev_button.setEnabled(self.current_page > 0)
-        self.next_button.setEnabled(self.current_page < self.total_pages - 1)
-        self.update_difference_label()
-
     def highlight_current_difference(self):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
-            page_num, word, matching_word = self.differences[self.current_difference_index]
+            word1, word2 = self.differences[self.current_difference_index]
+
+            page_num = self.current_page
 
             # Load and highlight in first PDF
             doc1 = fitz.open(self.pdf1_path)
-            doc1 = self.highlight_differences(doc1, self.pdf1_words, self.pdf2_words, page_num)
-            highlight1 = fitz.Rect(word[:4])
+            highlight1 = fitz.Rect(word1[:4])
             extra_highlight1 = doc1[page_num].add_rect_annot(highlight1)
             extra_highlight1.set_colors(stroke=(1, 0, 0), fill=None)  # Red color for the border
             extra_highlight1.update()
@@ -281,8 +249,7 @@ class PDFComparer(QMainWindow):
 
             # Load and highlight in second PDF
             doc2 = fitz.open(self.pdf2_path)
-            doc2 = self.highlight_differences(doc2, self.pdf2_words, self.pdf1_words, page_num)
-            highlight2 = fitz.Rect(word[:4])
+            highlight2 = fitz.Rect(word2[:4])
             extra_highlight2 = doc2[page_num].add_rect_annot(highlight2)
             extra_highlight2.set_colors(stroke=(1, 0, 0), fill=None)  # Red color for the border
             extra_highlight2.update()
@@ -293,28 +260,19 @@ class PDFComparer(QMainWindow):
                 self.temp_pdf2_paths[self.current_page] = doc2
 
             # Actualizar el QLabel con el texto exacto resaltado de ambos PDFs
-            self.difference_label.setText(f"PDF1: '{word[4]}'\nPDF2: '{matching_word}'")
+            self.difference_label.setText(f"PDF1: '{word1[4]}'\nPDF2: '{word2[4]}'")
 
-            # Restore previous label if exists
-            if (page_num, word[4]) in self.labels:
-                label = self.labels[(page_num, word[4])]
-                if label == "No Aplica":
-                    self.radio_no_aplica.setChecked(True)
-                elif label == "Aplica":
-                    self.radio_aplica.setChecked(True)
-                else:
-                    self.radio_otro.setChecked(True)
-                    self.other_input.setText(label)
-                    self.other_input.setVisible(True)
-            else:
-                self.radio_no_aplica.setChecked(True)
-                self.other_input.setVisible(False)
-                self.other_input.clear()
+    def update_navigation_buttons(self):
+        self.prev_diff_button.setEnabled(self.current_difference_index > 0)
+        self.next_diff_button.setEnabled(self.current_difference_index < len(self.differences) - 1)
+        self.prev_button.setEnabled(self.current_page > 0)
+        self.next_button.setEnabled(self.current_page < self.total_pages - 1)
+        self.update_difference_label()
 
     def update_difference_label(self):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
-            page_num, word, matching_word = self.differences[self.current_difference_index]
-            self.difference_label.setText(f"Difference {self.current_difference_index + 1} of {len(self.differences)}: Page {page_num + 1}, Word in PDF1: '{word[4]}', Word in PDF2: '{matching_word}'")
+            word1, word2 = self.differences[self.current_difference_index]
+            self.difference_label.setText(f"PDF1: '{word1[4]}'\nPDF2: '{word2[4]}'")
 
     def toggle_other_input(self):
         if self.radio_otro.isChecked():
@@ -371,15 +329,15 @@ class PDFComparer(QMainWindow):
 
     def save_current_label(self):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
-            page_num, word, _ = self.differences[self.current_difference_index]
+            word1, word2 = self.differences[self.current_difference_index]
             if self.radio_no_aplica.isChecked():
-                self.labels[(page_num, word[4])] = "No Aplica"
+                self.labels[(self.current_page, word1[4])] = "No Aplica"
             elif self.radio_aplica.isChecked():
-                self.labels[(page_num, word[4])] = "Aplica"
+                self.labels[(self.current_page, word1[4])] = "Aplica"
             elif self.radio_otro.isChecked():
-                self.labels[(page_num, word[4])] = self.other_input.text()
+                self.labels[(self.current_page, word1[4])] = self.other_input.text()
 
-if __name__ == "__main__":
+if __name__ == "___main__":
     app = QApplication(sys.argv)
     comparer = PDFComparer()
     comparer.show()
