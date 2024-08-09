@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QRadioButton, QLineEdit, QButtonGroup
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QRadioButton, QLineEdit, QButtonGroup, QFrame, QGridLayout
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap, QImage
 import fitz  # PyMuPDF
@@ -54,52 +54,52 @@ class PDFComparer(QMainWindow):
         self.splitter.addWidget(self.pdf1_scroll)
         self.splitter.addWidget(self.pdf2_scroll)
 
-        self.right_layout = QVBoxLayout()
-        self.right_layout.setContentsMargins(0, 0, 0, 0)  # Eliminar márgenes innecesarios
-        self.right_layout.setSpacing(5)  # Espaciado mínimo entre elementos
-        self.right_layout.setAlignment(Qt.AlignBottom)  # Alinea los botones en la parte inferior
+        # Cambia el layout de la derecha para que esté en un frame
+        self.right_frame = QFrame(self)
+        self.right_frame.setFrameShape(QFrame.StyledPanel)
+        self.right_frame.setFrameShadow(QFrame.Sunken)
 
+        self.right_layout = QGridLayout(self.right_frame)
+        self.right_layout.setContentsMargins(10, 10, 10, 10)
+        self.right_layout.setSpacing(10)
+
+        # Añade los widgets al layout dentro del frame
         self.difference_label = QLabel(self)
-        self.right_layout.addWidget(self.difference_label)
+        self.right_layout.addWidget(self.difference_label, 0, 0, 1, 3)
 
         self.radio_button_group = QButtonGroup(self)
-
-        # Usar un QHBoxLayout para colocar los radio botones en la misma línea
-        radio_layout = QHBoxLayout()
-        radio_layout.setSpacing(10)  # Espaciado mínimo entre botones
 
         self.radio_no_aplica = QRadioButton("No Aplica", self)
         self.radio_no_aplica.setChecked(True)
         self.radio_button_group.addButton(self.radio_no_aplica)
-        radio_layout.addWidget(self.radio_no_aplica)
+        self.right_layout.addWidget(self.radio_no_aplica, 1, 0)
 
         self.radio_aplica = QRadioButton("Aplica", self)
         self.radio_button_group.addButton(self.radio_aplica)
-        radio_layout.addWidget(self.radio_aplica)
+        self.right_layout.addWidget(self.radio_aplica, 1, 1)
 
         self.radio_otro = QRadioButton("Otro", self)
         self.radio_button_group.addButton(self.radio_otro)
         self.radio_otro.toggled.connect(self.toggle_other_input)
-        radio_layout.addWidget(self.radio_otro)
-
-        self.right_layout.addLayout(radio_layout)
+        self.right_layout.addWidget(self.radio_otro, 1, 2)
 
         self.other_input = QLineEdit(self)
         self.other_input.setPlaceholderText("Escriba el otro aquí")
         self.other_input.setVisible(False)
-        self.right_layout.addWidget(self.other_input)
+        self.right_layout.addWidget(self.other_input, 2, 0, 1, 3)
 
         self.prev_diff_button = QPushButton("Previous Difference", self)
         self.prev_diff_button.clicked.connect(self.prev_difference)
         self.prev_diff_button.setEnabled(False)
-        self.right_layout.addWidget(self.prev_diff_button)
+        self.right_layout.addWidget(self.prev_diff_button, 3, 0, 1, 1)
 
         self.next_diff_button = QPushButton("Next Difference", self)
         self.next_diff_button.clicked.connect(self.next_difference)
         self.next_diff_button.setEnabled(False)
-        self.right_layout.addWidget(self.next_diff_button)
+        self.right_layout.addWidget(self.next_diff_button, 3, 2, 1, 1)
 
-        self.layout.addLayout(self.right_layout)
+        # Ajusta el layout principal
+        self.layout.addWidget(self.right_frame)
 
         container = QWidget()
         container.setLayout(self.layout)
