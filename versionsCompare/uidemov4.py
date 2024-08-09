@@ -337,7 +337,7 @@ class PDFComparer(QMainWindow):
             elif self.radio_otro.isChecked():
                 self.labels[(self.current_page, word1[4])] = self.other_input.text()
 
-if __name__ == "___main__":
+if __name__ == "__main__":
     app = QApplication(sys.argv)
     comparer = PDFComparer()
     comparer.show()
