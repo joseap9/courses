@@ -338,8 +338,14 @@ class PDFComparer(QMainWindow):
             self.save_current_label()
             self.current_page -= 1
             self.next_button.setEnabled(True)
+            
+            # Si los pixmaps de la página anterior no están cargados, cárgalos.
+            if self.current_page >= len(self.temp_pdf1_paths):
+                self.load_page_pair(self.current_page)
+            
             self.display_pdfs(self.pdf1_layout, self.temp_pdf1_paths[self.current_page], self.current_page)
             self.display_pdfs(self.pdf2_layout, self.temp_pdf2_paths[self.current_page], self.current_page)
+            
             if self.current_page == 0:
                 self.prev_button.setEnabled(False)
 
