@@ -54,28 +54,35 @@ class PDFComparer(QMainWindow):
         self.splitter.addWidget(self.pdf1_scroll)
         self.splitter.addWidget(self.pdf2_scroll)
 
-        # Right layout for navigation buttons and labels
         self.right_layout = QVBoxLayout()
-        self.right_layout.setAlignment(Qt.AlignBottom)  # Align buttons to the bottom
+        self.right_layout.setContentsMargins(0, 0, 0, 0)  # Eliminar márgenes innecesarios
+        self.right_layout.setSpacing(5)  # Espaciado mínimo entre elementos
+        self.right_layout.setAlignment(Qt.AlignBottom)  # Alinea los botones en la parte inferior
 
         self.difference_label = QLabel(self)
         self.right_layout.addWidget(self.difference_label)
 
         self.radio_button_group = QButtonGroup(self)
 
+        # Usar un QHBoxLayout para colocar los radio botones en la misma línea
+        radio_layout = QHBoxLayout()
+        radio_layout.setSpacing(10)  # Espaciado mínimo entre botones
+
         self.radio_no_aplica = QRadioButton("No Aplica", self)
         self.radio_no_aplica.setChecked(True)
         self.radio_button_group.addButton(self.radio_no_aplica)
-        self.right_layout.addWidget(self.radio_no_aplica)
+        radio_layout.addWidget(self.radio_no_aplica)
 
         self.radio_aplica = QRadioButton("Aplica", self)
         self.radio_button_group.addButton(self.radio_aplica)
-        self.right_layout.addWidget(self.radio_aplica)
+        radio_layout.addWidget(self.radio_aplica)
 
         self.radio_otro = QRadioButton("Otro", self)
         self.radio_button_group.addButton(self.radio_otro)
         self.radio_otro.toggled.connect(self.toggle_other_input)
-        self.right_layout.addWidget(self.radio_otro)
+        radio_layout.addWidget(self.radio_otro)
+
+        self.right_layout.addLayout(radio_layout)
 
         self.other_input = QLineEdit(self)
         self.other_input.setPlaceholderText("Escriba el otro aquí")
