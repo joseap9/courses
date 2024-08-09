@@ -14,16 +14,16 @@ class PDFComparer(QMainWindow):
         # Layout principal horizontal que contendrá las tres secciones verticales
         self.main_layout = QHBoxLayout()
 
-        # Layout para las secciones de PDF
-        self.pdf_layout = QVBoxLayout()
+        # Sección para la selección de PDFs y navegación entre páginas
+        self.left_layout = QVBoxLayout()
 
         self.button1 = QPushButton("Select First PDF", self)
         self.button1.clicked.connect(self.load_first_pdf)
-        self.pdf_layout.addWidget(self.button1)
+        self.left_layout.addWidget(self.button1)
 
         self.button2 = QPushButton("Select Second PDF", self)
         self.button2.clicked.connect(self.load_second_pdf)
-        self.pdf_layout.addWidget(self.button2)
+        self.left_layout.addWidget(self.button2)
 
         self.navigation_layout = QHBoxLayout()
         self.prev_button = QPushButton("Prev", self)
@@ -36,10 +36,10 @@ class PDFComparer(QMainWindow):
         self.next_button.setEnabled(False)
         self.navigation_layout.addWidget(self.next_button)
 
-        self.pdf_layout.addLayout(self.navigation_layout)
+        self.left_layout.addLayout(self.navigation_layout)
 
         self.splitter = QSplitter(Qt.Horizontal)
-        self.pdf_layout.addWidget(self.splitter)
+        self.left_layout.addWidget(self.splitter)
 
         self.pdf1_scroll = QScrollArea(self)
         self.pdf1_container = QWidget()
@@ -58,53 +58,52 @@ class PDFComparer(QMainWindow):
         self.splitter.addWidget(self.pdf1_scroll)
         self.splitter.addWidget(self.pdf2_scroll)
 
-        # Añadir las dos secciones verticales al layout principal
-        self.main_layout.addLayout(self.pdf_layout)
+        # Añadir la sección izquierda (dos PDFs y navegación) al layout principal
+        self.main_layout.addLayout(self.left_layout)
 
-        # Cambia el layout de la derecha para que esté en un frame
+        # Sección derecha (la tercera columna)
         self.right_frame = QFrame(self)
         self.right_frame.setFrameShape(QFrame.StyledPanel)
         self.right_frame.setFrameShadow(QFrame.Sunken)
         self.right_frame.setFixedWidth(200)  # Ajusta la anchura fija de la sección derecha
 
-        self.right_layout = QGridLayout(self.right_frame)
+        self.right_layout = QVBoxLayout(self.right_frame)
         self.right_layout.setContentsMargins(10, 10, 10, 10)
         self.right_layout.setSpacing(10)
 
-        # Añade los widgets al layout dentro del frame
         self.difference_label = QLabel(self)
-        self.right_layout.addWidget(self.difference_label, 0, 0, 1, 3)
+        self.right_layout.addWidget(self.difference_label)
 
         self.radio_button_group = QButtonGroup(self)
 
         self.radio_no_aplica = QRadioButton("No Aplica", self)
         self.radio_no_aplica.setChecked(True)
         self.radio_button_group.addButton(self.radio_no_aplica)
-        self.right_layout.addWidget(self.radio_no_aplica, 1, 0)
+        self.right_layout.addWidget(self.radio_no_aplica)
 
         self.radio_aplica = QRadioButton("Aplica", self)
         self.radio_button_group.addButton(self.radio_aplica)
-        self.right_layout.addWidget(self.radio_aplica, 1, 1)
+        self.right_layout.addWidget(self.radio_aplica)
 
         self.radio_otro = QRadioButton("Otro", self)
         self.radio_button_group.addButton(self.radio_otro)
         self.radio_otro.toggled.connect(self.toggle_other_input)
-        self.right_layout.addWidget(self.radio_otro, 1, 2)
+        self.right_layout.addWidget(self.radio_otro)
 
         self.other_input = QLineEdit(self)
         self.other_input.setPlaceholderText("Escriba el otro aquí")
         self.other_input.setVisible(False)
-        self.right_layout.addWidget(self.other_input, 2, 0, 1, 3)
+        self.right_layout.addWidget(self.other_input)
 
         self.prev_diff_button = QPushButton("Previous Difference", self)
         self.prev_diff_button.clicked.connect(self.prev_difference)
         self.prev_diff_button.setEnabled(False)
-        self.right_layout.addWidget(self.prev_diff_button, 3, 0, 1, 1)
+        self.right_layout.addWidget(self.prev_diff_button)
 
         self.next_diff_button = QPushButton("Next Difference", self)
         self.next_diff_button.clicked.connect(self.next_difference)
         self.next_diff_button.setEnabled(False)
-        self.right_layout.addWidget(self.next_diff_button, 3, 2, 1, 1)
+        self.right_layout.addWidget(self.next_diff_button)
 
         # Añadir la sección derecha al layout principal
         self.main_layout.addWidget(self.right_frame)
@@ -210,7 +209,6 @@ class PDFComparer(QMainWindow):
         self.display_pdfs(self.pdf1_layout, doc1, page_num)
         self.display_pdfs(self.pdf2_layout, doc2, page_num)
 
-        self.find_differences(self.pdf1_words, self.pdf2)
         self.find_differences(self.pdf1_words, self.pdf2_words)
         self.update_navigation_buttons()
 
