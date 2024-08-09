@@ -72,6 +72,8 @@ class PDFComparer(QMainWindow):
         self.right_layout.setSpacing(10)
 
         self.difference_label = QLabel(self)
+        self.difference_label.setWordWrap(True)  # Permite que el texto se ajuste a varias líneas
+        self.difference_label.setAlignment(Qt.AlignCenter)  # Alinea el texto en el centro
         self.right_layout.addWidget(self.difference_label)
 
         self.radio_button_group = QButtonGroup(self)
