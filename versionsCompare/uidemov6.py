@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QRadioButton, QLineEdit, QButtonGroup, QFrame, QGridLayout
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QRadioButton, QLineEdit, QButtonGroup, QFrame, QGridLayout, QSizePolicy
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap, QImage
 import fitz  # PyMuPDF
@@ -11,15 +11,19 @@ class PDFComparer(QMainWindow):
         self.setWindowTitle("PDF Comparer")
         self.setGeometry(100, 100, 1200, 800)
 
-        self.layout = QVBoxLayout()
+        # Layout principal vertical que contiene todo
+        self.main_layout = QVBoxLayout()
+
+        # Layout para las secciones superiores
+        self.top_layout = QVBoxLayout()
 
         self.button1 = QPushButton("Select First PDF", self)
         self.button1.clicked.connect(self.load_first_pdf)
-        self.layout.addWidget(self.button1)
+        self.top_layout.addWidget(self.button1)
 
         self.button2 = QPushButton("Select Second PDF", self)
         self.button2.clicked.connect(self.load_second_pdf)
-        self.layout.addWidget(self.button2)
+        self.top_layout.addWidget(self.button2)
 
         self.navigation_layout = QHBoxLayout()
         self.prev_button = QPushButton("Prev", self)
@@ -32,10 +36,10 @@ class PDFComparer(QMainWindow):
         self.next_button.setEnabled(False)
         self.navigation_layout.addWidget(self.next_button)
 
-        self.layout.addLayout(self.navigation_layout)
+        self.top_layout.addLayout(self.navigation_layout)
 
         self.splitter = QSplitter(Qt.Horizontal)
-        self.layout.addWidget(self.splitter)
+        self.top_layout.addWidget(self.splitter)
 
         self.pdf1_scroll = QScrollArea(self)
         self.pdf1_container = QWidget()
@@ -54,10 +58,14 @@ class PDFComparer(QMainWindow):
         self.splitter.addWidget(self.pdf1_scroll)
         self.splitter.addWidget(self.pdf2_scroll)
 
+        # Añadir las secciones superiores al layout principal
+        self.main_layout.addLayout(self.top_layout)
+
         # Cambia el layout de la derecha para que esté en un frame
         self.right_frame = QFrame(self)
         self.right_frame.setFrameShape(QFrame.StyledPanel)
         self.right_frame.setFrameShadow(QFrame.Sunken)
+        self.right_frame.setFixedHeight(120)  # Ajusta la altura fija de la sección inferior
 
         self.right_layout = QGridLayout(self.right_frame)
         self.right_layout.setContentsMargins(10, 10, 10, 10)
@@ -98,11 +106,15 @@ class PDFComparer(QMainWindow):
         self.next_diff_button.setEnabled(False)
         self.right_layout.addWidget(self.next_diff_button, 3, 2, 1, 1)
 
-        # Ajusta el layout principal
-        self.layout.addWidget(self.right_frame)
+        # Layout inferior para la parte baja
+        self.bottom_layout = QHBoxLayout()
+        self.bottom_layout.addWidget(self.right_frame)
+
+        # Añadir la sección inferior al layout principal
+        self.main_layout.addLayout(self.bottom_layout)
 
         container = QWidget()
-        container.setLayout(self.layout)
+        container.setLayout(self.main_layout)
         self.setCentralWidget(container)
 
         self.pdf1_text = None
