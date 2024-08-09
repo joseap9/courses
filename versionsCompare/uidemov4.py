@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QRadioButton, QLineEdit, QButtonGroup, QFrame, QGridLayout
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QRadioButton, QLineEdit, QButtonGroup, QFrame
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap, QImage
 import fitz  # PyMuPDF
@@ -234,18 +234,11 @@ class PDFComparer(QMainWindow):
             # Encuentra palabras en PDF1 que no están en PDF2
             page_differences = [(self.current_page, word1, word2) for word1 in words1[self.current_page] for word2 in words2[self.current_page] if word1[4] not in words2_set]
             self.differences.extend(page_differences)
+    
         if self.differences:
             self.current_difference_index = 0
             self.update_navigation_buttons()
 
-
-    def update_navigation_buttons(self):
-        self.prev_diff_button.setEnabled(self.current_difference_index > 0)
-        self.next_diff_button.setEnabled(self.current_difference_index < len(self.differences) - 1)
-        self.prev_button.setEnabled(self.current_page > 0)
-        self.next_button.setEnabled(self.current_page < self.total_pages - 1)
-        self.update_difference_label()
-    
     def highlight_current_difference(self):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
             page_num, word1, word2 = self.differences[self.current_difference_index]
@@ -280,11 +273,17 @@ class PDFComparer(QMainWindow):
             else:
                 self.temp_pdf2_paths[self.current_page] = doc2
 
+    def update_navigation_buttons(self):
+        self.prev_diff_button.setEnabled(self.current_difference_index > 0)
+        self.next_diff_button.setEnabled(self.current_difference_index < len(self.differences) - 1)
+        self.prev_button.setEnabled(self.current_page > 0)
+        self.next_button.setEnabled(self.current_page < self.total_pages - 1)
+        self.update_difference_label()
 
     def update_difference_label(self):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
-            page_num, word, matching_word = self.differences[self.current_difference_index]
-            self.difference_label.setText(f"Difference {self.current_difference_index + 1} of {len(self.differences)}: Page {page_num + 1}, Word in PDF1: '{word[4]}', Word in PDF2: '{matching_word}'")
+            page_num, word1, word2 = self.differences[self.current_difference_index]
+            self.difference_label.setText(f"PDF1: '{word1[4]}'\nPDF2: '{word2[4]}'")
 
     def toggle_other_input(self):
         if self.radio_otro.isChecked():
@@ -338,8 +337,6 @@ class PDFComparer(QMainWindow):
             
             if self.current_page == 0:
                 self.prev_button.setEnabled(False)
-
-
 
     def save_current_label(self):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
