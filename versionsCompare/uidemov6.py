@@ -171,14 +171,10 @@ class PDFComparer(QMainWindow):
             self.pdf2_text, self.pdf2_words = self.extract_text_and_positions(self.pdf2_path)
 
             self.total_pages = min(len(self.pdf1_words), len(self.pdf2_words))
-            self.find_differences(self.pdf1_words, self.pdf2_words)
             self.load_page_pair(self.current_page)
             self.next_button.setEnabled(True)
 
     def highlight_differences(self, doc, words1, words2, page_num):
-        highlighted_doc = fitz.open()
-        highlighted_doc.insert_pdf(doc, from_page=page_num, to_page=page_num)
-
         if page_num < len(words1) and page_num < len(words2):
             words1_set = set((word[4] for word in words1[page_num]))
             words2_set = set((word[4] for word in words2[page_num]))
@@ -186,25 +182,25 @@ class PDFComparer(QMainWindow):
             for word in words1[page_num]:
                 if word[4] not in words2_set:
                     highlight = fitz.Rect(word[:4])
-                    highlighted_doc[page_num].add_highlight_annot(highlight)
+                    doc[page_num].add_highlight_annot(highlight)
         elif page_num < len(words1):
             for word in words1[page_num]:
                 highlight = fitz.Rect(word[:4])
-                highlighted_doc[page_num].add_highlight_annot(highlight)
-
-        return highlighted_doc
+                doc[page_num].add_highlight_annot(highlight)
+        return doc
 
     def load_page_pair(self, page_num):
         doc1 = fitz.open(self.pdf1_path)
         doc2 = fitz.open(self.pdf2_path)
         
-        highlighted_doc1 = self.highlight_differences(doc1, self.pdf1_words, self.pdf2_words, page_num)
-        highlighted_doc2 = self.highlight_differences(doc2, self.pdf2_words, self.pdf1_words, page_num)
+        doc1 = self.highlight_differences(doc1, self.pdf1_words, self.pdf2_words, page_num)
+        doc2 = self.highlight_differences(doc2, self.pdf2_words, self.pdf1_words, page_num)
 
-        self.display_pdfs(self.pdf1_layout, highlighted_doc1, page_num)
-        self.display_pdfs(self.pdf2_layout, highlighted_doc2, page_num)
+        self.display_pdfs(self.pdf1_layout, doc1, page_num)
+        self.display_pdfs(self.pdf2_layout, doc2, page_num)
 
-        self.highlight_current_difference()
+        self.find_differences(self.pdf1_words, self.pdf2_words)
+        self.update_navigation_buttons()
 
     def display_pdfs(self, layout, doc, page_num):
         for i in reversed(range(layout.count())):
@@ -219,10 +215,10 @@ class PDFComparer(QMainWindow):
 
     def find_differences(self, words1, words2):
         self.differences = []
-        for page_num in range(len(words1)):
-            words1_set = set((word[4] for word in words1[page_num]))
-            words2_set = set((word[4] for word in words2[page_num]))
-            page_differences = [(page_num, word, self.find_closest_word(word, words2[page_num])) for word in words1[page_num] if word[4] not in words2_set]
+        if self.current_page < len(words1) and self.current_page < len(words2):
+            words1_set = set((word[4] for word in words1[self.current_page]))
+            words2_set = set((word[4] for word in words2[self.current_page]))
+            page_differences = [(self.current_page, word, self.find_closest_word(word, words2[self.current_page])) for word in words1[self.current_page] if word[4] not in words2_set]
             self.differences.extend(page_differences)
         if self.differences:
             self.current_difference_index = 0
@@ -236,7 +232,7 @@ class PDFComparer(QMainWindow):
             if distance < min_distance:
                 min_distance = distance
                 closest_word = w
-        return closest_word if closest_word and min_distance < 50 else None
+        return closest_word[4] if closest_word and min_distance < 50 else "ND"
 
     def euclidean_distance(self, word1, word2):
         x1, y1, x2, y2 = word1[:4]
@@ -260,30 +256,29 @@ class PDFComparer(QMainWindow):
 
             # Load and highlight in first PDF
             doc1 = fitz.open(self.pdf1_path)
-            highlighted_doc1 = self.highlight_differences(doc1, self.pdf1_words, self.pdf2_words, page_num)
+            doc1 = self.highlight_differences(doc1, self.pdf1_words, self.pdf2_words, page_num)
             highlight1 = fitz.Rect(word[:4])
-            extra_highlight1 = highlighted_doc1[page_num].add_rect_annot(highlight1)
+            extra_highlight1 = doc1[page_num].add_rect_annot(highlight1)
             extra_highlight1.set_colors(stroke=(1, 0, 0), fill=None)  # Red color for the border
             extra_highlight1.update()
-            self.display_pdfs(self.pdf1_layout, highlighted_doc1, page_num)
+            self.display_pdfs(self.pdf1_layout, doc1, page_num)
             if len(self.temp_pdf1_paths) <= self.current_page:
-                self.temp_pdf1_paths.append(highlighted_doc1)
+                self.temp_pdf1_paths.append(doc1)
             else:
-                self.temp_pdf1_paths[self.current_page] = highlighted_doc1
+                self.temp_pdf1_paths[self.current_page] = doc1
 
             # Load and highlight in second PDF
             doc2 = fitz.open(self.pdf2_path)
-            highlighted_doc2 = self.highlight_differences(doc2, self.pdf2_words, self.pdf1_words, page_num)
-            if matching_word:
-                highlight2 = fitz.Rect(matching_word[:4])
-                extra_highlight2 = highlighted_doc2[page_num].add_rect_annot(highlight2)
-                extra_highlight2.set_colors(stroke=(1, 0, 0), fill=None)  # Red color for the border
-                extra_highlight2.update()
-            self.display_pdfs(self.pdf2_layout, highlighted_doc2, page_num)
+            doc2 = self.highlight_differences(doc2, self.pdf2_words, self.pdf1_words, page_num)
+            highlight2 = fitz.Rect(word[:4])
+            extra_highlight2 = doc2[page_num].add_rect_annot(highlight2)
+            extra_highlight2.set_colors(stroke=(1, 0, 0), fill=None)  # Red color for the border
+            extra_highlight2.update()
+            self.display_pdfs(self.pdf2_layout, doc2, page_num)
             if len(self.temp_pdf2_paths) <= self.current_page:
-                self.temp_pdf2_paths.append(highlighted_doc2)
+                self.temp_pdf2_paths.append(doc2)
             else:
-                self.temp_pdf2_paths[self.current_page] = highlighted_doc2
+                self.temp_pdf2_paths[self.current_page] = doc2
 
             self.update_difference_label()
 
@@ -306,8 +301,7 @@ class PDFComparer(QMainWindow):
     def update_difference_label(self):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
             page_num, word, matching_word = self.differences[self.current_difference_index]
-            matching_word_text = matching_word[4] if matching_word else "ND"
-            self.difference_label.setText(f"Difference {self.current_difference_index + 1} of {len(self.differences)}: Page {page_num + 1}, Word in PDF1: '{word[4]}', Word in PDF2: '{matching_word_text}'")
+            self.difference_label.setText(f"Difference {self.current_difference_index + 1} of {len(self.differences)}: Page {page_num + 1}, Word in PDF1: '{word[4]}', Word in PDF2: '{matching_word}'")
 
     def toggle_other_input(self):
         if self.radio_otro.isChecked():
