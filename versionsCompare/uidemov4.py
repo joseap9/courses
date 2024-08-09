@@ -230,11 +230,14 @@ class PDFComparer(QMainWindow):
         if self.current_page < len(words1) and self.current_page < len(words2):
             words1_set = set((word[4] for word in words1[self.current_page]))
             words2_set = set((word[4] for word in words2[self.current_page]))
-            page_differences = [(self.current_page, word, self.find_closest_word(word, words2[self.current_page])) for word in words1[self.current_page] if word[4] not in words2_set]
+            
+            # Encuentra palabras en PDF1 que no están en PDF2
+            page_differences = [(self.current_page, word1, word2) for word1 in words1[self.current_page] for word2 in words2[self.current_page] if word1[4] not in words2_set]
             self.differences.extend(page_differences)
         if self.differences:
             self.current_difference_index = 0
             self.update_navigation_buttons()
+
 
     def update_navigation_buttons(self):
         self.prev_diff_button.setEnabled(self.current_difference_index > 0)
