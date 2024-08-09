@@ -355,7 +355,7 @@ class PDFComparer(QMainWindow):
             self.current_page -= 1
             self.next_button.setEnabled(True)
             
-            # Si los pixmaps de la página anterior no están cargados, cárgalos.
+            # Cargar la página anterior si no está cargada
             if self.current_page >= len(self.temp_pdf1_paths):
                 self.load_page_pair(self.current_page)
             
@@ -364,6 +364,7 @@ class PDFComparer(QMainWindow):
             
             if self.current_page == 0:
                 self.prev_button.setEnabled(False)
+
 
     def save_current_label(self):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
