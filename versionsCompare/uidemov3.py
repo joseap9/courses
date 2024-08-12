@@ -1,186 +1,139 @@
 import sys
-from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget,
-    QScrollArea, QSplitter, QLabel, QHBoxLayout
-)
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QPixmap, QImage
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton, QLabel, QFileDialog
+from PyQt5.QtGui import QPixmap, QPainter, QColor, QFont
 import fitz  # PyMuPDF
 
-class PDFComparer(QMainWindow):
+class PDFComparator(QWidget):
     def __init__(self):
         super().__init__()
-
-        self.setWindowTitle("PDF Comparer")
-        self.setGeometry(100, 100, 1200, 800)
-
-        self.layout = QVBoxLayout()
-
-        self.button1 = QPushButton("Select First PDF", self)
-        self.button1.clicked.connect(self.load_first_pdf)
-        self.layout.addWidget(self.button1)
-
-        self.button2 = QPushButton("Select Second PDF", self)
-        self.button2.clicked.connect(self.load_second_pdf)
-        self.layout.addWidget(self.button2)
-
-        self.label = QLabel("Description of the current difference will appear here", self)
-        self.layout.addWidget(self.label)
-
-        navigation_layout = QHBoxLayout()
-        self.prev_button = QPushButton("Previous Difference", self)
-        self.prev_button.clicked.connect(self.prev_difference)
-        self.next_button = QPushButton("Next Difference", self)
-        self.next_button.clicked.connect(self.next_difference)
-        navigation_layout.addWidget(self.prev_button)
-        navigation_layout.addWidget(self.next_button)
-        self.layout.addLayout(navigation_layout)
-
-        self.splitter = QSplitter(Qt.Horizontal)
-        self.layout.addWidget(self.splitter)
-
-        self.pdf1_scroll = QScrollArea(self)
-        self.pdf1_container = QWidget()
-        self.pdf1_layout = QVBoxLayout()
-        self.pdf1_container.setLayout(self.pdf1_layout)
-        self.pdf1_scroll.setWidget(self.pdf1_container)
-        self.pdf1_scroll.setWidgetResizable(True)
-
-        self.pdf2_scroll = QScrollArea(self)
-        self.pdf2_container = QWidget()
-        self.pdf2_layout = QVBoxLayout()
-        self.pdf2_container.setLayout(self.pdf2_layout)
-        self.pdf2_scroll.setWidget(self.pdf2_container)
-        self.pdf2_scroll.setWidgetResizable(True)
-
-        self.splitter.addWidget(self.pdf1_scroll)
-        self.splitter.addWidget(self.pdf2_scroll)
-
-        container = QWidget()
-        container.setLayout(self.layout)
-        self.setCentralWidget(container)
-
-        self.pdf1_text = None
-        self.pdf2_text = None
-        self.pdf1_path = None
-        self.pdf2_path = None
+        
+        self.pdf1 = None
+        self.pdf2 = None
         self.differences = []
         self.current_diff_index = 0
-
-        self.pdf1_scroll.verticalScrollBar().valueChanged.connect(self.sync_scroll)
-        self.pdf2_scroll.verticalScrollBar().valueChanged.connect(self.sync_scroll)
-
-    def sync_scroll(self, value):
-        if self.sender() == self.pdf1_scroll.verticalScrollBar():
-            self.pdf2_scroll.verticalScrollBar().setValue(value)
-        elif self.sender() == self.pdf2_scroll.verticalScrollBar():
-            self.pdf1_scroll.verticalScrollBar().setValue(value)
-
-    def load_first_pdf(self):
-        options = QFileDialog.Options()
-        fileName, _ = QFileDialog.getOpenFileName(self, "Select First PDF", "", "PDF Files (*.pdf);;All Files (*)", options=options)
-        if fileName:
-            self.button1.setText(fileName.split('/')[-1])
-            self.pdf1_path = fileName
+        
+        self.initUI()
+        
+    def initUI(self):
+        layout = QVBoxLayout()
+        
+        # Labels to show PDFs
+        self.label_pdf1 = QLabel("PDF1 Preview")
+        self.label_pdf2 = QLabel("PDF2 Preview")
+        layout.addWidget(self.label_pdf1)
+        layout.addWidget(self.label_pdf2)
+        
+        # Label to show difference description
+        self.diff_label = QLabel("Diferencia actual: ")
+        layout.addWidget(self.diff_label)
+        
+        # Buttons to navigate differences
+        self.prev_button = QPushButton("Anterior Diferencia")
+        self.prev_button.clicked.connect(self.prev_diff)
+        layout.addWidget(self.prev_button)
+        
+        self.next_button = QPushButton("Siguiente Diferencia")
+        self.next_button.clicked.connect(self.next_diff)
+        layout.addWidget(self.next_button)
+        
+        # Load PDF buttons
+        self.load_pdf1_button = QPushButton("Select First PDF")
+        self.load_pdf1_button.clicked.connect(self.load_pdf1)
+        layout.addWidget(self.load_pdf1_button)
+        
+        self.load_pdf2_button = QPushButton("Select Second PDF")
+        self.load_pdf2_button.clicked.connect(self.load_pdf2)
+        layout.addWidget(self.load_pdf2_button)
+        
+        self.setLayout(layout)
+        self.setWindowTitle('PDF Comparator')
+        self.show()
+        
+    def load_pdf1(self):
+        file_name, _ = QFileDialog.getOpenFileName(self, "Select First PDF", "", "PDF Files (*.pdf)")
+        if file_name:
+            self.pdf1 = fitz.open(file_name)
             self.compare_pdfs()
 
-    def load_second_pdf(self):
-        options = QFileDialog.Options()
-        fileName, _ = QFileDialog.getOpenFileName(self, "Select Second PDF", "", "PDF Files (*.pdf);;All Files (*)", options=options)
-        if fileName:
-            self.button2.setText(fileName.split('/')[-1])
-            self.pdf2_path = fileName
+    def load_pdf2(self):
+        file_name, _ = QFileDialog.getOpenFileName(self, "Select Second PDF", "", "PDF Files (*.pdf)")
+        if file_name:
+            self.pdf2 = fitz.open(file_name)
             self.compare_pdfs()
-
-    def extract_text_and_positions(self, file_path):
-        document = fitz.open(file_path)
-        text = []
-        words = []
-
-        for page_num in range(document.page_count):
-            page = document.load_page(page_num)
-            text.append(page.get_text())
-            word_list = page.get_text("words")
-            words.append(word_list)
-
-        return text, words
-
+        
     def compare_pdfs(self):
-        if self.pdf1_path and self.pdf2_path:
-            self.pdf1_text, self.pdf1_words = self.extract_text_and_positions(self.pdf1_path)
-            self.pdf2_text, self.pdf2_words = self.extract_text_and_positions(self.pdf2_path)
-
+        if self.pdf1 and self.pdf2:
             self.differences = []
-            self.find_differences()
-
+            # Assumes both PDFs have the same number of pages for simplicity
+            for page_num in range(min(len(self.pdf1), len(self.pdf2))):
+                page1 = self.pdf1.load_page(page_num)
+                page2 = self.pdf2.load_page(page_num)
+                
+                text1 = page1.get_text("words")
+                text2 = page2.get_text("words")
+                
+                min_len = min(len(text1), len(text2))
+                for i in range(min_len):
+                    word1 = text1[i]
+                    word2 = text2[i]
+                    
+                    if word1[4] != word2[4]:
+                        self.differences.append((page_num, word1, word2))
+                    elif len(text1) > len(text2):
+                        for word in text1[len(text2):]:
+                            self.differences.append((page_num, word, ('SD',) * 5))
+                    elif len(text2) > len(text1):
+                        for word in text2[len(text1):]:
+                            self.differences.append((page_num, ('SD',) * 5, word))
+            
             if self.differences:
                 self.current_diff_index = 0
-                self.display_current_difference()
+                self.show_difference()
 
-    def find_differences(self):
-        max_pages = min(len(self.pdf1_words), len(self.pdf2_words))
-
-        for page_num in range(max_pages):
-            words1_set = set((word[4] for word in self.pdf1_words[page_num]))
-            words2_set = set((word[4] for word in self.pdf2_words[page_num]))
-
-            for word1 in self.pdf1_words[page_num]:
-                if word1[4] not in words2_set:
-                    self.differences.append((page_num, word1, None))
-            for word2 in self.pdf2_words[page_num]:
-                if word2[4] not in words1_set:
-                    self.differences.append((page_num, None, word2))
-
-    def display_current_difference(self):
+    def show_difference(self):
         if not self.differences:
             return
-
+        
         page_num, word1, word2 = self.differences[self.current_diff_index]
+        
+        pixmap1 = QPixmap(self.render_page(self.pdf1, page_num))
+        pixmap2 = QPixmap(self.render_page(self.pdf2, page_num))
+        
+        # Highlight differences
+        self.highlight_difference(pixmap1, word1)
+        self.highlight_difference(pixmap2, word2)
+        
+        self.label_pdf1.setPixmap(pixmap1)
+        self.label_pdf2.setPixmap(pixmap2)
+        
+        # Update label with description
+        desc = f"PDF1: {word1[4]} - PDF2: {word2[4]}"
+        self.diff_label.setText(f"Diferencia actual: {desc}")
+    
+    def highlight_difference(self, pixmap, word):
+        if word[0] != 'SD':
+            painter = QPainter(pixmap)
+            painter.setPen(QColor(255, 0, 0))
+            rect = fitz.Rect(word[:4])
+            painter.drawRect(rect.x0, rect.y0, rect.width, rect.height)
+            painter.end()
 
-        self.highlight_differences(self.pdf1_path, word1, self.pdf1_layout, is_pdf1=True)
-        self.highlight_differences(self.pdf2_path, word2, self.pdf2_layout, is_pdf1=False)
+    def render_page(self, pdf, page_num):
+        page = pdf.load_page(page_num)
+        pix = page.get_pixmap()
+        return pix.tobytes('ppm')
+    
+    def prev_diff(self):
+        if self.current_diff_index > 0:
+            self.current_diff_index -= 1
+            self.show_difference()
+    
+    def next_diff(self):
+        if self.current_diff_index < len(self.differences) - 1:
+            self.current_diff_index += 1
+            self.show_difference()
 
-        description = f"Page {page_num + 1}: "
-        if word1 and word2:
-            description += f"PDF1: '{word1[4]}' vs PDF2: '{word2[4]}'"
-        elif word1:
-            description += f"PDF1: '{word1[4]}' vs PDF2: 'SD'"
-        elif word2:
-            description += f"PDF1: 'SD' vs PDF2: '{word2[4]}'"
-
-        self.label.setText(description)
-
-    def highlight_differences(self, file_path, word, layout, is_pdf1):
-        doc = fitz.open(file_path)
-
-        for i in reversed(range(layout.count())):
-            layout.itemAt(i).widget().deleteLater()
-
-        if word:
-            page = doc.load_page(word[5])
-            highlight = fitz.Rect(word[:4])
-            page.add_highlight_annot(highlight)
-
-        for page_num in range(len(doc)):
-            page = doc.load_page(page_num)
-            pix = page.get_pixmap()
-            img = QImage(pix.samples, pix.width, pix.height, pix.stride, QImage.Format_RGB888)
-            label = QLabel(self)
-            label.setPixmap(QPixmap.fromImage(img))
-            layout.addWidget(label)
-
-    def next_difference(self):
-        if self.differences:
-            self.current_diff_index = (self.current_diff_index + 1) % len(self.differences)
-            self.display_current_difference()
-
-    def prev_difference(self):
-        if self.differences:
-            self.current_diff_index = (self.current_diff_index - 1) % len(self.differences)
-            self.display_current_difference()
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     app = QApplication(sys.argv)
-    comparer = PDFComparer()
-    comparer.show()
+    ex = PDFComparator()
     sys.exit(app.exec_())
