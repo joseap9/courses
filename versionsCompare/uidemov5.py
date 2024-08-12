@@ -172,7 +172,7 @@ class PDFComparer(QMainWindow):
         for page_num in range(document.page_count):
             page = document.load_page(page_num)
             page_text = page.get_text()
-            paragraphs = page_text.split('\n')
+            paragraphs = page_text.splitlines()  # Dividir por saltos de línea
             page_words = page.get_text("words")
 
             paragraph_words = []
