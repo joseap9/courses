@@ -322,14 +322,14 @@ class PDFComparer(QMainWindow):
             # Resalta en el primer PDF
             doc1 = self.temp_pdf1_paths[self.current_page]
             if word1[0] != 'SD':  # Solo resaltar si no es 'SD'
-                highlight1 = fitz.Rect(word1[:4])
+                highlight1 = fitz.Rect(*word1[:4])
                 doc1[page_num].add_rect_annot(highlight1)
             self.display_pdfs(self.pdf1_layout, doc1, page_num)
 
             # Resalta en el segundo PDF
             doc2 = self.temp_pdf2_paths[self.current_page]
             if word2[0] != 'SD':  # Solo resaltar si no es 'SD'
-                highlight2 = fitz.Rect(word2[:4])
+                highlight2 = fitz.Rect(*word2[:4])
                 doc2[page_num].add_rect_annot(highlight2)
             self.display_pdfs(self.pdf2_layout, doc2, page_num)
 
