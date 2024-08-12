@@ -263,11 +263,21 @@ class PDFComparer(QMainWindow):
 
     def load_page_pair(self, page_num):
         # Cargar y resaltar diferencias en PDF1
-        doc1 = self.temp_pdf1_paths[self.current_page] if len(self.temp_pdf1_paths) > self.current_page else fitz.open(self.pdf1_path)
+        if len(self.temp_pdf1_paths) <= self.current_page:
+            doc1 = fitz.open(self.pdf1_path)
+            self.temp_pdf1_paths.append(doc1)
+        else:
+            doc1 = self.temp_pdf1_paths[self.current_page]
+
         doc1, differences1 = self.highlight_differences(doc1, self.pdf1_words, self.pdf2_words, page_num)
 
         # Cargar y resaltar diferencias en PDF2
-        doc2 = self.temp_pdf2_paths[self.current_page] if len(self.temp_pdf2_paths) > self.current_page else fitz.open(self.pdf2_path)
+        if len(self.temp_pdf2_paths) <= self.current_page:
+            doc2 = fitz.open(self.pdf2_path)
+            self.temp_pdf2_paths.append(doc2)
+        else:
+            doc2 = self.temp_pdf2_paths[self.current_page]
+
         doc2, differences2 = self.highlight_differences(doc2, self.pdf2_words, self.pdf1_words, page_num)
 
         self.display_pdfs(self.pdf1_layout, doc1, page_num)
@@ -282,13 +292,8 @@ class PDFComparer(QMainWindow):
 
         # Guardar los documentos con las anotaciones
         if len(self.temp_pdf1_paths) <= self.current_page:
-            self.temp_pdf1_paths.append(doc1)
-        else:
             self.temp_pdf1_paths[self.current_page] = doc1
-
         if len(self.temp_pdf2_paths) <= self.current_page:
-            self.temp_pdf2_paths.append(doc2)
-        else:
             self.temp_pdf2_paths[self.current_page] = doc2
 
     def display_pdfs(self, layout, doc, page_num):
@@ -375,11 +380,7 @@ class PDFComparer(QMainWindow):
             self.prev_button.setEnabled(True)
             
             # Cargar la siguiente página si no está cargada
-            if self.current_page >= len(self.temp_pdf1_paths):
-                self.load_page_pair(self.current_page)
-            else:
-                self.display_pdfs(self.pdf1_layout, self.temp_pdf1_paths[self.current_page], self.current_page)
-                self.display_pdfs(self.pdf2_layout, self.temp_pdf2_paths[self.current_page], self.current_page)
+            self.load_page_pair(self.current_page)
             
             if self.current_page == self.total_pages - 1:
                 self.next_button.setEnabled(False)
@@ -390,11 +391,7 @@ class PDFComparer(QMainWindow):
             self.next_button.setEnabled(True)
             
             # Cargar la página anterior si no está cargada
-            if self.current_page >= len(self.temp_pdf1_paths):
-                self.load_page_pair(self.current_page)
-            else:
-                self.display_pdfs(self.pdf1_layout, self.temp_pdf1_paths[self.current_page], self.current_page)
-                self.display_pdfs(self.pdf2_layout, self.temp_pdf2_paths[self.current_page], self.current_page)
+            self.load_page_pair(self.current_page)
             
             if self.current_page == 0:
                 self.prev_button.setEnabled(False)
