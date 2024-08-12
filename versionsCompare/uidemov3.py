@@ -117,9 +117,14 @@ class PDFComparator(QWidget):
         if word[0] != 'SD':
             painter = QPainter(pixmap)
             painter.setPen(QColor(255, 0, 0))
+            
+            # Convertir coordenadas flotantes a enteros
             rect = fitz.Rect(word[:4])
-            painter.drawRect(rect.x0, rect.y0, rect.width, rect.height)
+            x0, y0, x1, y1 = int(rect.x0), int(rect.y0), int(rect.x1), int(rect.y1)
+            painter.drawRect(x0, y0, x1 - x0, y1 - y0)
+            
             painter.end()
+
 
     def render_page(self, pdf, page_num):
         page = pdf.load_page(page_num)
