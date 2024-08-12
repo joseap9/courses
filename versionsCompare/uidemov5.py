@@ -207,11 +207,11 @@ class PDFComparer(QMainWindow):
     def load_page_pair(self, page_num):
         # Cargar y resaltar diferencias en PDF1
         doc1 = self.temp_pdf1_paths[self.current_page] if len(self.temp_pdf1_paths) > self.current_page else fitz.open(self.pdf1_path)
-        doc1, differences1, _ = self.highlight_differences(doc1, self.pdf1_words, self.pdf2_words, page_num)
+        doc1, differences1 = self.highlight_differences(doc1, self.pdf1_words, self.pdf2_words, page_num)
 
         # Cargar y resaltar diferencias en PDF2
         doc2 = self.temp_pdf2_paths[self.current_page] if len(self.temp_pdf2_paths) > self.current_page else fitz.open(self.pdf2_path)
-        doc2, _, differences2 = self.highlight_differences(doc2, self.pdf2_words, self.pdf1_words, page_num)
+        doc2, differences2 = self.highlight_differences(doc2, self.pdf2_words, self.pdf1_words, page_num)
 
         self.display_pdfs(self.pdf1_layout, doc1, page_num)
         self.display_pdfs(self.pdf2_layout, doc2, page_num)
@@ -231,6 +231,7 @@ class PDFComparer(QMainWindow):
             self.temp_pdf2_paths.append(doc2)
         else:
             self.temp_pdf2_paths[self.current_page] = doc2
+
 
 
     def display_pdfs(self, layout, doc, page_num):
