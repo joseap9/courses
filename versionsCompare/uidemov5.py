@@ -286,8 +286,13 @@ class PDFComparer(QMainWindow):
                 doc2[page_num].add_rect_annot(highlight2)
                 self.display_pdfs(self.pdf2_layout, doc2, page_num)
 
+            # Verificar que las palabras tengan al menos 5 elementos antes de acceder al índice 4
+            text1 = word1[4] if word1 and len(word1) > 4 else ""
+            text2 = word2[4] if word2 and len(word2) > 4 else ""
+
             # Actualizar el QLabel con el texto exacto resaltado de ambos PDFs
-            self.difference_label.setText(f"PDF1: '{word1[4] if word1 else ''}'\nPDF2: '{word2[4] if word2 else ''}'")
+            self.difference_label.setText(f"PDF1: '{text1}'\nPDF2: '{text2}'")
+
 
 
     def update_navigation_buttons(self):
