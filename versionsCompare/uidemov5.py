@@ -195,18 +195,21 @@ class PDFComparer(QMainWindow):
             words1_set = set((word[4] for word in words1[page_num]))
             words2_set = set((word[4] for word in words2[page_num]))
 
+            for word1 in words1[page_num]:
+                if word1[4] not in words2_set:
+                    highlight = fitz.Rect(word1[:4])
+                    doc[page_num].add_highlight_annot(highlight)
+                    differences.append((word1, None))
             for word2 in words2[page_num]:
                 if word2[4] not in words1_set:
                     highlight = fitz.Rect(word2[:4])
                     doc[page_num].add_highlight_annot(highlight)
                     new_words.append(word2)  # Añadir a la lista de palabras nuevas
-                elif word2[4] in words1_set:
-                    for word1 in words1[page_num]:
-                        if word1[4] == word2[4]:
-                            if word1[4] != word2[4]:
-                                highlight = fitz.Rect(word1[:4])
-                                doc[page_num].add_highlight_annot(highlight)
-                                differences.append((word1, word2))
+        elif page_num < len(words1):
+            for word1 in words1[page_num]:
+                highlight = fitz.Rect(word1[:4])
+                doc[page_num].add_highlight_annot(highlight)
+                differences.append((word1, None))
         elif page_num < len(words2):
             for word2 in words2[page_num]:
                 highlight = fitz.Rect(word2[:4])
@@ -227,8 +230,9 @@ class PDFComparer(QMainWindow):
         self.display_pdfs(self.pdf1_layout, doc1, page_num)
         self.display_pdfs(self.pdf2_layout, doc2, page_num)
 
-        self.differences = list(zip(differences1, differences2))  # Combina las diferencias de ambos PDFs
-        self.new_words = list(set(new_words1 + new_words2))  # Unir todas las palabras nuevas
+        # Filtra las diferencias para que solo resalte el recuadro rojo en palabras que existen en ambos PDFs pero son diferentes
+        self.differences = [(d1, d2) for d1, d2 in zip(differences1, differences2) if d1 and d2 and d1[4] != d2[4]]
+        self.new_words = new_words2  # Actualiza las palabras nuevas solo en el PDF2
         self.current_difference_index = 0
         self.update_navigation_buttons()
 
