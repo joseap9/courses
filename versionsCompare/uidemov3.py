@@ -118,22 +118,17 @@ class PDFComparer(QMainWindow):
                 self.display_current_difference()
 
     def find_differences(self):
-        for page_num in range(len(self.pdf1_words)):
-            if page_num < len(self.pdf2_words):
-                words1_set = set((word[4] for word in self.pdf1_words[page_num]))
-                words2_set = set((word[4] for word in self.pdf2_words[page_num]))
+        max_pages = min(len(self.pdf1_words), len(self.pdf2_words))
 
-                for word1 in self.pdf1_words[page_num]:
-                    if word1[4] not in words2_set:
-                        self.differences.append((page_num, word1, None))
-                for word2 in self.pdf2_words[page_num]:
-                    if word2[4] not in words1_set:
-                        self.differences.append((page_num, None, word2))
-            elif page_num < len(self.pdf1_words):
-                for word1 in self.pdf1_words[page_num]:
+        for page_num in range(max_pages):
+            words1_set = set((word[4] for word in self.pdf1_words[page_num]))
+            words2_set = set((word[4] for word in self.pdf2_words[page_num]))
+
+            for word1 in self.pdf1_words[page_num]:
+                if word1[4] not in words2_set:
                     self.differences.append((page_num, word1, None))
-            elif page_num < len(self.pdf2_words):
-                for word2 in self.pdf2_words[page_num]:
+            for word2 in self.pdf2_words[page_num]:
+                if word2[4] not in words1_set:
                     self.differences.append((page_num, None, word2))
 
     def display_current_difference(self):
