@@ -219,6 +219,10 @@ class PDFComparer(QMainWindow):
         # Filtrar diferencias que están presentes en ambos documentos
         self.differences = [(diff1, diff2) for diff1 in differences1 for diff2 in differences2 if diff1[4] == diff2[4]]
         self.current_difference_index = 0
+
+        if self.differences:
+            self.highlight_current_difference()
+
         self.update_navigation_buttons()
 
         # Guardar los documentos con las anotaciones
@@ -231,6 +235,7 @@ class PDFComparer(QMainWindow):
             self.temp_pdf2_paths.append(doc2)
         else:
             self.temp_pdf2_paths[self.current_page] = doc2
+
 
 
 
@@ -273,6 +278,7 @@ class PDFComparer(QMainWindow):
         self.prev_button.setEnabled(self.current_page > 0)
         self.next_button.setEnabled(self.current_page < self.total_pages - 1)
         self.update_difference_label()
+
 
     def update_difference_label(self):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
