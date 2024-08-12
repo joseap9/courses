@@ -277,6 +277,9 @@ class PDFComparer(QMainWindow):
         self.current_difference_index = 0
         self.update_navigation_buttons()
 
+        # Inicializar con la primera diferencia válida
+        self.highlight_current_difference()
+
         # Guardar los documentos con las anotaciones
         if len(self.temp_pdf1_paths) <= self.current_page:
             self.temp_pdf1_paths.append(doc1)
@@ -356,27 +359,13 @@ class PDFComparer(QMainWindow):
 
     def next_difference(self):
         if self.current_difference_index < len(self.differences) - 1:
-            current_paragraph_diffs = self.differences[self.current_difference_index]
             self.current_difference_index += 1
-
-            # Skip remaining differences in the current paragraph
-            while (self.current_difference_index < len(self.differences) - 1 and 
-                   self.differences[self.current_difference_index] == current_paragraph_diffs):
-                self.current_difference_index += 1
-
             self.update_navigation_buttons()
             self.highlight_current_difference()
 
     def prev_difference(self):
         if self.current_difference_index > 0:
-            current_paragraph_diffs = self.differences[self.current_difference_index]
             self.current_difference_index -= 1
-
-            # Skip remaining differences in the current paragraph
-            while (self.current_difference_index > 0 and 
-                   self.differences[self.current_difference_index] == current_paragraph_diffs):
-                self.current_difference_index -= 1
-
             self.update_navigation_buttons()
             self.highlight_current_difference()
 
