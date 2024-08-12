@@ -188,44 +188,40 @@ class PDFComparer(QMainWindow):
             self.highlight_current_difference()  # Marcar automáticamente la primera diferencia
 
     def highlight_differences(self, doc, words1, words2, page_num):
-        differences = []
-        paragraph_diff_1 = []
-        paragraph_diff_2 = []
+        differences1 = []
+        differences2 = []
 
         if page_num < len(words1) and page_num < len(words2):
-            # Comparar palabra por palabra en los párrafos
-            for word1, word2 in zip(words1[page_num], words2[page_num]):
-                if word1[4] != word2[4]:
-                    paragraph_diff_1.append(word1)
-                    paragraph_diff_2.append(word2)
-            
-            # Manejo de párrafos desiguales en cuanto a diferencias
-            if len(paragraph_diff_1) < len(paragraph_diff_2):
-                differences.extend(paragraph_diff_2[len(paragraph_diff_1):])
-            elif len(paragraph_diff_2) < len(paragraph_diff_1):
-                differences.extend(paragraph_diff_1[len(paragraph_diff_2):])
-        
-        # Resaltar diferencias encontradas
-        for word in paragraph_diff_1:
-            highlight = fitz.Rect(word[:4])
-            doc[page_num].add_highlight_annot(highlight)
-            differences.append(word)
+            words1_set = set((word[4] for word in words1[page_num]))
+            words2_set = set((word[4] for word in words2[page_num]))
 
-        for word in paragraph_diff_2:
-            highlight = fitz.Rect(word[:4])
-            doc[page_num].add_highlight_annot(highlight)
-            differences.append(word)
+            for word1 in words1[page_num]:
+                if word1[4] not in words2_set:
+                    highlight = fitz.Rect(word1[:4])
+                    doc[page_num].add_highlight_annot(highlight)
+                    differences1.append(word1)
 
-        return doc, differences
+            for word2 in words2[page_num]:
+                if word2[4] not in words1_set:
+                    highlight = fitz.Rect(word2[:4])
+                    doc[page_num].add_highlight_annot(highlight)
+                    differences2.append(word2)
+
+            # Ajustar para que las diferencias que sobran en un párrafo no continúen en el otro
+            max_differences = max(len(differences1), len(differences2))
+            differences1 = differences1[:max_differences]
+            differences2 = differences2[:max_differences]
+
+        return doc, differences1, differences2
 
     def load_page_pair(self, page_num):
         # Cargar y resaltar diferencias en PDF1
         doc1 = self.temp_pdf1_paths[self.current_page] if len(self.temp_pdf1_paths) > self.current_page else fitz.open(self.pdf1_path)
-        doc1, differences1 = self.highlight_differences(doc1, self.pdf1_words, self.pdf2_words, page_num)
+        doc1, differences1, differences2 = self.highlight_differences(doc1, self.pdf1_words, self.pdf2_words, page_num)
 
         # Cargar y resaltar diferencias en PDF2
         doc2 = self.temp_pdf2_paths[self.current_page] if len(self.temp_pdf2_paths) > self.current_page else fitz.open(self.pdf2_path)
-        doc2, differences2 = self.highlight_differences(doc2, self.pdf2_words, self.pdf1_words, page_num)
+        doc2, _, _ = self.highlight_differences(doc2, self.pdf2_words, self.pdf1_words, page_num)
 
         self.display_pdfs(self.pdf1_layout, doc1, page_num)
         self.display_pdfs(self.pdf2_layout, doc2, page_num)
