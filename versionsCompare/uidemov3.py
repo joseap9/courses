@@ -200,7 +200,7 @@ class PDFComparer(QMainWindow):
                 next_word = words1[page_num][i + 1] if i + 1 < len(words1[page_num]) else None
 
                 if word1[4] not in words2_set:
-                    highlight = fitz.Rect(word1[:4])
+                    highlight = fitz.Rect(word1[0], word1[1], word1[2], word1[3])
                     doc[page_num].add_highlight_annot(highlight)
                     current_paragraph.append(word1)
 
@@ -217,7 +217,7 @@ class PDFComparer(QMainWindow):
             for i, word1 in enumerate(words1[page_num]):
                 next_word = words1[page_num][i + 1] if i + 1 < len(words1[page_num]) else None
 
-                highlight = fitz.Rect(word1[:4])
+                highlight = fitz.Rect(word1[0], word1[1], word1[2], word1[3])
                 doc[page_num].add_highlight_annot(highlight)
                 current_paragraph.append(word1)
 
@@ -322,14 +322,14 @@ class PDFComparer(QMainWindow):
             # Resalta en el primer PDF
             doc1 = self.temp_pdf1_paths[self.current_page]
             if word1[0] != 'SD':  # Solo resaltar si no es 'SD'
-                highlight1 = fitz.Rect(*word1[:4])
+                highlight1 = fitz.Rect(word1[0], word1[1], word1[2], word1[3])
                 doc1[page_num].add_rect_annot(highlight1)
             self.display_pdfs(self.pdf1_layout, doc1, page_num)
 
             # Resalta en el segundo PDF
             doc2 = self.temp_pdf2_paths[self.current_page]
             if word2[0] != 'SD':  # Solo resaltar si no es 'SD'
-                highlight2 = fitz.Rect(*word2[:4])
+                highlight2 = fitz.Rect(word2[0], word2[1], word2[2], word2[3])
                 doc2[page_num].add_rect_annot(highlight2)
             self.display_pdfs(self.pdf2_layout, doc2, page_num)
 
