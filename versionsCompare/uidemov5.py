@@ -229,7 +229,6 @@ class PDFComparer(QMainWindow):
 
         return doc, differences
 
-
     def load_page_pair(self, page_num):
         # Cargar y resaltar diferencias en PDF1
         doc1 = self.temp_pdf1_paths[self.current_page] if len(self.temp_pdf1_paths) > self.current_page else fitz.open(self.pdf1_path)
@@ -293,8 +292,6 @@ class PDFComparer(QMainWindow):
             # Actualizar el QLabel con el texto exacto resaltado de ambos PDFs
             self.difference_label.setText(f"PDF1: '{text1}'\nPDF2: '{text2}'")
 
-
-
     def update_navigation_buttons(self):
         self.prev_diff_button.setEnabled(self.current_difference_index > 0)
         self.next_diff_button.setEnabled(self.current_difference_index < len(self.differences) - 1)
@@ -305,7 +302,13 @@ class PDFComparer(QMainWindow):
     def update_difference_label(self):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
             word1, word2 = self.differences[self.current_difference_index]
-            self.difference_label.setText(f"PDF1: '{word1[4]}'\nPDF2: '{word2[4]}'")
+            
+            # Verificar que las palabras tengan al menos 5 elementos antes de acceder al índice 4
+            text1 = word1[4] if word1 and len(word1) > 4 else ""
+            text2 = word2[4] if word2 and len(word2) > 4 else ""
+
+            # Actualizar el QLabel con el texto exacto resaltado de ambos PDFs
+            self.difference_label.setText(f"PDF1: '{text1}'\nPDF2: '{text2}'")
 
     def toggle_other_input(self):
         if self.radio_otro.isChecked():
