@@ -69,26 +69,44 @@ class PDFComparator(QWidget):
                 page1 = self.pdf1.load_page(page_num)
                 page2 = self.pdf2.load_page(page_num)
                 
-                text1 = page1.get_text("words")
-                text2 = page2.get_text("words")
+                lines1 = self.get_lines_from_page(page1)
+                lines2 = self.get_lines_from_page(page2)
                 
-                min_len = min(len(text1), len(text2))
+                min_len = min(len(lines1), len(lines2))
                 for i in range(min_len):
-                    word1 = text1[i]
-                    word2 = text2[i]
+                    line1 = lines1[i]
+                    line2 = lines2[i]
                     
-                    if word1[4] != word2[4]:
-                        self.differences.append((page_num, word1, word2))
-                    elif len(text1) > len(text2):
-                        for word in text1[len(text2):]:
+                    # Compare words in the line
+                    for word1, word2 in zip(line1, line2):
+                        if word1[4] != word2[4]:
+                            self.differences.append((page_num, word1, word2))
+                    # Check for extra words in either line
+                    if len(line1) > len(line2):
+                        for word in line1[len(line2):]:
                             self.differences.append((page_num, word, ('SD',) * 5))
-                    elif len(text2) > len(text1):
-                        for word in text2[len(text1):]:
+                    elif len(line2) > len(line1):
+                        for word in line2[len(line1):]:
                             self.differences.append((page_num, ('SD',) * 5, word))
             
             if self.differences:
                 self.current_diff_index = 0
                 self.show_difference()
+
+    def get_lines_from_page(self, page):
+        text = page.get_text("words")
+        lines = []
+        current_line = []
+        y0 = text[0][1] if text else 0  # Initialize y0 to the y-coordinate of the first word
+        for word in text:
+            if abs(word[1] - y0) > 5:  # A new line is detected if the y-coordinate changes significantly
+                lines.append(current_line)
+                current_line = []
+                y0 = word[1]
+            current_line.append(word)
+        if current_line:
+            lines.append(current_line)
+        return lines
 
     def show_difference(self):
         if not self.differences:
@@ -124,7 +142,6 @@ class PDFComparator(QWidget):
             painter.drawRect(x0, y0, x1 - x0, y1 - y0)
             
             painter.end()
-
 
     def render_page(self, pdf, page_num):
         page = pdf.load_page(page_num)
