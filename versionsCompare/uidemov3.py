@@ -1,6 +1,6 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton, QLabel, QFileDialog
-from PyQt5.QtGui import QPixmap, QPainter, QColor, QFont
+from PyQt5.QtGui import QPixmap, QPainter, QColor, QImage
 import fitz  # PyMuPDF
 
 class PDFComparator(QWidget):
@@ -96,8 +96,11 @@ class PDFComparator(QWidget):
         
         page_num, word1, word2 = self.differences[self.current_diff_index]
         
-        pixmap1 = QPixmap(self.render_page(self.pdf1, page_num))
-        pixmap2 = QPixmap(self.render_page(self.pdf2, page_num))
+        image1 = self.render_page(self.pdf1, page_num)
+        image2 = self.render_page(self.pdf2, page_num)
+        
+        pixmap1 = QPixmap.fromImage(image1)
+        pixmap2 = QPixmap.fromImage(image2)
         
         # Highlight differences
         self.highlight_difference(pixmap1, word1)
@@ -121,7 +124,8 @@ class PDFComparator(QWidget):
     def render_page(self, pdf, page_num):
         page = pdf.load_page(page_num)
         pix = page.get_pixmap()
-        return pix.tobytes('ppm')
+        image = QImage(pix.samples, pix.width, pix.height, pix.stride, QImage.Format_RGB888)
+        return image
     
     def prev_diff(self):
         if self.current_diff_index > 0:
