@@ -305,16 +305,24 @@ class PDFComparer(QMainWindow):
 
             page_num = self.current_page
 
+            # Reemplazar None por 'SD' y verificar que tengan suficientes elementos
+            if not word1 or len(word1) <= 4:
+                word1 = ['SD'] * 5
+            if not word2 or len(word2) <= 4:
+                word2 = ['SD'] * 5
+
             # Resalta en el primer PDF
             doc1 = self.temp_pdf1_paths[self.current_page]
-            highlight1 = fitz.Rect(word1[:4])
-            doc1[page_num].add_rect_annot(highlight1)
+            if word1[0] != 'SD':  # Solo resaltar si no es 'SD'
+                highlight1 = fitz.Rect(word1[:4])
+                doc1[page_num].add_rect_annot(highlight1)
             self.display_pdfs(self.pdf1_layout, doc1, page_num)
 
             # Resalta en el segundo PDF
             doc2 = self.temp_pdf2_paths[self.current_page]
-            highlight2 = fitz.Rect(word2[:4])
-            doc2[page_num].add_rect_annot(highlight2)
+            if word2[0] != 'SD':  # Solo resaltar si no es 'SD'
+                highlight2 = fitz.Rect(word2[:4])
+                doc2[page_num].add_rect_annot(highlight2)
             self.display_pdfs(self.pdf2_layout, doc2, page_num)
 
             # Actualizar el QLabel con el texto exacto resaltado de ambos PDFs
@@ -330,6 +338,13 @@ class PDFComparer(QMainWindow):
     def update_difference_label(self):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
             word1, word2 = self.differences[self.current_difference_index]
+
+            # Reemplazar None por 'SD' y verificar que tengan suficientes elementos
+            if not word1 or len(word1) <= 4:
+                word1 = ['SD'] * 5
+            if not word2 or len(word2) <= 4:
+                word2 = ['SD'] * 5
+
             self.difference_label.setText(f"PDF1: '{word1[4]}'\nPDF2: '{word2[4]}'")
 
     def toggle_other_input(self):
