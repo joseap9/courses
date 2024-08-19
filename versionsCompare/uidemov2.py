@@ -177,8 +177,17 @@ class PDFComparer(QMainWindow):
 
         return text, words
 
-    def split_into_paragraphs(self, text):
-        return text.split("\n\n")
+    def split_into_paragraphs(self, words):
+        paragraphs = []
+        current_paragraph = []
+        for word in words:
+            current_paragraph.append(word)
+            if '\n\n' in word[4]:  # Detecta doble salto de línea como delimitador de párrafo
+                paragraphs.append(current_paragraph)
+                current_paragraph = []
+        if current_paragraph:
+            paragraphs.append(current_paragraph)
+        return paragraphs
 
     def compare_pdfs(self):
         if self.pdf1_path and self.pdf2_path:
@@ -191,58 +200,36 @@ class PDFComparer(QMainWindow):
 
     def highlight_differences(self, doc, words1, words2, page_num):
         differences = []
-        current_diff = []
 
         if page_num < len(words1) and page_num < len(words2):
             # Dividir los textos en párrafos
-            paragraphs1 = self.split_into_paragraphs("".join([word[4] for word in words1[page_num]]))
-            paragraphs2 = self.split_into_paragraphs("".join([word[4] for word in words2[page_num]]))
+            paragraphs1 = self.split_into_paragraphs(words1[page_num])
+            paragraphs2 = self.split_into_paragraphs(words2[page_num])
 
             for para1, para2 in zip(paragraphs1, paragraphs2):
-                para_words1 = [word for word in words1[page_num] if para1 in word[4]]
-                para_words2 = [word for word in words2[page_num] if para2 in word[4]]
+                words1_set = set((word[4] for word in para1))
+                words2_set = set((word[4] for word in para2))
 
-                words1_set = set((word[4] for word in para_words1))
-                words2_set = set((word[4] for word in para_words2))
-
-                for word1 in para_words1:
+                para_diff = []
+                for word1 in para1:
                     if word1[4] not in words2_set:
-                        if current_diff and (int(word1[0]) > int(current_diff[-1][2]) + 10):  # Verifica si las palabras no son consecutivas
-                            differences.append(current_diff)
-                            current_diff = []
-                        current_diff.append(word1)
+                        para_diff.append(word1)
+
+                if para_diff:
+                    for word1 in para_diff:
                         highlight = fitz.Rect(word1[:4])
                         doc[page_num].add_highlight_annot(highlight)
-                    else:
-                        if current_diff:
-                            differences.append(current_diff)
-                            current_diff = []
-                if current_diff:
-                    differences.append(current_diff)
-        elif page_num < len(words1):  # Caso donde solo hay texto en el primer PDF
-            for word1 in words1[page_num]:
-                current_diff.append(word1)
-                highlight = fitz.Rect(word1[:4])
-                doc[page_num].add_highlight_annot(highlight)
-            differences.append(current_diff)
-            self.difference_label.setText(f"Texto encontrado en PDF1 pero no en PDF2:\n{' '.join([word[4] for word in current_diff])}")
-        elif page_num < len(words2):  # Caso donde solo hay texto en el segundo PDF
-            for word2 in words2[page_num]:
-                current_diff.append(word2)
-                highlight = fitz.Rect(word2[:4])
-                doc[page_num].add_highlight_annot(highlight)
-            differences.append(current_diff)
-            self.difference_label.setText(f"Texto encontrado en PDF2 pero no en PDF1:\n{' '.join([word[4] for word in current_diff])}")
+                    differences.append(para_diff)
 
         return doc, differences
 
     def load_page_pair(self, page_num):
         # Cargar y resaltar diferencias en PDF1
-        doc1 = self.temp_pdf1_paths[self.current_page] if len(self.temp_pdf1_paths) > self.current_page else fitz.open(self.pdf1_path)
+        doc1 = fitz.open(self.pdf1_path)
         doc1, differences1 = self.highlight_differences(doc1, self.pdf1_words, self.pdf2_words, page_num)
 
         # Cargar y resaltar diferencias en PDF2
-        doc2 = self.temp_pdf2_paths[self.current_page] if len(self.temp_pdf2_paths) > self.current_page else fitz.open(self.pdf2_path)
+        doc2 = fitz.open(self.pdf2_path)
         doc2, differences2 = self.highlight_differences(doc2, self.pdf2_words, self.pdf1_words, page_num)
 
         self.display_pdfs(self.pdf1_layout, doc1, page_num)
@@ -262,7 +249,6 @@ class PDFComparer(QMainWindow):
             self.temp_pdf2_paths.append(doc2)
         else:
             self.temp_pdf2_paths[self.current_page] = doc2
-
 
     def display_pdfs(self, layout, doc, page_num):
         for i in reversed(range(layout.count())):
