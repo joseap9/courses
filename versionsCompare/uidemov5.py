@@ -189,12 +189,13 @@ class PDFComparer(QMainWindow):
     def highlight_differences(self, doc, words1, words2, page_num):
         differences = []
         if page_num < len(words1) and page_num < len(words2):
-            words1_set = set((word[4] for word in words1[page_num]))
-            words2_set = set((word[4] for word in words2[page_num]))
+            words1_set = set((tuple(word[:4]) for word in words1[page_num]))
+            words2_set = set((tuple(word[:4]) for word in words2[page_num]))
 
             current_diff = []
             for word1 in words1[page_num]:
-                if word1[4] not in words2_set:
+                word1_position = tuple(word1[:4])
+                if word1_position not in words2_set:
                     current_diff.append(word1)
                 else:
                     if current_diff:
@@ -207,11 +208,12 @@ class PDFComparer(QMainWindow):
         
         for diff in differences:
             start_rect = fitz.Rect(diff[0][:4])
-            end_rect = fitz.Rect(diff[-1][:4])
-            combined_rect = start_rect | end_rect
-            doc[page_num].add_highlight_annot(combined_rect)
+            for word in diff[1:]:
+                start_rect = start_rect | fitz.Rect(word[:4])
+            doc[page_num].add_highlight_annot(start_rect)
         
         return doc, differences
+
 
     def load_page_pair(self, page_num):
         # Cargar y resaltar diferencias en PDF1
