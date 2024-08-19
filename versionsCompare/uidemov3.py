@@ -223,6 +223,8 @@ class PDFComparer(QMainWindow):
             differences.append(current_diff)
             self.difference_label.setText(f"Texto encontrado en PDF2 pero no en PDF1:\n{' '.join([word[4] for word in current_diff])}")
 
+        return doc, differences
+
     def load_page_pair(self, page_num):
         # Cargar y resaltar diferencias en PDF1
         doc1 = self.temp_pdf1_paths[self.current_page] if len(self.temp_pdf1_paths) > self.current_page else fitz.open(self.pdf1_path)
@@ -249,6 +251,7 @@ class PDFComparer(QMainWindow):
             self.temp_pdf2_paths.append(doc2)
         else:
             self.temp_pdf2_paths[self.current_page] = doc2
+
 
     def display_pdfs(self, layout, doc, page_num):
         for i in reversed(range(layout.count())):
