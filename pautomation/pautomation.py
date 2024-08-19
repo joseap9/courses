@@ -6,4 +6,4 @@ if(contains(outputs('Extract Assessment Status'), 'New'), 'New', if(contains(out
 
 addDays(triggerOutputs()?['body/receiveDateTime'], if(equals(coalesce(outputs('Date_Code_SLA'), 0), 20), 20, if(equals(coalesce(outputs('Date_Code_SLA'), 0), 15), 15, 5)))
 
-addDays(triggerOutputs()?['body/receiveDateTime'], switch(outputs('Date_Code_SLA'), 5, 5, 15, 15, 20, 20, 5))
+addDays(triggerOutputs()?['body/receiveDateTime'], if(equals(outputs('Date_Code_SLA'), '20'), 20, if(equals(outputs('Date_Code_SLA'), '15'), 15, 5)))

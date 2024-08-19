@@ -192,17 +192,43 @@ class PDFComparer(QMainWindow):
             words1_set = set((word[4] for word in words1[page_num]))
             words2_set = set((word[4] for word in words2[page_num]))
 
-            for word1 in words1[page_num]:
+            combined_rect = None  # Variable para combinar rectángulos adyacentes
+
+            for i, word1 in enumerate(words1[page_num]):
                 if word1[4] not in words2_set:
-                    highlight = fitz.Rect(word1[:4])
-                    doc[page_num].add_highlight_annot(highlight)
-                    differences.append(word1)
+                    word_rect = fitz.Rect(word1[:4])
+
+                    if combined_rect is None:
+                        combined_rect = word_rect
+                    else:
+                        if self.are_words_adjacent(words1[page_num][i-1], word1):
+                            combined_rect |= word_rect  # Combinar rectángulos adyacentes
+                        else:
+                            doc[page_num].add_highlight_annot(combined_rect)  # Resaltar el conjunto anterior
+                            differences.append(combined_rect)
+                            combined_rect = word_rect  # Iniciar un nuevo conjunto
+
+            # Añadir el último conjunto de palabras resaltadas
+            if combined_rect is not None:
+                doc[page_num].add_highlight_annot(combined_rect)
+                differences.append(combined_rect)
+
         elif page_num < len(words1):
             for word1 in words1[page_num]:
-                highlight = fitz.Rect(word1[:4])
-                doc[page_num].add_highlight_annot(highlight)
-                differences.append(word1)
+                word_rect = fitz.Rect(word1[:4])
+                doc[page_num].add_highlight_annot(word_rect)
+                differences.append(word_rect)
+
         return doc, differences
+
+    def are_words_adjacent(self, word1, word2):
+        # Verificar si las palabras son adyacentes basadas en sus coordenadas
+        # Compara el extremo derecho de word1 con el extremo izquierdo de word2
+        word1_right = word1[2]
+        word2_left = word2[0]
+
+        return abs(word2_left - word1_right) < 5  # Ajusta el umbral según sea necesario
+
 
     def load_page_pair(self, page_num):
         # Cargar y resaltar diferencias en PDF1
@@ -216,13 +242,8 @@ class PDFComparer(QMainWindow):
         self.display_pdfs(self.pdf1_layout, doc1, page_num)
         self.display_pdfs(self.pdf2_layout, doc2, page_num)
 
-        # Filtrar diferencias que están presentes en ambos documentos
-        self.differences = [(diff1, diff2) for diff1 in differences1 for diff2 in differences2 if diff1[4] == diff2[4]]
+        self.differences = list(zip(differences1, differences2))  # Combina las diferencias de ambos PDFs
         self.current_difference_index = 0
-
-        if self.differences:
-            self.highlight_current_difference()
-
         self.update_navigation_buttons()
 
         # Guardar los documentos con las anotaciones
@@ -236,7 +257,8 @@ class PDFComparer(QMainWindow):
         else:
             self.temp_pdf2_paths[self.current_page] = doc2
 
-
+        # Resaltar la primera diferencia automáticamente
+        self.highlight_current_difference()
 
 
     def display_pdfs(self, layout, doc, page_num):
@@ -271,14 +293,12 @@ class PDFComparer(QMainWindow):
             # Actualizar el QLabel con el texto exacto resaltado de ambos PDFs
             self.difference_label.setText(f"PDF1: '{word1[4]}'\nPDF2: '{word2[4]}'")
 
-
     def update_navigation_buttons(self):
         self.prev_diff_button.setEnabled(self.current_difference_index > 0)
         self.next_diff_button.setEnabled(self.current_difference_index < len(self.differences) - 1)
         self.prev_button.setEnabled(self.current_page > 0)
         self.next_button.setEnabled(self.current_page < self.total_pages - 1)
         self.update_difference_label()
-
 
     def update_difference_label(self):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
