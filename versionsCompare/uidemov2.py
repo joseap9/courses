@@ -9,8 +9,8 @@ class PDFComparer(QMainWindow):
         super().__init__()
 
         # Configuración de la ventana principal
-        self.setWindowTitle("PDF Comparer")
-        self.setGeometry(100, 100, 1200, 800)
+        self.setWindowTitle("GMF - PDF Comparer")
+        self.setGeometry(100, 100, 1650, 800)
 
         # Layout principal horizontal que contendrá las tres secciones verticales
         self.main_layout = QHBoxLayout()
@@ -27,12 +27,12 @@ class PDFComparer(QMainWindow):
         self.left_layout.addWidget(self.button2)
 
         self.navigation_layout = QHBoxLayout()
-        self.prev_button = QPushButton("Prev", self)
+        self.prev_button = QPushButton("Previous Page", self)
         self.prev_button.clicked.connect(self.prev_page)
         self.prev_button.setEnabled(False)
         self.navigation_layout.addWidget(self.prev_button)
 
-        self.next_button = QPushButton("Next", self)
+        self.next_button = QPushButton("Next Page", self)
         self.next_button.clicked.connect(self.next_page)
         self.next_button.setEnabled(False)
         self.navigation_layout.addWidget(self.next_button)
@@ -350,7 +350,7 @@ class PDFComparer(QMainWindow):
         total_page_diffs = len(self.differences)
 
         self.total_diff_label.setText(f"Total de diferencias en el documento: {total_diffs}")
-        self.page_diff_label.setText(f"Diferencia {self.current_difference_index + 1} de {total_page_diffs}")
+        self.page_diff_label.setText(f"Página {self.current_page + 1} - Diferencia {self.current_difference_index + 1} de {total_page_diffs}")
 
     def toggle_other_input(self):
         if self.radio_otro.isChecked():
@@ -383,23 +383,24 @@ class PDFComparer(QMainWindow):
                     self.current_difference_index += 1
                     self.save_current_label()  # Marca como "No Aplica"
 
-        if self.current_page < self.total_pages - 1:
-            self.current_page += 1
-            self.prev_button.setEnabled(True)
+        if reply == QMessageBox.Yes:
+            if self.current_page < self.total_pages - 1:
+                self.current_page += 1
+                self.prev_button.setEnabled(True)
 
-            if self.current_page >= len(self.temp_pdf1_paths):
-                self.load_page_pair(self.current_page)
-            else:
-                self.display_pdfs(self.pdf1_layout, self.temp_pdf1_paths[self.current_page], self.current_page)
-                self.display_pdfs(self.pdf2_layout, self.temp_pdf2_paths[self.current_page], self.current_page)
+                if self.current_page >= len(self.temp_pdf1_paths):
+                    self.load_page_pair(self.current_page)
+                else:
+                    self.display_pdfs(self.pdf1_layout, self.temp_pdf1_paths[self.current_page], self.current_page)
+                    self.display_pdfs(self.pdf2_layout, self.temp_pdf2_paths[self.current_page], self.current_page)
 
-            # Resaltar la primera diferencia automáticamente en la nueva página
-            self.current_difference_index = 0
-            self.highlight_current_difference()
-            self.update_difference_labels()
+                # Resaltar la primera diferencia automáticamente en la nueva página
+                self.current_difference_index = 0
+                self.highlight_current_difference()
+                self.update_difference_labels()
 
-            if self.current_page == self.total_pages - 1:
-                self.next_button.setEnabled(False)
+                if self.current_page == self.total_pages - 1:
+                    self.next_button.setEnabled(False)
 
     def prev_page(self):
         if self.current_page > 0:
