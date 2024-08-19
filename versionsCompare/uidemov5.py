@@ -244,7 +244,14 @@ class PDFComparer(QMainWindow):
 
         self.differences = list(zip(differences1, differences2))  # Combina las diferencias de ambos PDFs
         self.current_difference_index = 0
-        self.update_navigation_buttons()
+
+        # Resaltar la primera diferencia automáticamente
+        if self.differences:
+            self.highlight_current_difference()
+            self.update_navigation_buttons()
+        else:
+            self.difference_label.setText("No differences found on this page.")
+            self.update_navigation_buttons()
 
         # Guardar los documentos con las anotaciones
         if len(self.temp_pdf1_paths) <= self.current_page:
@@ -257,8 +264,45 @@ class PDFComparer(QMainWindow):
         else:
             self.temp_pdf2_paths[self.current_page] = doc2
 
-        # Resaltar la primera diferencia automáticamente
-        self.highlight_current_difference()
+    def highlight_current_difference(self):
+        if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
+            word1, word2 = self.differences[self.current_difference_index]
+
+            page_num = self.current_page
+
+            # Resalta en el primer PDF
+            doc1 = self.temp_pdf1_paths[self.current_page]
+            doc1[page_num].add_rect_annot(word1)  # Ajusta según la nueva estructura
+            self.display_pdfs(self.pdf1_layout, doc1, page_num)
+
+            # Resalta en el segundo PDF
+            doc2 = self.temp_pdf2_paths[self.current_page]
+            doc2[page_num].add_rect_annot(word2)  # Ajusta según la nueva estructura
+            self.display_pdfs(self.pdf2_layout, doc2, page_num)
+
+            # Actualizar el QLabel con el texto exacto resaltado de ambos PDFs
+            self.difference_label.setText(f"PDF1: '{word1}'\nPDF2: '{word2}'")
+
+            # Guardar los cambios en los documentos
+            self.temp_pdf1_paths[self.current_page] = doc1
+            self.temp_pdf2_paths[self.current_page] = doc2
+
+        self.update_navigation_buttons()
+
+    def update_navigation_buttons(self):
+        self.prev_diff_button.setEnabled(self.current_difference_index > 0)
+        self.next_diff_button.setEnabled(self.current_difference_index < len(self.differences) - 1)
+        self.prev_button.setEnabled(self.current_page > 0)
+        self.next_button.setEnabled(self.current_page < self.total_pages - 1)
+        self.update_difference_label()
+
+    def update_difference_label(self):
+        if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
+            word1, word2 = self.differences[self.current_difference_index]
+            self.difference_label.setText(f"PDF1: '{word1}'\nPDF2: '{word2}'")
+        else:
+            self.difference_label.setText("No differences found.")
+
 
 
     def display_pdfs(self, layout, doc, page_num):
@@ -271,39 +315,6 @@ class PDFComparer(QMainWindow):
         label = QLabel(self)
         label.setPixmap(QPixmap.fromImage(img))
         layout.addWidget(label)
-
-    def highlight_current_difference(self):
-        if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
-            word1, word2 = self.differences[self.current_difference_index]
-
-            page_num = self.current_page
-
-            # Resalta en el primer PDF
-            doc1 = self.temp_pdf1_paths[self.current_page]
-            highlight1 = fitz.Rect(word1[:4])
-            doc1[page_num].add_rect_annot(highlight1)
-            self.display_pdfs(self.pdf1_layout, doc1, page_num)
-
-            # Resalta en el segundo PDF
-            doc2 = self.temp_pdf2_paths[self.current_page]
-            highlight2 = fitz.Rect(word2[:4])
-            doc2[page_num].add_rect_annot(highlight2)
-            self.display_pdfs(self.pdf2_layout, doc2, page_num)
-
-            # Actualizar el QLabel con el texto exacto resaltado de ambos PDFs
-            self.difference_label.setText(f"PDF1: '{word1[4]}'\nPDF2: '{word2[4]}'")
-
-    def update_navigation_buttons(self):
-        self.prev_diff_button.setEnabled(self.current_difference_index > 0)
-        self.next_diff_button.setEnabled(self.current_difference_index < len(self.differences) - 1)
-        self.prev_button.setEnabled(self.current_page > 0)
-        self.next_button.setEnabled(self.current_page < self.total_pages - 1)
-        self.update_difference_label()
-
-    def update_difference_label(self):
-        if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
-            word1, word2 = self.differences[self.current_difference_index]
-            self.difference_label.setText(f"PDF1: '{word1[4]}'\nPDF2: '{word2[4]}'")
 
     def toggle_other_input(self):
         if self.radio_otro.isChecked():
