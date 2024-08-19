@@ -9,7 +9,7 @@ class PDFComparer(QMainWindow):
         super().__init__()
 
         # Configuración de la ventana principal
-        self.setWindowTitle("GMF PDF Comparer")
+        self.setWindowTitle("PDF Comparer")
         self.setGeometry(100, 100, 1200, 800)
 
         # Layout principal horizontal que contendrá las tres secciones verticales
@@ -27,12 +27,12 @@ class PDFComparer(QMainWindow):
         self.left_layout.addWidget(self.button2)
 
         self.navigation_layout = QHBoxLayout()
-        self.prev_button = QPushButton("Previous Page", self)
+        self.prev_button = QPushButton("Prev", self)
         self.prev_button.clicked.connect(self.prev_page)
         self.prev_button.setEnabled(False)
         self.navigation_layout.addWidget(self.prev_button)
 
-        self.next_button = QPushButton("Next Page", self)
+        self.next_button = QPushButton("Next", self)
         self.next_button.clicked.connect(self.next_page)
         self.next_button.setEnabled(False)
         self.navigation_layout.addWidget(self.next_button)
@@ -76,13 +76,12 @@ class PDFComparer(QMainWindow):
         self.total_diff_label = QLabel(self)
         self.total_diff_label.setWordWrap(True)
         self.total_diff_label.setAlignment(Qt.AlignCenter)
-        self.total_diff_label.setStyleSheet("font-weight: bold;")
+        self.total_diff_label.setStyleSheet("font-weight: bold; font-size: 16px;")
         self.right_layout.addWidget(self.total_diff_label)
 
         # Línea divisora (simula <hr/>)
         self.divider1 = QLabel(self)
-        self.divider1.setText("<hr/>")
-        self.divider1.setAlignment(Qt.AlignCenter)
+        self.divider1.setFrameStyle(QFrame.HLine | QFrame.Sunken)
         self.right_layout.addWidget(self.divider1)
 
         # Encabezado para diferencias actuales de la página
@@ -92,16 +91,28 @@ class PDFComparer(QMainWindow):
         self.page_diff_label.setStyleSheet("font-weight: bold; font-size: 14px;")
         self.right_layout.addWidget(self.page_diff_label)
 
+        # Cuadro editable para la diferencia actual del PDF 1
+        self.pdf1_label = QLabel("PDF 1", self)
+        self.pdf1_label.setStyleSheet("font-weight: bold;")
+        self.right_layout.addWidget(self.pdf1_label)
+
+        self.pdf1_diff_edit = QTextEdit(self)
+        self.pdf1_diff_edit.setReadOnly(True)
+        self.right_layout.addWidget(self.pdf1_diff_edit)
+
         # Línea divisora (simula <hr/>)
         self.divider2 = QLabel(self)
-        self.divider2.setText("<hr/>")
-        self.divider2.setAlignment(Qt.AlignCenter)
+        self.divider2.setFrameStyle(QFrame.HLine | QFrame.Sunken)
         self.right_layout.addWidget(self.divider2)
 
-        # Cuadro editable para la diferencia actual
-        self.difference_text_edit = QTextEdit(self)
-        self.difference_text_edit.setReadOnly(False)
-        self.right_layout.addWidget(self.difference_text_edit)
+        # Cuadro editable para la diferencia actual del PDF 2
+        self.pdf2_label = QLabel("PDF 2", self)
+        self.pdf2_label.setStyleSheet("font-weight: bold;")
+        self.right_layout.addWidget(self.pdf2_label)
+
+        self.pdf2_diff_edit = QTextEdit(self)
+        self.pdf2_diff_edit.setReadOnly(True)
+        self.right_layout.addWidget(self.pdf2_diff_edit)
 
         self.radio_button_group = QButtonGroup(self)
 
@@ -248,14 +259,14 @@ class PDFComparer(QMainWindow):
                 highlight = fitz.Rect(word1[:4])
                 doc[page_num].add_highlight_annot(highlight)
             differences.append(current_diff)
-            self.difference_text_edit.setText(f"Texto encontrado en PDF1 pero no en PDF2:\n{' '.join([word[4] for word in current_diff])}")
+            self.pdf1_diff_edit.setText(f"Texto encontrado en PDF1 pero no en PDF2:\n{' '.join([word[4] for word in current_diff])}")
         elif page_num < len(words2):  # Caso donde solo hay texto en el segundo PDF
             for word2 in words2[page_num]:
                 current_diff.append(word2)
                 highlight = fitz.Rect(word2[:4])
                 doc[page_num].add_highlight_annot(highlight)
             differences.append(current_diff)
-            self.difference_text_edit.setText(f"Texto encontrado en PDF2 pero no en PDF1:\n{' '.join([word[4] for word in current_diff])}")
+            self.pdf2_diff_edit.setText(f"Texto encontrado en PDF2 pero no en PDF1:\n{' '.join([word[4] for word in current_diff])}")
 
         return doc, differences
 
@@ -324,7 +335,8 @@ class PDFComparer(QMainWindow):
             if diff1 and diff2:
                 combined_diff1 = ' '.join([word[4] for word in diff1])
                 combined_diff2 = ' '.join([word[4] for word in diff2])
-                self.difference_text_edit.setText(f"PDF1 (Diferencia):\n{combined_diff1}\n<hr/>\nPDF2 (Diferencias):\n{combined_diff2}")
+                self.pdf1_diff_edit.setText(combined_diff1)
+                self.pdf2_diff_edit.setText(combined_diff2)
 
     def update_navigation_buttons(self):
         self.prev_diff_button.setEnabled(self.current_difference_index > 0)
@@ -334,7 +346,7 @@ class PDFComparer(QMainWindow):
         self.update_difference_labels()
 
     def update_difference_labels(self):
-        total_diffs = len(self.differences)
+        total_diffs = sum(len(d1) for d1, d2 in self.differences)
         total_page_diffs = len(self.differences)
 
         self.total_diff_label.setText(f"Total de diferencias en el documento: {total_diffs}")
@@ -361,9 +373,10 @@ class PDFComparer(QMainWindow):
 
     def next_page(self):
         # Verificar si todas las diferencias han sido revisadas antes de cambiar de página
-        if self.current_difference_index < len(self.differences) - 1:
+        unrevised_diffs = len(self.differences) - self.current_difference_index - 1
+        if unrevised_diffs > 0:
             reply = QMessageBox.question(self, 'Diferencias sin revisar',
-                                         'Hay diferencias que no se han visto. ¿Deseas marcarlas como "No Aplica"?',
+                                         f'Hay {unrevised_diffs} diferencias que no se han visto. ¿Deseas marcarlas como "No Aplica"?',
                                          QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
             if reply == QMessageBox.Yes:
                 while self.current_difference_index < len(self.differences) - 1:
