@@ -273,19 +273,25 @@ class PDFComparer(QMainWindow):
             # Resalta en el primer PDF
             if diff1:
                 doc1 = self.temp_pdf1_paths[self.current_page]
+                # Crear un rectángulo exacto alrededor del texto de la diferencia
                 start_rect1 = fitz.Rect(diff1[0][:4])
                 for word in diff1[1:]:
                     start_rect1 = start_rect1 | fitz.Rect(word[:4])
-                doc1[page_num].add_rect_annot(start_rect1)
+                # Ajustar el resaltado solo a la diferencia específica
+                highlight_rect1 = fitz.Rect(start_rect1)
+                doc1[page_num].add_rect_annot(highlight_rect1)
                 self.display_pdfs(self.pdf1_layout, doc1, page_num)
 
             # Resalta en el segundo PDF
             if diff2:
                 doc2 = self.temp_pdf2_paths[self.current_page]
+                # Crear un rectángulo exacto alrededor del texto de la diferencia
                 start_rect2 = fitz.Rect(diff2[0][:4])
                 for word in diff2[1:]:
                     start_rect2 = start_rect2 | fitz.Rect(word[:4])
-                doc2[page_num].add_rect_annot(start_rect2)
+                # Ajustar el resaltado solo a la diferencia específica
+                highlight_rect2 = fitz.Rect(start_rect2)
+                doc2[page_num].add_rect_annot(highlight_rect2)
                 self.display_pdfs(self.pdf2_layout, doc2, page_num)
 
             # Actualizar el QLabel con el texto exacto resaltado de ambos PDFs
