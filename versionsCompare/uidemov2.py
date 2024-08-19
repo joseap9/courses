@@ -177,6 +177,9 @@ class PDFComparer(QMainWindow):
 
         return text, words
 
+    def split_into_paragraphs(self, text):
+        return text.split("\n\n")
+
     def compare_pdfs(self):
         if self.pdf1_path and self.pdf2_path:
             self.pdf1_text, self.pdf1_words = self.extract_text_and_positions(self.pdf1_path)
@@ -191,40 +194,31 @@ class PDFComparer(QMainWindow):
         current_diff = []
 
         if page_num < len(words1) and page_num < len(words2):
-            words1_set = set((word[4] for word in words1[page_num]))
-            words2_set = set((word[4] for word in words2[page_num]))
+            # Dividir los textos en párrafos
+            paragraphs1 = self.split_into_paragraphs("".join([word[4] for word in words1[page_num]]))
+            paragraphs2 = self.split_into_paragraphs("".join([word[4] for word in words2[page_num]]))
 
-            for i, word1 in enumerate(words1[page_num]):
-                if word1[4] not in words2_set:
-                    if current_diff and (int(word1[0]) > int(current_diff[-1][2]) + 10):  # Verifica si las palabras no son consecutivas
-                        differences.append(current_diff)
-                        current_diff = []
-                    current_diff.append(word1)
+            for para1, para2 in zip(paragraphs1, paragraphs2):
+                para_words1 = [word for word in words1[page_num] if para1 in word[4]]
+                para_words2 = [word for word in words2[page_num] if para2 in word[4]]
 
-                    # Revisa el texto antes y después
-                    prev_text = words1[page_num][i-1][4] if i > 0 else ""
-                    next_text = words1[page_num][i+1][4] if i < len(words1[page_num])-1 else ""
+                words1_set = set((word[4] for word in para_words1))
+                words2_set = set((word[4] for word in para_words2))
 
-                    # Verifica si hay texto en PDF1 y no en PDF2
-                    if prev_text in words2_set and next_text in words2_set:
-                        # Si hay texto en ambos PDFs, resalta en ambos
-                        corresponding_word2 = next((w for w in words2[page_num] if w[4] == word1[4]), None)
-                        if corresponding_word2:
-                            highlight = fitz.Rect(word1[:4])
-                            doc[page_num].add_highlight_annot(highlight)
+                for word1 in para_words1:
+                    if word1[4] not in words2_set:
+                        if current_diff and (int(word1[0]) > int(current_diff[-1][2]) + 10):  # Verifica si las palabras no son consecutivas
                             differences.append(current_diff)
                             current_diff = []
-                    else:
-                        # Si el texto está solo en PDF1
+                        current_diff.append(word1)
                         highlight = fitz.Rect(word1[:4])
                         doc[page_num].add_highlight_annot(highlight)
-                        self.difference_label.setText(f"Texto en PDF1 pero no en PDF2:\n{' '.join([word[4] for word in current_diff])}")
-                else:
-                    if current_diff:
-                        differences.append(current_diff)
-                        current_diff = []
-            if current_diff:
-                differences.append(current_diff)
+                    else:
+                        if current_diff:
+                            differences.append(current_diff)
+                            current_diff = []
+                if current_diff:
+                    differences.append(current_diff)
         elif page_num < len(words1):  # Caso donde solo hay texto en el primer PDF
             for word1 in words1[page_num]:
                 current_diff.append(word1)
