@@ -196,13 +196,13 @@ class PDFComparer(QMainWindow):
         for word1 in words1[page_num]:
             if word1[4] not in words2_set:
                 differences1.append(word1)
-                highlight = fitz.Rect(word1[:4])
+                highlight = fitz.Rect(*word1[:4])  # Asegurarse de descomponer la tupla correctamente
                 doc[page_num].add_highlight_annot(highlight)
         
         for word2 in words2[page_num]:
             if word2[4] not in words1_set:
                 differences2.append(word2)
-                highlight = fitz.Rect(word2[:4])
+                highlight = fitz.Rect(*word2[:4])  # Asegurarse de descomponer la tupla correctamente
                 doc[page_num].add_highlight_annot(highlight)
 
         return doc, differences1, differences2
@@ -255,16 +255,16 @@ class PDFComparer(QMainWindow):
             doc2 = self.temp_pdf2_paths[self.current_page]
 
             if diff1:
-                highlight_rect1 = fitz.Rect(diff1[0][:4])
+                highlight_rect1 = fitz.Rect(*diff1[0][:4])
                 for word in diff1[1:]:
-                    highlight_rect1 = highlight_rect1 | fitz.Rect(word[:4])
+                    highlight_rect1 = highlight_rect1 | fitz.Rect(*word[:4])
                 doc1[page_num].add_rect_annot(highlight_rect1)
                 self.display_pdfs(self.pdf1_layout, doc1, page_num)
 
             if diff2:
-                highlight_rect2 = fitz.Rect(diff2[0][:4])
+                highlight_rect2 = fitz.Rect(*diff2[0][:4])
                 for word in diff2[1:]:
-                    highlight_rect2 = highlight_rect2 | fitz.Rect(word[:4])
+                    highlight_rect2 = highlight_rect2 | fitz.Rect(*word[:4])
                 doc2[page_num].add_rect_annot(highlight_rect2)
                 self.display_pdfs(self.pdf2_layout, doc2, page_num)
 
