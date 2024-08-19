@@ -170,6 +170,7 @@ class PDFComparer(QMainWindow):
         self.differences = []
         self.current_difference_index = -1
         self.labels = {}
+        self.total_diffs = 0  # Variable para almacenar el total de diferencias
 
     def sync_scroll(self, value):
         if self.sender() == self.pdf1_scroll.verticalScrollBar():
@@ -201,6 +202,7 @@ class PDFComparer(QMainWindow):
         self.next_button.setEnabled(False)
         self.pdf1_layout.update()
         self.pdf2_layout.update()
+        self.total_diffs = 0  # Reiniciar el total de diferencias
         if self.pdf1_path and self.pdf2_path:
             self.compare_pdfs()
             self.highlight_current_difference()
@@ -268,6 +270,7 @@ class PDFComparer(QMainWindow):
             differences.append(current_diff)
             self.pdf2_diff_edit.setText(f"Texto encontrado en PDF2 pero no en PDF1:\n{' '.join([word[4] for word in current_diff])}")
 
+        self.total_diffs += len(differences)  # Acumular diferencias totales
         return doc, differences
 
     def load_page_pair(self, page_num):
@@ -346,10 +349,9 @@ class PDFComparer(QMainWindow):
         self.update_difference_labels()
 
     def update_difference_labels(self):
-        total_diffs = sum(len(d1) for d1, d2 in self.differences)
         total_page_diffs = len(self.differences)
 
-        self.total_diff_label.setText(f"Total de diferencias en el documento: {total_diffs}")
+        self.total_diff_label.setText(f"Diferencias totales en el documento: {self.total_diffs}")
         self.page_diff_label.setText(f"Página {self.current_page + 1} - Diferencia {self.current_difference_index + 1} de {total_page_diffs}")
 
     def toggle_other_input(self):
@@ -383,24 +385,24 @@ class PDFComparer(QMainWindow):
                     self.current_difference_index += 1
                     self.save_current_label()  # Marca como "No Aplica"
 
-        if reply == QMessageBox.Yes:
-            if self.current_page < self.total_pages - 1:
-                self.current_page += 1
-                self.prev_button.setEnabled(True)
+        # Solo pasar a la siguiente página si se presiona "Sí"
+        if reply == QMessageBox.Yes and self.current_page < self.total_pages - 1:
+            self.current_page += 1
+            self.prev_button.setEnabled(True)
 
-                if self.current_page >= len(self.temp_pdf1_paths):
-                    self.load_page_pair(self.current_page)
-                else:
-                    self.display_pdfs(self.pdf1_layout, self.temp_pdf1_paths[self.current_page], self.current_page)
-                    self.display_pdfs(self.pdf2_layout, self.temp_pdf2_paths[self.current_page], self.current_page)
+            if self.current_page >= len(self.temp_pdf1_paths):
+                self.load_page_pair(self.current_page)
+            else:
+                self.display_pdfs(self.pdf1_layout, self.temp_pdf1_paths[self.current_page], self.current_page)
+                self.display_pdfs(self.pdf2_layout, self.temp_pdf2_paths[self.current_page], self.current_page)
 
-                # Resaltar la primera diferencia automáticamente en la nueva página
-                self.current_difference_index = 0
-                self.highlight_current_difference()
-                self.update_difference_labels()
+            # Resaltar la primera diferencia automáticamente en la nueva página
+            self.current_difference_index = 0
+            self.highlight_current_difference()
+            self.update_difference_labels()
 
-                if self.current_page == self.total_pages - 1:
-                    self.next_button.setEnabled(False)
+            if self.current_page == self.total_pages - 1:
+                self.next_button.setEnabled(False)
 
     def prev_page(self):
         if self.current_page > 0:
