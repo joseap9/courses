@@ -191,34 +191,60 @@ class PDFComparer(QMainWindow):
         current_diff = []
 
         if page_num < len(words1) and page_num < len(words2):
-            words1_set = set((word[4] for word in words1[page_num]))
-            words2_set = set((word[4] for word in words2[page_num]))
+            # Dividir las palabras en párrafos por saltos de línea
+            paragraphs1 = self.split_into_paragraphs(words1[page_num])
+            paragraphs2 = self.split_into_paragraphs(words2[page_num])
 
-            for word1 in words1[page_num]:
-                if word1[4] not in words2_set:
-                    current_diff.append(word1)
-                    highlight = fitz.Rect(word1[:4])
-                    doc[page_num].add_highlight_annot(highlight)
-                else:
-                    if current_diff:
-                        differences.append(current_diff)
-                        current_diff = []
-            if current_diff:
-                differences.append(current_diff)
-        elif page_num < len(words1):  # Solo texto en el primer PDF
-            for word1 in words1[page_num]:
-                current_diff.append(word1)
-                highlight = fitz.Rect(word1[:4])
-                doc[page_num].add_highlight_annot(highlight)
-            differences.append(current_diff)
-        elif page_num < len(words2):  # Solo texto en el segundo PDF
-            for word2 in words2[page_num]:
-                current_diff.append(word2)
-                highlight = fitz.Rect(word2[:4])
-                doc[page_num].add_highlight_annot(highlight)
-            differences.append(current_diff)
+            for p1, p2 in zip(paragraphs1, paragraphs2):
+                words1_set = set((word[4] for word in p1))
+                words2_set = set((word[4] for word in p2))
+
+                for word1 in p1:
+                    if word1[4] not in words2_set:
+                        current_diff.append(word1)
+                        highlight = fitz.Rect(word1[:4])
+                        doc[page_num].add_highlight_annot(highlight)
+                    else:
+                        if current_diff:
+                            differences.append(current_diff)
+                            current_diff = []
+                if current_diff:
+                    differences.append(current_diff)
+
+            # Manejar casos donde hay párrafos adicionales en un PDF
+            if len(paragraphs1) > len(paragraphs2):
+                for p1 in paragraphs1[len(paragraphs2):]:
+                    for word1 in p1:
+                        current_diff.append(word1)
+                        highlight = fitz.Rect(word1[:4])
+                        doc[page_num].add_highlight_annot(highlight)
+                    differences.append(current_diff)
+                    current_diff = []
+            elif len(paragraphs2) > len(paragraphs1):
+                for p2 in paragraphs2[len(paragraphs1):]:
+                    for word2 in p2:
+                        current_diff.append(word2)
+                        highlight = fitz.Rect(word2[:4])
+                        doc[page_num].add_highlight_annot(highlight)
+                    differences.append(current_diff)
+                    current_diff = []
 
         return doc, differences
+
+    def split_into_paragraphs(self, words):
+        paragraphs = []
+        current_paragraph = []
+
+        for word in words:
+            current_paragraph.append(word)
+            if "\n" in word[4]:
+                paragraphs.append(current_paragraph)
+                current_paragraph = []
+
+        if current_paragraph:
+            paragraphs.append(current_paragraph)
+
+        return paragraphs
 
     def load_page_pair(self, page_num):
         # Cargar y resaltar diferencias en PDF1
