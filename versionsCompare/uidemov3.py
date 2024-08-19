@@ -270,34 +270,27 @@ class PDFComparer(QMainWindow):
 
             page_num = self.current_page
 
-            # Resalta en el primer PDF solo si hay una diferencia correspondiente en el segundo PDF
-            if diff1 and diff2:
+            # Resalta en el primer PDF
+            if diff1:
                 doc1 = self.temp_pdf1_paths[self.current_page]
-                # Crear un rectángulo exacto alrededor del texto de la diferencia
-                highlight_rect1 = fitz.Rect(diff1[0][:4])
+                start_rect1 = fitz.Rect(diff1[0][:4])
                 for word in diff1[1:]:
-                    highlight_rect1 = highlight_rect1 | fitz.Rect(word[:4])
-                # Resaltar solo la diferencia específica
-                doc1[page_num].add_rect_annot(highlight_rect1)
+                    start_rect1 = start_rect1 | fitz.Rect(word[:4])
+                doc1[page_num].add_rect_annot(start_rect1)
                 self.display_pdfs(self.pdf1_layout, doc1, page_num)
 
+            # Resalta en el segundo PDF
+            if diff2:
                 doc2 = self.temp_pdf2_paths[self.current_page]
-                # Crear un rectángulo exacto alrededor del texto de la diferencia
-                highlight_rect2 = fitz.Rect(diff2[0][:4])
+                start_rect2 = fitz.Rect(diff2[0][:4])
                 for word in diff2[1:]:
-                    highlight_rect2 = highlight_rect2 | fitz.Rect(word[:4])
-                # Resaltar solo la diferencia específica
-                doc2[page_num].add_rect_annot(highlight_rect2)
+                    start_rect2 = start_rect2 | fitz.Rect(word[:4])
+                doc2[page_num].add_rect_annot(start_rect2)
                 self.display_pdfs(self.pdf2_layout, doc2, page_num)
 
-                # Actualizar el QLabel con el texto exacto resaltado de ambos PDFs
+            # Actualizar el QLabel con el texto exacto resaltado de ambos PDFs
+            if diff1 and diff2:
                 self.difference_label.setText(f"PDF1: '{' '.join([word[4] for word in diff1])}'\nPDF2: '{' '.join([word[4] for word in diff2])}'")
-            else:
-                # Caso donde solo hay texto en uno de los PDFs
-                if diff1 and not diff2:
-                    self.difference_label.setText(f"Texto encontrado en PDF1 pero no en PDF2:\n{' '.join([word[4] for word in diff1])}")
-                elif diff2 and not diff1:
-                    self.difference_label.setText(f"Texto encontrado en PDF2 pero no en PDF1:\n{' '.join([word[4] for word in diff2])}")
 
     def update_navigation_buttons(self):
         self.prev_diff_button.setEnabled(self.current_difference_index > 0)
