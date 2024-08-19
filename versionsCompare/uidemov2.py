@@ -279,7 +279,7 @@ class PDFComparer(QMainWindow):
                 start_rect1 = fitz.Rect(diff1[0][:4])
                 for word in diff1[1:]:
                     start_rect1 = start_rect1 | fitz.Rect(word[:4])
-                doc1[page_num].add_rect_annot(start_rect1)
+                doc1[page_num].add_rect_annot(start_rect1, {"color": (1, 0, 0), "fill": (1, 0, 0, 0.2)})
                 self.display_pdfs(self.pdf1_layout, doc1, page_num)
 
             # Resalta en el segundo PDF
@@ -288,12 +288,14 @@ class PDFComparer(QMainWindow):
                 start_rect2 = fitz.Rect(diff2[0][:4])
                 for word in diff2[1:]:
                     start_rect2 = start_rect2 | fitz.Rect(word[:4])
-                doc2[page_num].add_rect_annot(start_rect2)
+                doc2[page_num].add_rect_annot(start_rect2, {"color": (1, 0, 0), "fill": (1, 0, 0, 0.2)})
                 self.display_pdfs(self.pdf2_layout, doc2, page_num)
 
             # Actualizar el QLabel con el texto exacto resaltado de ambos PDFs
             if diff1 and diff2:
-                self.difference_label.setText(f"PDF1: '{' '.join([word[4] for word in diff1])}'\nPDF2: '{' '.join([word[4] for word in diff2])}'")
+                combined_diff1 = ' '.join([word[4] for word in diff1])
+                combined_diff2 = ' '.join([word[4] for word in diff2])
+                self.difference_label.setText(f"PDF1: '{combined_diff1}'\nPDF2: '{combined_diff2}'")
 
     def update_navigation_buttons(self):
         self.prev_diff_button.setEnabled(self.current_difference_index > 0)
