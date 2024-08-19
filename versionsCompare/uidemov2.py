@@ -163,6 +163,7 @@ class PDFComparer(QMainWindow):
         self.pdf2_layout.update()
         if self.pdf1_path and self.pdf2_path:
             self.compare_pdfs()
+            self.highlight_current_difference()  # Resaltar la primera diferencia automáticamente
 
     def extract_text_and_positions(self, file_path):
         document = fitz.open(file_path)
@@ -255,7 +256,6 @@ class PDFComparer(QMainWindow):
         else:
             self.temp_pdf2_paths[self.current_page] = doc2
 
-
     def display_pdfs(self, layout, doc, page_num):
         for i in reversed(range(layout.count())):
             layout.itemAt(i).widget().deleteLater()
@@ -273,22 +273,26 @@ class PDFComparer(QMainWindow):
 
             page_num = self.current_page
 
-            # Resalta en el primer PDF
+            # Resalta en el primer PDF (diferencia específica)
             if diff1:
                 doc1 = self.temp_pdf1_paths[self.current_page]
                 start_rect1 = fitz.Rect(diff1[0][:4])
                 for word in diff1[1:]:
                     start_rect1 = start_rect1 | fitz.Rect(word[:4])
-                doc1[page_num].add_rect_annot(start_rect1, {"color": (1, 0, 0), "fill": (1, 0, 0, 0.2)})
+                rect_annot1 = doc1[page_num].add_rect_annot(start_rect1)
+                rect_annot1.set_colors({"stroke": (1, 0, 0)})
+                rect_annot1.update()
                 self.display_pdfs(self.pdf1_layout, doc1, page_num)
 
-            # Resalta en el segundo PDF
+            # Resalta en el segundo PDF (todas las diferencias relacionadas)
             if diff2:
                 doc2 = self.temp_pdf2_paths[self.current_page]
                 start_rect2 = fitz.Rect(diff2[0][:4])
                 for word in diff2[1:]:
                     start_rect2 = start_rect2 | fitz.Rect(word[:4])
-                doc2[page_num].add_rect_annot(start_rect2, {"color": (1, 0, 0), "fill": (1, 0, 0, 0.2)})
+                rect_annot2 = doc2[page_num].add_rect_annot(start_rect2)
+                rect_annot2.set_colors({"stroke": (1, 0, 0)})
+                rect_annot2.update()
                 self.display_pdfs(self.pdf2_layout, doc2, page_num)
 
             # Actualizar el QLabel con el texto exacto resaltado de ambos PDFs
