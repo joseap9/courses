@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QRadioButton, QLineEdit, QButtonGroup, QFrame
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QFrame
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap, QImage
 import fitz  # PyMuPDF
@@ -167,6 +167,7 @@ class PDFComparer(QMainWindow):
     def highlight_differences(self, doc, words1, words2, page_num):
         differences = []
         current_diff = []
+        used_words_pdf2 = set()  # Para mantener el seguimiento de las palabras usadas en PDF2
 
         if page_num < len(words1) and page_num < len(words2):
             words1_set = set((word[4] for word in words1[page_num]))
@@ -184,8 +185,17 @@ class PDFComparer(QMainWindow):
                     if current_diff:
                         differences.append(("diferencia del mismo texto", current_diff))
                         current_diff = []
+                    used_words_pdf2.add(word1[4])  # Marca la palabra como usada
             if current_diff:
                 differences.append(("diferencia del mismo texto", current_diff))
+
+            # Revisar las palabras en words2 que no se han usado
+            for word2 in words2[page_num]:
+                if word2[4] not in used_words_pdf2:
+                    current_diff = [word2]
+                    highlight = fitz.Rect(word2[:4])
+                    doc[page_num].add_highlight_annot(highlight)
+                    differences.append(("eliminación", current_diff))
 
         elif page_num < len(words1):  # Caso donde solo hay texto en el primer PDF
             for word1 in words1[page_num]:
