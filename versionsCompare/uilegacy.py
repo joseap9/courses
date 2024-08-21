@@ -411,16 +411,15 @@ class PDFComparer(QMainWindow):
             self.right_layout.addWidget(self.summary_button)
 
     def show_summary(self):
-        unrevised_diffs = len(self.differences) - self.current_difference_index - 1
-        if unrevised_diffs > 0:
-            reply = QMessageBox.question(self, 'Diferencias sin revisar',
-                                         f'Hay {unrevised_diffs} diferencias que no se han visto. ¿Deseas marcarlas como "No Aplica"?',
-                                         QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-            if reply == QMessageBox.Yes:
-                while self.current_difference_index < len(self.differences) - 1:
-                    self.current_difference_index += 1
-                    self.save_current_label()
+        # Calcular el total de diferencias acumuladas en todas las páginas
+        total_differences = sum(len(diff_page) for diff_page in self.differences)
+        
+        # Calcular el total de diferencias categorizadas como "Aplica" y "No Aplica"
+        total_aplica = sum(1 for label in self.labels.values() if label == "Aplica")
+        total_no_aplica = sum(1 for label in self.labels.values() if label == "No Aplica")
+        total_otro = sum(1 for label in self.labels.values() if label not in ["Aplica", "No Aplica"])
 
+        # Ocultar todos los widgets de la sección de diferencias y deshabilitar botones
         for i in reversed(range(self.right_layout.count())):
             widget = self.right_layout.itemAt(i).widget()
             if widget and widget != self.summary_button:
@@ -431,36 +430,51 @@ class PDFComparer(QMainWindow):
         self.prev_diff_button.setEnabled(False)
         self.next_diff_button.setEnabled(False)
 
-        total_differences = self.total_diffs
+        # Configurar la alineación en la parte superior del layout
+        self.right_layout.setAlignment(Qt.AlignTop)
 
+        # Mostrar resumen en texto simple con estilo
         summary_label = QLabel("Resumen de Diferencias")
+        summary_label.setStyleSheet("font-weight: bold; font-size: 16px; padding: 10px;")
         self.right_layout.addWidget(summary_label)
 
         total_diff_label = QLabel(f"Total de diferencias en el documento: {total_differences}")
+        total_diff_label.setStyleSheet("font-size: 14px; padding: 5px;")
         self.right_layout.addWidget(total_diff_label)
 
-        filtered_diff_label = QLabel(f"Total de diferencias (Excluyendo 'No Aplica'): {self.total_aplica + self.total_otro}")
-        self.right_layout.addWidget(filtered_diff_label)
-
-        aplica_label = QLabel(f"Diferencias 'Aplica': {self.total_aplica}")
+        aplica_label = QLabel(f"Diferencias 'Aplica': {total_aplica}")
+        aplica_label.setStyleSheet("font-size: 14px; padding: 5px;")
         self.right_layout.addWidget(aplica_label)
 
-        no_aplica_label = QLabel(f"Diferencias 'No Aplica': {self.total_no_aplica}")
+        no_aplica_label = QLabel(f"Diferencias 'No Aplica': {total_no_aplica}")
+        no_aplica_label.setStyleSheet("font-size: 14px; padding: 5px;")
         self.right_layout.addWidget(no_aplica_label)
 
-        otro_label = QLabel(f"Diferencias 'Otro': {self.total_otro}")
+        otro_label = QLabel(f"Diferencias 'Otro': {total_otro}")
+        otro_label.setStyleSheet("font-size: 14px; padding: 5px;")
         self.right_layout.addWidget(otro_label)
 
+        # Botón para volver atrás a la vista de comparación
         back_button = QPushButton("Back")
+        back_button.setStyleSheet("font-size: 14px; padding: 10px;")
         back_button.clicked.connect(self.back_to_comparison)
         self.right_layout.addWidget(back_button)
 
+        # Expandir el espacio sobrante
+        self.right_layout.addStretch()
+
+
     def back_to_comparison(self):
+        # Eliminar solo los widgets que forman parte del resumen
         for i in reversed(range(self.right_layout.count())):
             widget = self.right_layout.itemAt(i).widget()
-            if widget:
-                widget.deleteLater()
+            if isinstance(widget, QLabel) or isinstance(widget, QPushButton):
+                if widget.text() in ["Resumen de Diferencias", f"Total de diferencias en el documento: {self.total_diffs}", 
+                                    f"Diferencias 'Aplica': {self.total_aplica}", f"Diferencias 'No Aplica': {self.total_no_aplica}", 
+                                    f"Diferencias 'Otro': {self.total_otro}", "Back"]:
+                    widget.deleteLater()
 
+        # Restaurar la visibilidad de los widgets del módulo de navegación y diferencias
         self.prev_button.setEnabled(True)
         self.next_button.setEnabled(True)
         self.prev_diff_button.setEnabled(True)
@@ -472,6 +486,7 @@ class PDFComparer(QMainWindow):
                 widget.setVisible(True)
 
         self.update_navigation_buttons()
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
