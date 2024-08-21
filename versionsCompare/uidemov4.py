@@ -482,62 +482,42 @@ class PDFComparer(QMainWindow):
         self.prev_diff_button.setEnabled(False)
         self.next_diff_button.setEnabled(False)
 
-        # Título principal del resumen
-        summary_label = QLabel("Resumen de Diferencias", self)
-        summary_label.setStyleSheet("font-weight: bold; font-size: 16px; color: #2E86C1; margin-bottom: 5px;")
-        summary_label.setAlignment(Qt.AlignCenter)
+        # Calcular el total de diferencias (suma de todas las páginas)
+        total_differences = self.total_diffs
+
+        # Mostrar resumen en texto simple
+        summary_label = QLabel("Resumen de Diferencias")
         self.right_layout.addWidget(summary_label)
 
-        # Título y detalle del total de diferencias
-        total_title_label = QLabel("Total de diferencias en el documento", self)
-        total_title_label.setStyleSheet("font-weight: bold; font-size: 14px; margin-top: 5px;")
-        self.right_layout.addWidget(total_title_label)
-
-        total_diff_label = QLabel(f"{self.total_diffs}", self)
-        total_diff_label.setStyleSheet("font-size: 12px; color: #2E86C1; margin-bottom: 5px;")
+        total_diff_label = QLabel(f"Total de diferencias en el documento: {total_differences}")
         self.right_layout.addWidget(total_diff_label)
 
-        # Título y detalle del total de diferencias sin "No Aplica"
-        filtered_title_label = QLabel("Total de diferencias (Excluyendo 'No Aplica')", self)
-        filtered_title_label.setStyleSheet("font-weight: bold; font-size: 14px; margin-top: 5px;")
-        self.right_layout.addWidget(filtered_title_label)
-
-        filtered_diff_label = QLabel(f"{self.total_aplica + self.total_otro}", self)
-        filtered_diff_label.setStyleSheet("font-size: 12px; color: #2E86C1; margin-bottom: 5px;")
+        filtered_diff_label = QLabel(f"Total de diferencias (Excluyendo 'No Aplica'): {self.total_aplica + self.total_otro}")
         self.right_layout.addWidget(filtered_diff_label)
 
-        # Detalle del conteo de cada categoría
-        breakdown_title_label = QLabel("Detalle del Conteo de Diferencias", self)
-        breakdown_title_label.setStyleSheet("font-weight: bold; font-size: 14px; margin-top: 5px;")
-        self.right_layout.addWidget(breakdown_title_label)
-
-        aplica_label = QLabel(f"Diferencias 'Aplica': {self.total_aplica}", self)
-        aplica_label.setStyleSheet("font-size: 12px; color: #28B463; margin-bottom: 5px;")
+        aplica_label = QLabel(f"Diferencias 'Aplica': {self.total_aplica}")
         self.right_layout.addWidget(aplica_label)
 
-        no_aplica_label = QLabel(f"Diferencias 'No Aplica': {self.total_no_aplica}", self)
-        no_aplica_label.setStyleSheet("font-size: 12px; color: #CB4335; margin-bottom: 5px;")
+        no_aplica_label = QLabel(f"Diferencias 'No Aplica': {self.total_no_aplica}")
         self.right_layout.addWidget(no_aplica_label)
 
-        otro_label = QLabel(f"Diferencias 'Otro': {self.total_otro}", self)
-        otro_label.setStyleSheet("font-size: 12px; color: #F39C12; margin-bottom: 5px;")
+        otro_label = QLabel(f"Diferencias 'Otro': {self.total_otro}")
         self.right_layout.addWidget(otro_label)
 
         # Botón para volver atrás a la vista de comparación
-        back_button = QPushButton("Back", self)
-        back_button.setStyleSheet("background-color: #3498DB; color: white; font-weight: bold; padding: 5px;")
+        back_button = QPushButton("Back")
         back_button.clicked.connect(self.back_to_comparison)
         self.right_layout.addWidget(back_button)
 
     def back_to_comparison(self):
-        # Ocultar todos los widgets del resumen y mostrar los widgets de comparación
+        # Eliminar todos los widgets del resumen
         for i in reversed(range(self.right_layout.count())):
             widget = self.right_layout.itemAt(i).widget()
             if widget:
-                widget.setVisible(False)
+                widget.deleteLater()
 
         # Mostrar nuevamente los widgets originales de la sección de diferencias
-        for i in reversed(range(self.right_layout.count())):
+        for i in range(self.right_layout.count()):
             widget = self.right_layout.itemAt(i).widget()
             if widget:
                 widget.setVisible(True)
