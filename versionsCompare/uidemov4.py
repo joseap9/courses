@@ -464,65 +464,98 @@ class PDFComparer(QMainWindow):
         unrevised_diffs = len(self.differences) - self.current_difference_index - 1
         if unrevised_diffs > 0:
             reply = QMessageBox.question(self, 'Diferencias sin revisar',
-                                         f'Hay {unrevised_diffs} diferencias que no se han visto. ¿Deseas marcarlas como "No Aplica"?',
-                                         QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+                                        f'Hay {unrevised_diffs} diferencias que no se han visto. ¿Deseas marcarlas como "No Aplica"?',
+                                        QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
             if reply == QMessageBox.Yes:
                 while self.current_difference_index < len(self.differences) - 1:
                     self.current_difference_index += 1
                     self.save_current_label()
 
-        # Limpiar el layout de diferencias y crear el resumen
+        # Ocultar todos los widgets de la sección de diferencias
         for i in reversed(range(self.right_layout.count())):
             widget = self.right_layout.itemAt(i).widget()
             if widget and widget != self.summary_button:
-                widget.deleteLater()
+                widget.setVisible(False)
 
+        # Título principal del resumen
         summary_label = QLabel("Resumen de Diferencias", self)
-        summary_label.setStyleSheet("font-weight: bold; font-size: 16px;")
+        summary_label.setStyleSheet("font-weight: bold; font-size: 18px; color: #2E86C1;")
         summary_label.setAlignment(Qt.AlignCenter)
         self.right_layout.addWidget(summary_label)
 
-        total_diff_label = QLabel(f"Total de diferencias en el documento: {self.total_diffs}", self)
+        # Título y detalle del total de diferencias
+        total_title_label = QLabel("Total de diferencias en el documento", self)
+        total_title_label.setStyleSheet("font-weight: bold; font-size: 16px; margin-top: 10px;")
+        self.right_layout.addWidget(total_title_label)
+
+        total_diff_label = QLabel(f"{self.total_diffs}", self)
+        total_diff_label.setStyleSheet("font-size: 14px; color: #2E86C1; margin-bottom: 10px;")
         self.right_layout.addWidget(total_diff_label)
 
-        aplica_label = QLabel(f"Diferencias marcadas como 'Aplica': {self.total_aplica}", self)
+        # Separador
+        separator_label = QLabel("________________________", self)
+        separator_label.setStyleSheet("font-size: 12px; color: #A9A9A9; margin-bottom: 10px;")
+        separator_label.setAlignment(Qt.AlignCenter)
+        self.right_layout.addWidget(separator_label)
+
+        # Título y detalle del total de diferencias sin "No Aplica"
+        filtered_title_label = QLabel("Total de diferencias (Excluyendo 'No Aplica')", self)
+        filtered_title_label.setStyleSheet("font-weight: bold; font-size: 16px; margin-top: 10px;")
+        self.right_layout.addWidget(filtered_title_label)
+
+        filtered_diff_label = QLabel(f"{self.total_aplica + self.total_otro}", self)
+        filtered_diff_label.setStyleSheet("font-size: 14px; color: #2E86C1; margin-bottom: 10px;")
+        self.right_layout.addWidget(filtered_diff_label)
+
+        # Separador
+        separator_label = QLabel("________________________", self)
+        separator_label.setStyleSheet("font-size: 12px; color: #A9A9A9; margin-bottom: 10px;")
+        separator_label.setAlignment(Qt.AlignCenter)
+        self.right_layout.addWidget(separator_label)
+
+        # Detalle del conteo de cada categoría
+        breakdown_title_label = QLabel("Detalle del Conteo de Diferencias", self)
+        breakdown_title_label.setStyleSheet("font-weight: bold; font-size: 16px; margin-top: 10px;")
+        self.right_layout.addWidget(breakdown_title_label)
+
+        aplica_label = QLabel(f"Diferencias 'Aplica': {self.total_aplica}", self)
+        aplica_label.setStyleSheet("font-size: 14px; color: #28B463; margin-bottom: 5px;")
         self.right_layout.addWidget(aplica_label)
 
-        no_aplica_label = QLabel(f"Diferencias marcadas como 'No Aplica': {self.total_no_aplica}", self)
+        no_aplica_label = QLabel(f"Diferencias 'No Aplica': {self.total_no_aplica}", self)
+        no_aplica_label.setStyleSheet("font-size: 14px; color: #CB4335; margin-bottom: 5px;")
         self.right_layout.addWidget(no_aplica_label)
 
-        otro_label = QLabel(f"Diferencias marcadas como 'Otro': {self.total_otro}", self)
+        otro_label = QLabel(f"Diferencias 'Otro': {self.total_otro}", self)
+        otro_label.setStyleSheet("font-size: 14px; color: #F39C12; margin-bottom: 10px;")
         self.right_layout.addWidget(otro_label)
 
         # Botón para volver atrás a la vista de comparación
         back_button = QPushButton("Back", self)
+        back_button.setStyleSheet("background-color: #3498DB; color: white; font-weight: bold; padding: 5px;")
         back_button.clicked.connect(self.back_to_comparison)
         self.right_layout.addWidget(back_button)
 
+
     def back_to_comparison(self):
-        # Volver a la vista de comparación
-        for i in reversed(range(self.right_layout.count())):
+        # Mostrar nuevamente los widgets originales de la sección de diferencias
+        for i in range(self.right_layout.count()):
             widget = self.right_layout.itemAt(i).widget()
             if widget:
+                widget.setVisible(True)
+
+        # Eliminar widgets del resumen
+        for i in reversed(range(self.right_layout.count())):
+            widget = self.right_layout.itemAt(i).widget()
+            if widget and isinstance(widget, QLabel) and "Resumen" in widget.text():
+                widget.deleteLater()
+            elif widget and isinstance(widget, QLabel) and ("Total" in widget.text() or "Diferencias" in widget.text()):
+                widget.deleteLater()
+            elif widget and isinstance(widget, QPushButton) and widget.text() == "Back":
                 widget.deleteLater()
 
-        # Restaurar la vista original de diferencias
-        self.update_difference_labels()
-
-        self.right_layout.addWidget(self.page_diff_label)
-        self.right_layout.addWidget(self.pdf1_label)
-        self.right_layout.addWidget(self.pdf1_diff_edit)
-        self.right_layout.addWidget(self.divider2)
-        self.right_layout.addWidget(self.pdf2_label)
-        self.right_layout.addWidget(self.pdf2_diff_edit)
-        self.right_layout.addWidget(self.radio_no_aplica)
-        self.right_layout.addWidget(self.radio_aplica)
-        self.right_layout.addWidget(self.radio_otro)
-        self.right_layout.addWidget(self.other_input)
-        self.right_layout.addWidget(self.prev_diff_button)
-        self.right_layout.addWidget(self.next_diff_button)
-
         self.update_navigation_buttons()
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
