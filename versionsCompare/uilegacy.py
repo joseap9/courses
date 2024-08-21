@@ -352,6 +352,7 @@ class PDFComparer(QMainWindow):
             self.current_difference_index += 1
             self.update_navigation_buttons()
             self.highlight_current_difference()
+            self.load_current_label()  # Cargar la etiqueta guardada al avanzar
 
     def prev_difference(self):
         if self.current_difference_index > 0:
@@ -359,6 +360,7 @@ class PDFComparer(QMainWindow):
             self.current_difference_index -= 1
             self.update_navigation_buttons()
             self.highlight_current_difference()
+            self.load_current_label()  # Cargar la etiqueta guardada al retroceder
 
     def next_page(self):
         try:
@@ -431,16 +433,43 @@ class PDFComparer(QMainWindow):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
             diff1, diff2 = self.differences[self.current_difference_index]
             diff_text = ' '.join([word[4] for word in diff1]) if diff1 else ''
-            if diff1 or diff2:
-                if self.radio_aplica.isChecked():
-                    self.labels[(self.current_page, diff_text)] = "Aplica"
-                    self.total_aplica += 1
-                elif self.radio_no_aplica.isChecked():
-                    self.labels[(self.current_page, diff_text)] = "No Aplica"
-                    self.total_no_aplica += 1
-                elif self.radio_otro.isChecked():
-                    self.labels[(self.current_page, diff_text)] = f"Otro: {self.otro_text.text()}"
-                    self.total_otro += 1
+            
+            # Remover el conteo previo si ya se había etiquetado esta diferencia
+            if (self.current_page, diff_text) in self.labels:
+                prev_label = self.labels[(self.current_page, diff_text)]
+                if prev_label == "Aplica":
+                    self.total_aplica -= 1
+                elif prev_label == "No Aplica":
+                    self.total_no_aplica -= 1
+                elif "Otro" in prev_label:
+                    self.total_otro -= 1
+            
+            # Guardar la nueva etiqueta y actualizar el conteo
+            if self.radio_aplica.isChecked():
+                self.labels[(self.current_page, diff_text)] = "Aplica"
+                self.total_aplica += 1
+            elif self.radio_no_aplica.isChecked():
+                self.labels[(self.current_page, diff_text)] = "No Aplica"
+                self.total_no_aplica += 1
+            elif self.radio_otro.isChecked():
+                self.labels[(self.current_page, diff_text)] = f"Otro: {self.otro_text.text()}"
+                self.total_otro += 1
+
+    def load_current_label(self):
+        if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
+            diff1, diff2 = self.differences[self.current_difference_index]
+            diff_text = ' '.join([word[4] for word in diff1]) if diff1 else ''
+            
+            # Cargar la etiqueta previamente guardada, si existe
+            if (self.current_page, diff_text) in self.labels:
+                saved_label = self.labels[(self.current_page, diff_text)]
+                if saved_label == "Aplica":
+                    self.radio_aplica.setChecked(True)
+                elif saved_label == "No Aplica":
+                    self.radio_no_aplica.setChecked(True)
+                elif "Otro" in saved_label:
+                    self.radio_otro.setChecked(True)
+                    self.otro_text.setText(saved_label.split(": ")[1])
 
     def show_otro_text(self):
         self.otro_text.setVisible(self.radio_otro.isChecked())
@@ -454,19 +483,21 @@ class PDFComparer(QMainWindow):
 
     def show_summary(self):
         # Calcular el total de diferencias como la suma de "Aplica", "No Aplica" y "Otro"
-        total_differences = self.total_aplica + self.total_no_aplica + self.total_otro
+        total_aplica = sum(1 for label in self.labels.values() if label == "Aplica")
+        total_no_aplica = sum(1 for label in self.labels.values() if label == "No Aplica")
+        total_otro = sum(1 for label in self.labels.values() if "Otro" in label)
 
-        # Calcular el total de diferencias excluyendo "No Aplica"
-        total_diffs_excl_no_aplica = self.total_aplica + self.total_otro
+        total_differences = total_aplica + total_no_aplica + total_otro
+        total_diffs_excl_no_aplica = total_aplica + total_otro
 
         # Mostrar el resumen en una ventana emergente
         summary_message = QMessageBox()
         summary_message.setWindowTitle("Resumen de Diferencias")
         summary_message.setText(
             f"Total de diferencias en el documento: {total_differences}\n"
-            f"Diferencias 'Aplica': {self.total_aplica}\n"
-            f"Diferencias 'No Aplica': {self.total_no_aplica}\n"
-            f"Diferencias 'Otro': {self.total_otro}\n"
+            f"Diferencias 'Aplica': {total_aplica}\n"
+            f"Diferencias 'No Aplica': {total_no_aplica}\n"
+            f"Diferencias 'Otro': {total_otro}\n"
             f"Total de diferencias excluyendo 'No Aplica': {total_diffs_excl_no_aplica}"
         )
         summary_message.exec_()
