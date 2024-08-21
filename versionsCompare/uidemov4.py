@@ -517,15 +517,15 @@ class PDFComparer(QMainWindow):
                 widget.deleteLater()
 
         # Mostrar nuevamente los widgets originales de la sección de diferencias
-        for i in range(self.right_layout.count()):
-            widget = self.right_layout.itemAt(i).widget()
-            if widget:
-                widget.setVisible(True)
-
         self.prev_button.setEnabled(True)
         self.next_button.setEnabled(True)
         self.prev_diff_button.setEnabled(True)
         self.next_diff_button.setEnabled(True)
+
+        for i in range(self.right_layout.count()):
+            widget = self.right_layout.itemAt(i).widget()
+            if widget:
+                widget.setVisible(True)
 
         self.update_navigation_buttons()
 
