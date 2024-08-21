@@ -238,25 +238,25 @@ class PDFComparer(QMainWindow):
         current_diff_pdf2 = []
 
         if page_num < len(words1):
-            words1_set = set((word[4] for word in words1[page_num]))
+            words1_set = set(word[4] for word in words1[page_num])
         else:
             words1_set = set()
 
         if page_num < len(words2):
-            words2_set = set((word[4] for word in words2[page_num]))
+            words2_set = set(word[4] for word in words2[page_num])
         else:
             words2_set = set()
 
         # Comparación basada en PDF1
         if page_num < len(words1):
             for word1 in words1[page_num]:
-                word1_x0, word1_y0, word1_x1, word1_y1, word1_text, word1_block_no = word1
-                if word1_text not in words2_set:
-                    if current_diff_pdf1 and (int(word1_x0) > int(current_diff_pdf1[-1][2]) + 10):
+                x0, y0, x1, y1, text = word1[:5]  # Unpacking the first five elements, ignoring others
+                if text not in words2_set:
+                    if current_diff_pdf1 and (int(x0) > int(current_diff_pdf1[-1][2]) + 10):
                         differences_pdf1.append(current_diff_pdf1)
                         current_diff_pdf1 = []
                     current_diff_pdf1.append(word1)
-                    highlight = fitz.Rect(word1_x0, word1_y0, word1_x1, word1_y1)
+                    highlight = fitz.Rect(x0, y0, x1, y1)
                     doc[page_num].add_highlight_annot(highlight)
                 else:
                     if current_diff_pdf1:
@@ -269,13 +269,13 @@ class PDFComparer(QMainWindow):
         # Comparar diferencias adicionales en PDF2
         if page_num < len(words2):
             for word2 in words2[page_num]:
-                word2_x0, word2_y0, word2_x1, word2_y1, word2_text, word2_block_no = word2
-                if word2_text not in words1_set:
-                    if current_diff_pdf2 and (int(word2_x0) > int(current_diff_pdf2[-1][2]) + 10):
+                x0, y0, x1, y1, text = word2[:5]  # Unpacking the first five elements, ignoring others
+                if text not in words1_set:
+                    if current_diff_pdf2 and (int(x0) > int(current_diff_pdf2[-1][2]) + 10):
                         differences_pdf2.append(current_diff_pdf2)
                         current_diff_pdf2 = []
                     current_diff_pdf2.append(word2)
-                    highlight = fitz.Rect(word2_x0, word2_y0, word2_x1, word2_y1)
+                    highlight = fitz.Rect(x0, y0, x1, y1)
                     doc[page_num].add_highlight_annot(highlight)
                 else:
                     if current_diff_pdf2:
@@ -293,8 +293,6 @@ class PDFComparer(QMainWindow):
 
         self.total_diffs += len(differences_pdf1)
         return doc, list(zip(differences_pdf1, differences_pdf2))
-
-
 
 
     def load_page_pair(self, page_num):
