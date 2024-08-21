@@ -336,7 +336,10 @@ class PDFComparer(QMainWindow):
     def update_difference_labels(self):
         total_page_diffs = len(self.differences)
         self.page_diff_label.setText(f"Página {self.current_page + 1} - Diferencia {self.current_difference_index + 1} de {total_page_diffs}")
-        self.check_all_labeled()
+
+        # Mostrar el botón de Summary si se está en la última página
+        if self.current_page == self.total_pages - 1:
+            self.summary_button.setVisible(True)
 
     def check_all_labeled(self):
         """Verifica si todas las diferencias han sido etiquetadas y muestra el botón de resumen."""
@@ -362,8 +365,8 @@ class PDFComparer(QMainWindow):
             unrevised_diffs = len(self.differences) - self.current_difference_index - 1
             if unrevised_diffs > 0:
                 reply = QMessageBox.question(self, 'Diferencias sin revisar',
-                                             f'Hay {unrevised_diffs} diferencias que no se han visto. ¿Deseas marcarlas como "No Aplica"?',
-                                             QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+                                            f'Hay {unrevised_diffs} diferencias que no se han visto. ¿Deseas marcarlas como "No Aplica"?',
+                                            QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
                 if reply == QMessageBox.Yes:
                     while self.current_difference_index < len(self.differences) - 1:
                         self.current_difference_index += 1
@@ -386,6 +389,7 @@ class PDFComparer(QMainWindow):
 
                 if self.current_page == self.total_pages - 1:
                     self.next_button.setEnabled(False)
+                    self.summary_button.setVisible(True)  # Mostrar el botón de Summary en la última página
         except UnboundLocalError:
             if self.current_page < self.total_pages - 1:
                 self.current_page += 1
@@ -403,6 +407,7 @@ class PDFComparer(QMainWindow):
 
                 if self.current_page == self.total_pages - 1:
                     self.next_button.setEnabled(False)
+                    self.summary_button.setVisible(True)  # Mostrar el botón de Summary en la última página
 
     def prev_page(self):
         if self.current_page > 0:
@@ -436,7 +441,6 @@ class PDFComparer(QMainWindow):
                 elif self.radio_otro.isChecked():
                     self.labels[(self.current_page, diff_text)] = f"Otro: {self.otro_text.text()}"
                     self.total_otro += 1
-            self.check_all_labeled()
 
     def show_otro_text(self):
         self.otro_text.setVisible(self.radio_otro.isChecked())
