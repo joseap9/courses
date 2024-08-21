@@ -1,17 +1,19 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog, QLabel, QPushButton, QVBoxLayout, QWidget
+from PyQt5.QtWidgets import (
+    QApplication, QMainWindow, QFileDialog, QLabel, QPushButton, QVBoxLayout,
+    QWidget, QScrollArea, QTextEdit, QHBoxLayout
+)
 from PyQt5.QtGui import QFont
 import fitz  # PyMuPDF
 
 class PDFComparer(QMainWindow):
     def __init__(self):
         super().__init__()
-
         self.initUI()
 
     def initUI(self):
         self.setWindowTitle('PDF Comparer')
-        self.setGeometry(100, 100, 800, 600)
+        self.setGeometry(100, 100, 1000, 700)
 
         layout = QVBoxLayout()
 
@@ -19,17 +21,31 @@ class PDFComparer(QMainWindow):
         self.label.setFont(QFont("Arial", 14))
         layout.addWidget(self.label)
 
+        buttons_layout = QHBoxLayout()
+
         self.load_pdf1_button = QPushButton("Load PDF 1", self)
         self.load_pdf1_button.clicked.connect(self.load_pdf1)
-        layout.addWidget(self.load_pdf1_button)
+        buttons_layout.addWidget(self.load_pdf1_button)
 
         self.load_pdf2_button = QPushButton("Load PDF 2", self)
         self.load_pdf2_button.clicked.connect(self.load_pdf2)
-        layout.addWidget(self.load_pdf2_button)
+        buttons_layout.addWidget(self.load_pdf2_button)
 
         self.compare_button = QPushButton("Compare PDFs", self)
         self.compare_button.clicked.connect(self.compare_pdfs)
-        layout.addWidget(self.compare_button)
+        buttons_layout.addWidget(self.compare_button)
+
+        layout.addLayout(buttons_layout)
+
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        
+        self.result_text = QTextEdit(self)
+        self.result_text.setReadOnly(True)
+        self.result_text.setFont(QFont("Courier", 12))
+
+        self.scroll_area.setWidget(self.result_text)
+        layout.addWidget(self.scroll_area)
 
         container = QWidget()
         container.setLayout(layout)
@@ -72,15 +88,20 @@ class PDFComparer(QMainWindow):
 
     def compare_paragraphs(self, pdf1_paragraphs, pdf2_paragraphs):
         differences = []
+        index = 1
         for i, para1 in enumerate(pdf1_paragraphs):
             if i < len(pdf2_paragraphs):
                 para2 = pdf2_paragraphs[i]
-                differences.append(self.compare_words(para1, para2))
+                diff = self.compare_words(para1, para2, index)
+                if diff:
+                    differences.append(diff)
+                    index += 1
             else:
-                differences.append(f"PDF 1: {para1}\nPDF 2: <no corresponding paragraph>")
+                differences.append(f"Index {index}:\nPDF 1: {para1}\nPDF 2: <no corresponding paragraph>\n")
+                index += 1
         return differences
 
-    def compare_words(self, para1, para2):
+    def compare_words(self, para1, para2, index):
         words1 = para1.split()
         words2 = para2.split()
 
@@ -111,11 +132,13 @@ class PDFComparer(QMainWindow):
             result.append(f"<siu: {words2[j]}>")
             j += 1
 
-        return ' '.join(result)
+        if result:
+            return f"Index {index}:\n{' '.join(result)}\n"
+        return None
 
     def display_differences(self, differences):
-        diff_text = '\n\n'.join(differences)
-        self.label.setText(diff_text)
+        diff_text = '\n'.join(differences)
+        self.result_text.setText(diff_text)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
