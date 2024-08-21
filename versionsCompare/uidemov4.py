@@ -386,6 +386,29 @@ class PDFComparer(QMainWindow):
             self.load_page_pair(self.current_page)
             self.update_navigation_buttons()
             self.highlight_current_difference()
+    
+    def prev_page(self):
+        if self.current_page > 0:
+            self.current_page -= 1
+            self.next_button.setEnabled(True)
+            self.load_page_pair(self.current_page)
+            self.update_navigation_buttons()
+            self.highlight_current_difference()
+
+            if self.current_page == 0:
+                self.prev_button.setEnabled(False)
+
+    def next_page(self):
+        if self.current_page < self.total_pages - 1:
+            self.current_page += 1
+            self.prev_button.setEnabled(True)
+            self.load_page_pair(self.current_page)
+            self.update_navigation_buttons()
+            self.highlight_current_difference()
+
+            if self.current_page == self.total_pages - 1:
+                self.next_button.setEnabled(False)
+
 
     def save_current_label(self):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
