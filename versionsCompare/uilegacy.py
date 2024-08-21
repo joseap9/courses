@@ -97,7 +97,7 @@ class PDFComparer(QMainWindow):
                     differences.append(diff)
                     index += 1
             else:
-                differences.append(f"Index {index}:\nPDF1 YES PDF2 NO: {para1}\n")
+                differences.append(f"Index {index}:\nPDF 2 NOTHING\nPDF 1: {para1}\n")
                 index += 1
         return differences
 
@@ -112,23 +112,26 @@ class PDFComparer(QMainWindow):
                 i += 1
                 j += 1
             else:
-                if words1[i] not in words2[j:]:
-                    result.append(f"PDF1 YES PDF2 NO: {words1[i]}")
+                start_i, start_j = i, j
+                while i < len(words1) and (j >= len(words2) or words1[i] != words2[j]):
                     i += 1
-                elif words2[j] not in words1[i:]:
-                    result.append(f"PDF2 YES PDF1 NO: {words2[j]}")
+                while j < len(words2) and (i >= len(words1) or words1[i] != words2[j]):
                     j += 1
-                else:
-                    result.append(f"PDF1 YES PDF2 NO: {words1[i]} | PDF2 YES PDF1 NO: {words2[j]}")
+                if start_i < i:
+                    result.append(f"PDF 2 NOTHING\nPDF 1: {' '.join(words1[start_i:i])}\n")
+                if start_j < j:
+                    result.append(f"PDF 1 NOTHING\nPDF 2: {' '.join(words2[start_j:j])}\n")
+                if i < len(words1) and j < len(words2):
+                    result.append(f"PDF 1: {words1[i]} PDF 2: {words2[j]}")
                     i += 1
                     j += 1
 
         while i < len(words1):
-            result.append(f"PDF1 YES PDF2 NO: {words1[i]}")
+            result.append(f"PDF 2 NOTHING\nPDF 1: {words1[i]}")
             i += 1
 
         while j < len(words2):
-            result.append(f"PDF2 YES PDF1 NO: {words2[j]}")
+            result.append(f"PDF 1 NOTHING\nPDF 2: {words2[j]}")
             j += 1
 
         if result:
