@@ -317,48 +317,31 @@ class PDFComparer(QMainWindow):
 
             page_num = self.current_page
 
-            # Resaltar la diferencia en PDF1 si no está dentro de un recuadro ya existente
             if diff1:
                 doc1 = self.temp_pdf1_paths[self.current_page]
                 start_rect1 = fitz.Rect(diff1[0][:4])
                 for word in diff1[1:]:
                     start_rect1 = start_rect1 | fitz.Rect(word[:4])
-                
-                # Verificar si ya existe un recuadro que cubra esta área
-                if not self.is_already_highlighted(doc1[page_num], start_rect1):
-                    rect_annot1 = doc1[page_num].add_rect_annot(start_rect1)
-                    rect_annot1.set_colors({"stroke": (1, 0, 0)})
-                    rect_annot1.update()
-                    self.display_pdfs(self.pdf1_layout, doc1, page_num)
+                rect_annot1 = doc1[page_num].add_rect_annot(start_rect1)
+                rect_annot1.set_colors({"stroke": (1, 0, 0)})
+                rect_annot1.update()
+                self.display_pdfs(self.pdf1_layout, doc1, page_num)
 
-            # Resaltar la diferencia en PDF2 si no está dentro de un recuadro ya existente
             if diff2:
                 doc2 = self.temp_pdf2_paths[self.current_page]
                 start_rect2 = fitz.Rect(diff2[0][:4])
                 for word in diff2[1:]:
                     start_rect2 = start_rect2 | fitz.Rect(word[:4])
-
-                # Verificar si ya existe un recuadro que cubra esta área
-                if not self.is_already_highlighted(doc2[page_num], start_rect2):
-                    rect_annot2 = doc2[page_num].add_rect_annot(start_rect2)
-                    rect_annot2.set_colors({"stroke": (1, 0, 0)})
-                    rect_annot2.update()
-                    self.display_pdfs(self.pdf2_layout, doc2, page_num)
+                rect_annot2 = doc2[page_num].add_rect_annot(start_rect2)
+                rect_annot2.set_colors({"stroke": (1, 0, 0)})
+                rect_annot2.update()
+                self.display_pdfs(self.pdf2_layout, doc2, page_num)
 
             if diff1 and diff2:
                 combined_diff1 = ' '.join([word[4] for word in diff1])
                 combined_diff2 = ' '.join([word[4] for word in diff2])
                 self.pdf1_diff_edit.setText(combined_diff1)
                 self.pdf2_diff_edit.setText(combined_diff2)
-    
-    def is_already_highlighted(self, page, rect):
-        for annot in page.annots():
-            annot_rect = annot.rect
-            # Verifica si el recuadro nuevo está contenido dentro de algún recuadro existente
-            if annot_rect.contains(rect):
-                return True
-        return False
-
 
     def update_navigation_buttons(self):
         self.prev_diff_button.setEnabled(self.current_difference_index > 0)
