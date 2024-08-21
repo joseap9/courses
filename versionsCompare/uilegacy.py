@@ -131,6 +131,8 @@ class PDFComparer(QMainWindow):
         self.total_no_aplica = 0
         self.total_otro = 0
 
+        self.page_differences = 0  # Contador de diferencias por página
+
     def sync_scroll(self, value):
         if self.sender() == self.pdf1_scroll.verticalScrollBar():
             self.pdf2_scroll.verticalScrollBar().setValue(value)
@@ -162,6 +164,7 @@ class PDFComparer(QMainWindow):
         self.pdf1_layout.update()
         self.pdf2_layout.update()
         self.total_diffs = 0
+        self.page_differences = 0
         self.labels.clear()
         self.total_aplica = 0
         self.total_no_aplica = 0
@@ -233,6 +236,7 @@ class PDFComparer(QMainWindow):
                 self.pdf2_diff_edit.setText(f"Texto encontrado en PDF2 pero no en PDF1:\n{' '.join([word[4] for word in current_diff])}")
 
         self.total_diffs += len(differences)
+        self.page_differences += len(differences)  # Incrementar contador de diferencias por página
         return doc, differences
 
     def load_page_pair(self, page_num):
@@ -315,6 +319,7 @@ class PDFComparer(QMainWindow):
 
     def update_difference_labels(self):
         total_page_diffs = len(self.differences)
+        self.page_differences += total_page_diffs  # Incrementar contador de diferencias por página
         self.page_diff_label.setText(f"Página {self.current_page + 1} - Diferencia {self.current_difference_index + 1} de {total_page_diffs}")
 
     def next_difference(self):
@@ -412,81 +417,26 @@ class PDFComparer(QMainWindow):
 
     def show_summary(self):
         # Calcular el total de diferencias acumuladas en todas las páginas
-        total_differences = sum(len(diff_page) for diff_page in self.differences)
+        total_differences = self.page_differences
         
         # Calcular el total de diferencias categorizadas como "Aplica" y "No Aplica"
-        total_aplica = sum(1 for label in self.labels.values() if label == "Aplica")
         total_no_aplica = sum(1 for label in self.labels.values() if label == "No Aplica")
-        total_otro = sum(1 for label in self.labels.values() if label not in ["Aplica", "No Aplica"])
+        total_aplica = sum(1 for label in self.labels.values() if label == "Aplica")
+        total_otro = total_differences - total_aplica - total_no_aplica
 
-        # Ocultar todos los widgets de la sección de diferencias y deshabilitar botones
-        for i in reversed(range(self.right_layout.count())):
-            widget = self.right_layout.itemAt(i).widget()
-            if widget and widget != self.summary_button:
-                widget.setVisible(False)
+        total_diffs_excl_no_aplica = total_differences - total_no_aplica
 
-        self.prev_button.setEnabled(False)
-        self.next_button.setEnabled(False)
-        self.prev_diff_button.setEnabled(False)
-        self.next_diff_button.setEnabled(False)
-
-        # Configurar la alineación en la parte superior del layout
-        self.right_layout.setAlignment(Qt.AlignTop)
-
-        # Mostrar resumen en texto simple con estilo
-        summary_label = QLabel("Resumen de Diferencias")
-        summary_label.setStyleSheet("font-weight: bold; font-size: 16px; padding: 10px;")
-        self.right_layout.addWidget(summary_label)
-
-        total_diff_label = QLabel(f"Total de diferencias en el documento: {total_differences}")
-        total_diff_label.setStyleSheet("font-size: 14px; padding: 5px;")
-        self.right_layout.addWidget(total_diff_label)
-
-        aplica_label = QLabel(f"Diferencias 'Aplica': {total_aplica}")
-        aplica_label.setStyleSheet("font-size: 14px; padding: 5px;")
-        self.right_layout.addWidget(aplica_label)
-
-        no_aplica_label = QLabel(f"Diferencias 'No Aplica': {total_no_aplica}")
-        no_aplica_label.setStyleSheet("font-size: 14px; padding: 5px;")
-        self.right_layout.addWidget(no_aplica_label)
-
-        otro_label = QLabel(f"Diferencias 'Otro': {total_otro}")
-        otro_label.setStyleSheet("font-size: 14px; padding: 5px;")
-        self.right_layout.addWidget(otro_label)
-
-        # Botón para volver atrás a la vista de comparación
-        back_button = QPushButton("Back")
-        back_button.setStyleSheet("font-size: 14px; padding: 10px;")
-        back_button.clicked.connect(self.back_to_comparison)
-        self.right_layout.addWidget(back_button)
-
-        # Expandir el espacio sobrante
-        self.right_layout.addStretch()
-
-
-    def back_to_comparison(self):
-        # Eliminar solo los widgets que forman parte del resumen
-        for i in reversed(range(self.right_layout.count())):
-            widget = self.right_layout.itemAt(i).widget()
-            if isinstance(widget, QLabel) or isinstance(widget, QPushButton):
-                if widget.text() in ["Resumen de Diferencias", f"Total de diferencias en el documento: {self.total_diffs}", 
-                                    f"Diferencias 'Aplica': {self.total_aplica}", f"Diferencias 'No Aplica': {self.total_no_aplica}", 
-                                    f"Diferencias 'Otro': {self.total_otro}", "Back"]:
-                    widget.deleteLater()
-
-        # Restaurar la visibilidad de los widgets del módulo de navegación y diferencias
-        self.prev_button.setEnabled(True)
-        self.next_button.setEnabled(True)
-        self.prev_diff_button.setEnabled(True)
-        self.next_diff_button.setEnabled(True)
-
-        for i in range(self.right_layout.count()):
-            widget = self.right_layout.itemAt(i).widget()
-            if widget:
-                widget.setVisible(True)
-
-        self.update_navigation_buttons()
-
+        # Mostrar el resumen en una ventana emergente
+        summary_message = QMessageBox()
+        summary_message.setWindowTitle("Resumen de Diferencias")
+        summary_message.setText(
+            f"Total de diferencias en el documento: {total_differences}\n"
+            f"Diferencias 'Aplica': {total_aplica}\n"
+            f"Diferencias 'No Aplica': {total_no_aplica}\n"
+            f"Diferencias 'Otro': {total_otro}\n"
+            f"Total de diferencias excluyendo 'No Aplica': {total_diffs_excl_no_aplica}"
+        )
+        summary_message.exec_()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
