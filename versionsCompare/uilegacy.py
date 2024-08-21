@@ -108,6 +108,7 @@ class PDFComparer(QMainWindow):
         self.right_layout.addWidget(self.otro_text)
 
         self.radio_otro.toggled.connect(self.show_otro_text)
+        self.radio_no_aplica.setChecked(True)  # Seleccionar "No Aplica" por defecto
 
         self.prev_diff_button = QPushButton("Previous Difference", self)
         self.prev_diff_button.clicked.connect(self.prev_difference)
@@ -148,7 +149,7 @@ class PDFComparer(QMainWindow):
         self.total_no_aplica = 0
         self.total_otro = 0
 
-        self.page_differences = 0  # Contador de diferencias por página
+        self.total_page_differences = 0  # Contador total de diferencias
 
     def sync_scroll(self, value):
         if self.sender() == self.pdf1_scroll.verticalScrollBar():
@@ -181,7 +182,7 @@ class PDFComparer(QMainWindow):
         self.pdf1_layout.update()
         self.pdf2_layout.update()
         self.total_diffs = 0
-        self.page_differences = 0
+        self.total_page_differences = 0
         self.labels.clear()
         self.total_aplica = 0
         self.total_no_aplica = 0
@@ -253,7 +254,6 @@ class PDFComparer(QMainWindow):
                 self.pdf2_diff_edit.setText(f"Texto encontrado en PDF2 pero no en PDF1:\n{' '.join([word[4] for word in current_diff])}")
 
         self.total_diffs += len(differences)
-        self.page_differences += len(differences)  # Incrementar contador de diferencias por página
         return doc, differences
 
     def load_page_pair(self, page_num):
@@ -337,6 +337,7 @@ class PDFComparer(QMainWindow):
     def update_difference_labels(self):
         total_page_diffs = len(self.differences)
         self.page_diff_label.setText(f"Página {self.current_page + 1} - Diferencia {self.current_difference_index + 1} de {total_page_diffs}")
+        self.total_page_differences += total_page_diffs  # Sumar las diferencias de la página actual al total general
 
     def next_difference(self):
         if self.current_difference_index < len(self.differences) - 1:
@@ -440,7 +441,7 @@ class PDFComparer(QMainWindow):
 
     def show_summary(self):
         # Calcular el total de diferencias acumuladas en todas las páginas
-        total_differences = sum(len(page) for page in self.temp_pdf1_paths)
+        total_differences = self.total_page_differences
         
         # Calcular el total de diferencias categorizadas
         total_aplica = sum(1 for label in self.labels.values() if label == "Aplica")
@@ -453,7 +454,7 @@ class PDFComparer(QMainWindow):
         summary_message = QMessageBox()
         summary_message.setWindowTitle("Resumen de Diferencias")
         summary_message.setText(
-            f"Total de diferencias en el documento: {self.page_differences}\n"
+            f"Total de diferencias en el documento: {total_differences}\n"
             f"Diferencias 'Aplica': {total_aplica}\n"
             f"Diferencias 'No Aplica': {total_no_aplica}\n"
             f"Diferencias 'Otro': {total_otro}\n"
