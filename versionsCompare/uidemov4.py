@@ -232,65 +232,66 @@ class PDFComparer(QMainWindow):
             self.highlight_current_difference()
 
     def highlight_differences(self, doc, words1, words2, page_num):
-        differences = []
-        current_diff = []
+        differences_pdf1 = []
+        differences_pdf2 = []
+        current_diff_pdf1 = []
+        current_diff_pdf2 = []
 
-        if page_num < len(words1) and page_num < len(words2):
+        if page_num < len(words1):
             words1_set = set((word[4] for word in words1[page_num]))
-            words2_set = set((word[4] for word in words2[page_num]))
+        else:
+            words1_set = set()
 
+        if page_num < len(words2):
+            words2_set = set((word[4] for word in words2[page_num]))
+        else:
+            words2_set = set()
+
+        # Comparación basada en PDF1
+        if page_num < len(words1):
             for word1 in words1[page_num]:
                 if word1[4] not in words2_set:
-                    if current_diff and (int(word1[0]) > int(current_diff[-1][2]) + 10):  # Verifica si las palabras no son consecutivas
-                        differences.append(current_diff)
-                        current_diff = []
-                    current_diff.append(word1)
+                    if current_diff_pdf1 and (int(word1[0]) > int(current_diff_pdf1[-1][2]) + 10):
+                        differences_pdf1.append(current_diff_pdf1)
+                        current_diff_pdf1 = []
+                    current_diff_pdf1.append(word1)
                     highlight = fitz.Rect(word1[:4])
                     doc[page_num].add_highlight_annot(highlight)
                 else:
-                    if current_diff:
-                        differences.append(current_diff)
-                        current_diff = []
+                    if current_diff_pdf1:
+                        differences_pdf1.append(current_diff_pdf1)
+                        current_diff_pdf1 = []
 
-            if current_diff:
-                differences.append(current_diff)
+            if current_diff_pdf1:
+                differences_pdf1.append(current_diff_pdf1)
 
-            # Asegúrate de verificar y manejar también las palabras en PDF2 que no están en PDF1
-            current_diff = []
+        # Comparar diferencias adicionales en PDF2
+        if page_num < len(words2):
             for word2 in words2[page_num]:
                 if word2[4] not in words1_set:
-                    if current_diff and (int(word2[0]) > int(current_diff[-1][2]) + 10):
-                        differences.append(current_diff)
-                        current_diff = []
-                    current_diff.append(word2)
+                    if current_diff_pdf2 and (int(word2[0]) > int(current_diff_pdf2[-1][2]) + 10):
+                        differences_pdf2.append(current_diff_pdf2)
+                        current_diff_pdf2 = []
+                    current_diff_pdf2.append(word2)
                     highlight = fitz.Rect(word2[:4])
                     doc[page_num].add_highlight_annot(highlight)
                 else:
-                    if current_diff:
-                        differences.append(current_diff)
-                        current_diff = []
+                    if current_diff_pdf2:
+                        differences_pdf2.append(current_diff_pdf2)
+                        current_diff_pdf2 = []
 
-            if current_diff:
-                differences.append(current_diff)
+            if current_diff_pdf2:
+                differences_pdf2.append(current_diff_pdf2)
 
-        elif page_num < len(words1):  # Caso donde solo hay texto en el primer PDF
-            for word1 in words1[page_num]:
-                current_diff.append(word1)
-                highlight = fitz.Rect(word1[:4])
-                doc[page_num].add_highlight_annot(highlight)
-            differences.append(current_diff)
-            self.pdf1_diff_edit.setText(f"Texto encontrado en PDF1 pero no en PDF2:\n{' '.join([word[4] for word in current_diff])}")
+        # Manejo de casos donde solo hay texto en PDF1 o PDF2
+        if not differences_pdf2 and differences_pdf1:
+            self.pdf1_diff_edit.setText(f"Texto encontrado en PDF1 pero no en PDF2:\n{' '.join([word[4] for word in current_diff_pdf1])}")
+        elif not differences_pdf1 and differences_pdf2:
+            self.pdf2_diff_edit.setText(f"Texto encontrado en PDF2 pero no en PDF1:\n{' '.join([word[4] for word in current_diff_pdf2])}")
 
-        elif page_num < len(words2):  # Caso donde solo hay texto en el segundo PDF
-            for word2 in words2[page_num]:
-                current_diff.append(word2)
-                highlight = fitz.Rect(word2[:4])
-                doc[page_num].add_highlight_annot(highlight)
-            differences.append(current_diff)
-            self.pdf2_diff_edit.setText(f"Texto encontrado en PDF2 pero no en PDF1:\n{' '.join([word[4] for word in current_diff])}")
+        self.total_diffs += len(differences_pdf1)
+        return doc, list(zip(differences_pdf1, differences_pdf2))
 
-        self.total_diffs += len(differences)
-        return doc, differences
 
 
     def load_page_pair(self, page_num):
@@ -359,19 +360,13 @@ class PDFComparer(QMainWindow):
                 rect_annot2.update()
                 self.display_pdfs(self.pdf2_layout, doc2, page_num)
 
-            if diff1 and diff2:
-                combined_diff1 = ' '.join([word[4] for word in diff1])
-                combined_diff2 = ' '.join([word[4] for word in diff2])
-                self.pdf1_diff_edit.setText(combined_diff1)
-                self.pdf2_diff_edit.setText(combined_diff2)
-            elif diff1:  # Solo hay diferencia en PDF1
-                combined_diff1 = ' '.join([word[4] for word in diff1])
-                self.pdf1_diff_edit.setText(combined_diff1)
-                self.pdf2_diff_edit.setText("")  # Limpiar el campo de PDF2
-            elif diff2:  # Solo hay diferencia en PDF2
-                combined_diff2 = ' '.join([word[4] for word in diff2])
-                self.pdf1_diff_edit.setText("")  # Limpiar el campo de PDF1
-                self.pdf2_diff_edit.setText(combined_diff2)
+            # Sincronización y visualización en los labels
+            combined_diff1 = ' '.join([word[4] for word in diff1]) if diff1 else ''
+            combined_diff2 = ' '.join([word[4] for word in diff2]) if diff2 else ''
+            
+            self.pdf1_diff_edit.setText(combined_diff1)
+            self.pdf2_diff_edit.setText(combined_diff2)
+
 
 
     def update_navigation_buttons(self):
