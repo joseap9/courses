@@ -84,7 +84,8 @@ class PDFComparer(QMainWindow):
         self.pdf1_label.setStyleSheet("font-weight: bold;")
         self.right_layout.addWidget(self.pdf1_label)
 
-        self.pdf1_diff_edit = QLineEdit(self)  # Cambiado a QLineEdit y editable
+        self.pdf1_diff_edit = QLineEdit(self)
+        self.pdf1_diff_edit.editingFinished.connect(self.save_current_label)  # Guardar edición
         self.right_layout.addWidget(self.pdf1_diff_edit)
 
         # Línea divisora (simula <hr/>)
@@ -97,7 +98,8 @@ class PDFComparer(QMainWindow):
         self.pdf2_label.setStyleSheet("font-weight: bold;")
         self.right_layout.addWidget(self.pdf2_label)
 
-        self.pdf2_diff_edit = QLineEdit(self)  # Cambiado a QLineEdit y editable
+        self.pdf2_diff_edit = QLineEdit(self)
+        self.pdf2_diff_edit.editingFinished.connect(self.save_current_label)  # Guardar edición
         self.right_layout.addWidget(self.pdf2_diff_edit)
 
         self.radio_button_group = QButtonGroup(self)
@@ -361,12 +363,14 @@ class PDFComparer(QMainWindow):
 
     def next_difference(self):
         if self.current_difference_index < len(self.differences) - 1:
+            self.save_current_label()  # Guardar antes de cambiar
             self.current_difference_index += 1
             self.update_navigation_buttons()
             self.highlight_current_difference()
 
     def prev_difference(self):
         if self.current_difference_index > 0:
+            self.save_current_label()  # Guardar antes de cambiar
             self.current_difference_index -= 1
             self.update_navigation_buttons()
             self.highlight_current_difference()
@@ -456,6 +460,17 @@ class PDFComparer(QMainWindow):
             self.right_layout.addWidget(self.summary_button)
 
     def show_summary(self):
+        # Verificar si todas las diferencias han sido revisadas antes de mostrar el resumen
+        unrevised_diffs = len(self.differences) - self.current_difference_index - 1
+        if unrevised_diffs > 0:
+            reply = QMessageBox.question(self, 'Diferencias sin revisar',
+                                         f'Hay {unrevised_diffs} diferencias que no se han visto. ¿Deseas marcarlas como "No Aplica"?',
+                                         QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            if reply == QMessageBox.Yes:
+                while self.current_difference_index < len(self.differences) - 1:
+                    self.current_difference_index += 1
+                    self.save_current_label()
+
         # Limpiar el layout de diferencias y crear el resumen
         for i in reversed(range(self.right_layout.count())):
             widget = self.right_layout.itemAt(i).widget()
@@ -478,6 +493,36 @@ class PDFComparer(QMainWindow):
 
         otro_label = QLabel(f"Diferencias marcadas como 'Otro': {self.total_otro}", self)
         self.right_layout.addWidget(otro_label)
+
+        # Botón para volver atrás a la vista de comparación
+        back_button = QPushButton("Back", self)
+        back_button.clicked.connect(self.back_to_comparison)
+        self.right_layout.addWidget(back_button)
+
+    def back_to_comparison(self):
+        # Volver a la vista de comparación
+        for i in reversed(range(self.right_layout.count())):
+            widget = self.right_layout.itemAt(i).widget()
+            if widget:
+                widget.deleteLater()
+
+        # Restaurar la vista original de diferencias
+        self.update_difference_labels()
+
+        self.right_layout.addWidget(self.page_diff_label)
+        self.right_layout.addWidget(self.pdf1_label)
+        self.right_layout.addWidget(self.pdf1_diff_edit)
+        self.right_layout.addWidget(self.divider2)
+        self.right_layout.addWidget(self.pdf2_label)
+        self.right_layout.addWidget(self.pdf2_diff_edit)
+        self.right_layout.addWidget(self.radio_no_aplica)
+        self.right_layout.addWidget(self.radio_aplica)
+        self.right_layout.addWidget(self.radio_otro)
+        self.right_layout.addWidget(self.other_input)
+        self.right_layout.addWidget(self.prev_diff_button)
+        self.right_layout.addWidget(self.next_diff_button)
+
+        self.update_navigation_buttons()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
