@@ -1,10 +1,8 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QRadioButton, QLineEdit, QButtonGroup, QFrame, QMessageBox, QTextEdit, QGraphicsView, QGraphicsScene
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QRadioButton, QLineEdit, QButtonGroup, QFrame, QMessageBox, QTextEdit
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap, QImage
 import fitz  # PyMuPDF
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
 class PDFComparer(QMainWindow):
     def __init__(self):
@@ -86,7 +84,7 @@ class PDFComparer(QMainWindow):
         self.pdf1_label.setStyleSheet("font-weight: bold;")
         self.right_layout.addWidget(self.pdf1_label)
 
-        self.pdf1_diff_edit = QTextEdit(self)
+        self.pdf1_diff_edit = QLineEdit(self)  # Cambiado a QLineEdit y editable
         self.right_layout.addWidget(self.pdf1_diff_edit)
 
         # Línea divisora (simula <hr/>)
@@ -99,7 +97,7 @@ class PDFComparer(QMainWindow):
         self.pdf2_label.setStyleSheet("font-weight: bold;")
         self.right_layout.addWidget(self.pdf2_label)
 
-        self.pdf2_diff_edit = QTextEdit(self)
+        self.pdf2_diff_edit = QLineEdit(self)  # Cambiado a QLineEdit y editable
         self.right_layout.addWidget(self.pdf2_diff_edit)
 
         self.radio_button_group = QButtonGroup(self)
@@ -158,10 +156,13 @@ class PDFComparer(QMainWindow):
         self.differences = []
         self.current_difference_index = -1
         self.labels = {}
-        self.total_diffs = 0
-        self.no_aplica_count = 0
-        self.aplica_count = 0
-        self.otro_count = 0
+        self.total_diffs = 0  # Variable para almacenar el total de diferencias
+
+        # Variables para resumen
+        self.summary_button = None
+        self.total_aplica = 0
+        self.total_no_aplica = 0
+        self.total_otro = 0
 
     def sync_scroll(self, value):
         if self.sender() == self.pdf1_scroll.verticalScrollBar():
@@ -193,10 +194,11 @@ class PDFComparer(QMainWindow):
         self.next_button.setEnabled(False)
         self.pdf1_layout.update()
         self.pdf2_layout.update()
-        self.total_diffs = 0
-        self.no_aplica_count = 0
-        self.aplica_count = 0
-        self.otro_count = 0
+        self.total_diffs = 0  # Reiniciar el total de diferencias
+        self.labels.clear()  # Reiniciar etiquetas
+        self.total_aplica = 0
+        self.total_no_aplica = 0
+        self.total_otro = 0
         if self.pdf1_path and self.pdf2_path:
             self.compare_pdfs()
             self.highlight_current_difference()
@@ -220,14 +222,11 @@ class PDFComparer(QMainWindow):
             self.pdf2_text, self.pdf2_words = self.extract_text_and_positions(self.pdf2_path)
 
             self.total_pages = min(len(self.pdf1_words), len(self.pdf2_words))
-            self.total_diffs = 0  # Reiniciar el total de diferencias
-            for page_num in range(self.total_pages):
-                self.load_page_pair(page_num)
-                self.total_diffs += len(self.differences)  # Sumar las diferencias de cada página
+            self.load_page_pair(self.current_page)
 
-            self.update_difference_labels()  # Actualizar las etiquetas de diferencias
             self.next_button.setEnabled(True)
             self.current_difference_index = 0
+            self.update_difference_labels()  # Actualiza las etiquetas de diferencias
             self.highlight_current_difference()
 
     def highlight_differences(self, doc, words1, words2, page_num):
@@ -267,6 +266,7 @@ class PDFComparer(QMainWindow):
             differences.append(current_diff)
             self.pdf2_diff_edit.setText(f"Texto encontrado en PDF2 pero no en PDF1:\n{' '.join([word[4] for word in current_diff])}")
 
+        self.total_diffs += len(differences)  # Acumular diferencias totales
         return doc, differences
 
     def load_page_pair(self, page_num):
@@ -293,6 +293,10 @@ class PDFComparer(QMainWindow):
             self.temp_pdf2_paths.append(doc2)
         else:
             self.temp_pdf2_paths[self.current_page] = doc2
+
+        # Mostrar botón de resumen en la última página
+        if self.current_page == self.total_pages - 1:
+            self.show_summary_button()
 
     def display_pdfs(self, layout, doc, page_num):
         for i in reversed(range(layout.count())):
@@ -339,18 +343,13 @@ class PDFComparer(QMainWindow):
 
     def update_navigation_buttons(self):
         self.prev_diff_button.setEnabled(self.current_difference_index > 0)
-        if self.current_page == self.total_pages - 1 and self.current_difference_index == len(self.differences) - 1:
-            self.next_diff_button.setText("Summary")
-        else:
-            self.next_diff_button.setText("Next Difference")
-        self.next_diff_button.setEnabled(self.current_difference_index < len(self.differences) - 1 or self.current_page < self.total_pages - 1)
+        self.next_diff_button.setEnabled(self.current_difference_index < len(self.differences) - 1)
         self.prev_button.setEnabled(self.current_page > 0)
         self.next_button.setEnabled(self.current_page < self.total_pages - 1)
         self.update_difference_labels()
 
     def update_difference_labels(self):
         total_page_diffs = len(self.differences)
-
         self.page_diff_label.setText(f"Página {self.current_page + 1} - Diferencia {self.current_difference_index + 1} de {total_page_diffs}")
 
     def toggle_other_input(self):
@@ -361,100 +360,124 @@ class PDFComparer(QMainWindow):
             self.other_input.clear()
 
     def next_difference(self):
-        if self.next_diff_button.text() == "Summary":
-            self.show_summary()
-        else:
-            self.save_current_label()  # Guardar el estado actual antes de avanzar
-            if self.current_difference_index < len(self.differences) - 1:
-                self.current_difference_index += 1
-                self.update_navigation_buttons()
-                self.highlight_current_difference()
-            elif self.current_page < self.total_pages - 1:
-                self.current_page += 1
-                self.load_page_pair(self.current_page)
-                self.update_navigation_buttons()
-                self.highlight_current_difference()
+        if self.current_difference_index < len(self.differences) - 1:
+            self.current_difference_index += 1
+            self.update_navigation_buttons()
+            self.highlight_current_difference()
 
     def prev_difference(self):
-        self.save_current_label()  # Guardar el estado actual antes de retroceder
         if self.current_difference_index > 0:
             self.current_difference_index -= 1
             self.update_navigation_buttons()
             self.highlight_current_difference()
-        elif self.current_page > 0:
-            self.current_page -= 1
-            self.load_page_pair(self.current_page)
-            self.update_navigation_buttons()
-            self.highlight_current_difference()
-    
+
+    def next_page(self):
+        try:
+            unrevised_diffs = len(self.differences) - self.current_difference_index - 1
+            if unrevised_diffs > 0:
+                reply = QMessageBox.question(self, 'Diferencias sin revisar',
+                                             f'Hay {unrevised_diffs} diferencias que no se han visto. ¿Deseas marcarlas como "No Aplica"?',
+                                             QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+                if reply == QMessageBox.Yes:
+                    while self.current_difference_index < len(self.differences) - 1:
+                        self.current_difference_index += 1
+                        self.save_current_label()
+
+            if reply == QMessageBox.Yes and self.current_page < self.total_pages - 1:
+                self.current_page += 1
+                self.prev_button.setEnabled(True)
+
+                if self.current_page >= len(self.temp_pdf1_paths):
+                    self.load_page_pair(self.current_page)
+                else:
+                    self.display_pdfs(self.pdf1_layout, self.temp_pdf1_paths[self.current_page], self.current_page)
+                    self.display_pdfs(self.pdf2_layout, self.temp_pdf2_paths[self.current_page], self.current_page)
+
+                self.current_difference_index = 0
+                self.highlight_current_difference()
+                self.update_difference_labels()
+
+                if self.current_page == self.total_pages - 1:
+                    self.next_button.setEnabled(False)
+        except UnboundLocalError:
+            if self.current_page < self.total_pages - 1:
+                self.current_page += 1
+                self.prev_button.setEnabled(True)
+
+                if self.current_page >= len(self.temp_pdf1_paths):
+                    self.load_page_pair(self.current_page)
+                else:
+                    self.display_pdfs(self.pdf1_layout, self.temp_pdf1_paths[self.current_page], self.current_page)
+                    self.display_pdfs(self.pdf2_layout, self.temp_pdf2_paths[self.current_page], self.current_page)
+
+                self.current_difference_index = 0
+                self.highlight_current_difference()
+                self.update_difference_labels()
+
+                if self.current_page == self.total_pages - 1:
+                    self.next_button.setEnabled(False)
+
     def prev_page(self):
         if self.current_page > 0:
             self.current_page -= 1
             self.next_button.setEnabled(True)
-            self.load_page_pair(self.current_page)
-            self.update_navigation_buttons()
+
+            if self.current_page >= len(self.temp_pdf1_paths):
+                self.load_page_pair(self.current_page)
+            else:
+                self.display_pdfs(self.pdf1_layout, self.temp_pdf1_paths[self.current_page], self.current_page)
+                self.display_pdfs(self.pdf2_layout, self.temp_pdf2_paths[self.current_page], self.current_page)
+
+            self.current_difference_index = 0
             self.highlight_current_difference()
+            self.update_difference_labels()
 
             if self.current_page == 0:
                 self.prev_button.setEnabled(False)
 
-    def next_page(self):
-        if self.current_page < self.total_pages - 1:
-            self.current_page += 1
-            self.prev_button.setEnabled(True)
-            self.load_page_pair(self.current_page)
-            self.update_navigation_buttons()
-            self.highlight_current_difference()
-
-            if self.current_page == self.total_pages - 1:
-                self.next_button.setEnabled(False)
-
-
     def save_current_label(self):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
             diff1, diff2 = self.differences[self.current_difference_index]
-            diff_text1 = self.pdf1_diff_edit.toPlainText() if self.pdf1_diff_edit.isEnabled() else ''
-            diff_text2 = self.pdf2_diff_edit.toPlainText() if self.pdf2_diff_edit.isEnabled() else ''
+            diff_text = ' '.join([word[4] for word in diff1]) if diff1 else ''
             if self.radio_no_aplica.isChecked():
-                self.no_aplica_count += 1
-                self.labels[(self.current_page, diff_text1)] = "No Aplica"
-                self.labels[(self.current_page, diff_text2)] = "No Aplica"
+                self.labels[(self.current_page, diff_text)] = "No Aplica"
+                self.total_no_aplica += 1
             elif self.radio_aplica.isChecked():
-                self.aplica_count += 1
-                self.labels[(self.current_page, diff_text1)] = "Aplica"
-                self.labels[(self.current_page, diff_text2)] = "Aplica"
+                self.labels[(self.current_page, diff_text)] = "Aplica"
+                self.total_aplica += 1
             elif self.radio_otro.isChecked():
-                self.otro_count += 1
-                self.labels[(self.current_page, diff_text1)] = self.other_input.text()
-                self.labels[(self.current_page, diff_text2)] = self.other_input.text()
+                self.labels[(self.current_page, diff_text)] = self.other_input.text()
+                self.total_otro += 1
+
+    def show_summary_button(self):
+        if not self.summary_button:
+            self.summary_button = QPushButton("Summary", self)
+            self.summary_button.clicked.connect(self.show_summary)
+            self.right_layout.addWidget(self.summary_button)
 
     def show_summary(self):
-        # Limpiar el contenido actual
-        self.clear_layout(self.pdf1_layout)
-        self.clear_layout(self.pdf2_layout)
-        self.clear_layout(self.right_layout)
+        # Limpiar el layout de diferencias y crear el resumen
+        for i in reversed(range(self.right_layout.count())):
+            widget = self.right_layout.itemAt(i).widget()
+            if widget and widget != self.summary_button:
+                widget.deleteLater()
 
-        # Mostrar el resumen de diferencias
-        summary_label = QLabel(f"Resumen de diferencias:\n\nTotal de diferencias: {self.total_diffs}\nNo Aplica: {self.no_aplica_count}\nAplica: {self.aplica_count}\nOtro: {self.otro_count}")
+        summary_label = QLabel("Resumen de Diferencias", self)
         summary_label.setStyleSheet("font-weight: bold; font-size: 16px;")
         summary_label.setAlignment(Qt.AlignCenter)
         self.right_layout.addWidget(summary_label)
 
-        # Crear gráfico de torta
-        fig, ax = plt.subplots()
-        labels = ['No Aplica', 'Aplica', 'Otro']
-        sizes = [self.no_aplica_count, self.aplica_count, self.otro_count]
-        ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90)
-        ax.axis('equal')  # Para que el gráfico de torta sea circular
+        total_diff_label = QLabel(f"Total de diferencias en el documento: {self.total_diffs}", self)
+        self.right_layout.addWidget(total_diff_label)
 
-        canvas = FigureCanvas(fig)
-        self.right_layout.addWidget(canvas)
+        aplica_label = QLabel(f"Diferencias marcadas como 'Aplica': {self.total_aplica}", self)
+        self.right_layout.addWidget(aplica_label)
 
-    def clear_layout(self, layout):
-        for i in reversed(range(layout.count())):
-            widget = layout.itemAt(i).widget()
-            if widget:
-                widget.setParent(None)
+        no_aplica_label = QLabel(f"Diferencias marcadas como 'No Aplica': {self.total_no_aplica}", self)
+        self.right_layout.addWidget(no_aplica_label)
+
+        otro_label = QLabel(f"Diferencias marcadas como 'Otro': {self.total_otro}", self)
+        self.right_layout.addWidget(otro_label)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
