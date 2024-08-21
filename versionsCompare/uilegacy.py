@@ -70,10 +70,10 @@ class PDFComparer(QMainWindow):
             pdf1_text = self.extract_text(self.pdf1_path)
             pdf2_text = self.extract_text(self.pdf2_path)
 
-            pdf1_paragraphs = pdf1_text.split('\n\n')
-            pdf2_paragraphs = pdf2_text.split('\n\n')
+            pdf1_words = pdf1_text.split()
+            pdf2_words = pdf2_text.split()
 
-            differences = self.compare_paragraphs(pdf1_paragraphs, pdf2_paragraphs)
+            differences = self.compare_words(pdf1_words, pdf2_words)
             self.display_differences(differences)
         else:
             self.label.setText("Please load both PDFs first")
@@ -86,27 +86,10 @@ class PDFComparer(QMainWindow):
             text += page.get_text("text")
         return text
 
-    def compare_paragraphs(self, pdf1_paragraphs, pdf2_paragraphs):
+    def compare_words(self, words1, words2):
         differences = []
-        index = 1
-        for i, para1 in enumerate(pdf1_paragraphs):
-            if i < len(pdf2_paragraphs):
-                para2 = pdf2_paragraphs[i]
-                diff = self.compare_words(para1, para2, index)
-                if diff:
-                    differences.append(diff)
-                    index += 1
-            else:
-                differences.append(f"Index {index}:\nPDF 2 NOTHING\nPDF 1: {para1}\n")
-                index += 1
-        return differences
-
-    def compare_words(self, para1, para2, index):
-        words1 = para1.split()
-        words2 = para2.split()
-
-        result = []
         i, j = 0, 0
+        index = 1
         while i < len(words1) and j < len(words2):
             if words1[i] == words2[j]:
                 i += 1
@@ -118,25 +101,26 @@ class PDFComparer(QMainWindow):
                 while j < len(words2) and (i >= len(words1) or words1[i] != words2[j]):
                     j += 1
                 if start_i < i:
-                    result.append(f"PDF 2 NOTHING\nPDF 1: {' '.join(words1[start_i:i])}\n")
+                    differences.append(f"Index {index}:\nPDF 2 NOTHING\nPDF 1: {' '.join(words1[start_i:i])}\n")
                 if start_j < j:
-                    result.append(f"PDF 1 NOTHING\nPDF 2: {' '.join(words2[start_j:j])}\n")
-                if i < len(words1) and j < len(words2):
-                    result.append(f"PDF 1: {words1[i]} PDF 2: {words2[j]}")
-                    i += 1
-                    j += 1
+                    differences.append(f"Index {index}:\nPDF 1 NOTHING\nPDF 2: {' '.join(words2[start_j:j])}\n")
+                if i < len(words1) and j < len(words2) and words1[i] != words2[j]:
+                    differences.append(f"Index {index}:\nPDF 1: {words1[i]} PDF 2: {words2[j]}")
+                index += 1
+                i += 1
+                j += 1
 
         while i < len(words1):
-            result.append(f"PDF 2 NOTHING\nPDF 1: {words1[i]}")
+            differences.append(f"Index {index}:\nPDF 2 NOTHING\nPDF 1: {words1[i]}")
             i += 1
+            index += 1
 
         while j < len(words2):
-            result.append(f"PDF 1 NOTHING\nPDF 2: {words2[j]}")
+            differences.append(f"Index {index}:\nPDF 1 NOTHING\nPDF 2: {words2[j]}")
             j += 1
+            index += 1
 
-        if result:
-            return f"Index {index}:\n" + '\n'.join(result) + "\n"
-        return None
+        return differences
 
     def display_differences(self, differences):
         diff_text = '\n'.join(differences)
