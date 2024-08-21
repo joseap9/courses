@@ -120,6 +120,11 @@ class PDFComparer(QMainWindow):
         self.next_diff_button.setEnabled(False)
         self.right_layout.addWidget(self.next_diff_button)
 
+        self.summary_button = QPushButton("Summary", self)
+        self.summary_button.clicked.connect(self.show_summary)
+        self.right_layout.addWidget(self.summary_button)
+        self.summary_button.setVisible(False)  # Ocultar el botón de resumen inicialmente
+
         self.main_layout.addWidget(self.right_frame)
 
         container = QWidget()
@@ -144,12 +149,9 @@ class PDFComparer(QMainWindow):
         self.labels = {}
         self.total_diffs = 0
 
-        self.summary_button = None
         self.total_aplica = 0
         self.total_no_aplica = 0
         self.total_otro = 0
-
-        self.total_page_differences = 0  # Contador total de diferencias
 
     def sync_scroll(self, value):
         if self.sender() == self.pdf1_scroll.verticalScrollBar():
@@ -182,11 +184,11 @@ class PDFComparer(QMainWindow):
         self.pdf1_layout.update()
         self.pdf2_layout.update()
         self.total_diffs = 0
-        self.total_page_differences = 0
         self.labels.clear()
         self.total_aplica = 0
         self.total_no_aplica = 0
         self.total_otro = 0
+        self.summary_button.setVisible(False)  # Ocultar el botón de resumen al reiniciar
         if self.pdf1_path and self.pdf2_path:
             self.compare_pdfs()
             self.highlight_current_difference()
@@ -281,9 +283,6 @@ class PDFComparer(QMainWindow):
         else:
             self.temp_pdf2_paths[self.current_page] = doc2
 
-        if self.current_page == self.total_pages - 1:
-            self.show_summary_button()
-
     def display_pdfs(self, layout, doc, page_num):
         for i in reversed(range(layout.count())):
             layout.itemAt(i).widget().deleteLater()
@@ -337,7 +336,12 @@ class PDFComparer(QMainWindow):
     def update_difference_labels(self):
         total_page_diffs = len(self.differences)
         self.page_diff_label.setText(f"Página {self.current_page + 1} - Diferencia {self.current_difference_index + 1} de {total_page_diffs}")
-        self.total_page_differences += total_page_diffs  # Sumar las diferencias de la página actual al total general
+        self.check_all_labeled()
+
+    def check_all_labeled(self):
+        """Verifica si todas las diferencias han sido etiquetadas y muestra el botón de resumen."""
+        if len(self.labels) == self.total_diffs:
+            self.summary_button.setVisible(True)
 
     def next_difference(self):
         if self.current_difference_index < len(self.differences) - 1:
@@ -425,10 +429,14 @@ class PDFComparer(QMainWindow):
             if diff1 or diff2:
                 if self.radio_aplica.isChecked():
                     self.labels[(self.current_page, diff_text)] = "Aplica"
+                    self.total_aplica += 1
                 elif self.radio_no_aplica.isChecked():
                     self.labels[(self.current_page, diff_text)] = "No Aplica"
+                    self.total_no_aplica += 1
                 elif self.radio_otro.isChecked():
                     self.labels[(self.current_page, diff_text)] = f"Otro: {self.otro_text.text()}"
+                    self.total_otro += 1
+            self.check_all_labeled()
 
     def show_otro_text(self):
         self.otro_text.setVisible(self.radio_otro.isChecked())
@@ -438,26 +446,23 @@ class PDFComparer(QMainWindow):
             self.summary_button = QPushButton("Summary", self)
             self.summary_button.clicked.connect(self.show_summary)
             self.right_layout.addWidget(self.summary_button)
+            self.summary_button.setVisible(False)
 
     def show_summary(self):
-        # Calcular el total de diferencias acumuladas en todas las páginas
-        total_differences = self.total_page_differences
-        
-        # Calcular el total de diferencias categorizadas
-        total_aplica = sum(1 for label in self.labels.values() if label == "Aplica")
-        total_no_aplica = sum(1 for label in self.labels.values() if label == "No Aplica")
-        total_otro = sum(1 for label in self.labels.values() if "Otro" in label)
+        # Calcular el total de diferencias como la suma de "Aplica", "No Aplica" y "Otro"
+        total_differences = self.total_aplica + self.total_no_aplica + self.total_otro
 
-        total_diffs_excl_no_aplica = total_differences - total_no_aplica
+        # Calcular el total de diferencias excluyendo "No Aplica"
+        total_diffs_excl_no_aplica = self.total_aplica + self.total_otro
 
         # Mostrar el resumen en una ventana emergente
         summary_message = QMessageBox()
         summary_message.setWindowTitle("Resumen de Diferencias")
         summary_message.setText(
             f"Total de diferencias en el documento: {total_differences}\n"
-            f"Diferencias 'Aplica': {total_aplica}\n"
-            f"Diferencias 'No Aplica': {total_no_aplica}\n"
-            f"Diferencias 'Otro': {total_otro}\n"
+            f"Diferencias 'Aplica': {self.total_aplica}\n"
+            f"Diferencias 'No Aplica': {self.total_no_aplica}\n"
+            f"Diferencias 'Otro': {self.total_otro}\n"
             f"Total de diferencias excluyendo 'No Aplica': {total_diffs_excl_no_aplica}"
         )
         summary_message.exec_()
@@ -467,3 +472,5 @@ if __name__ == "__main__":
     comparer = PDFComparer()
     comparer.show()
     sys.exit(app.exec_())
+
+                                  
