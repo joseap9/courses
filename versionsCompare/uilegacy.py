@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QTextEdit, QButtonGroup, QRadioButton, QMessageBox, QFrame
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QTextEdit, QButtonGroup, QRadioButton, QMessageBox, QFrame, QLineEdit
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap, QImage
 import fitz  # PyMuPDF
@@ -77,7 +77,6 @@ class PDFComparer(QMainWindow):
         self.right_layout.addWidget(self.pdf1_label)
 
         self.pdf1_diff_edit = QTextEdit(self)
-        self.pdf1_diff_edit.textChanged.connect(self.save_current_label)
         self.right_layout.addWidget(self.pdf1_diff_edit)
 
         self.divider2 = QLabel(self)
@@ -89,8 +88,26 @@ class PDFComparer(QMainWindow):
         self.right_layout.addWidget(self.pdf2_label)
 
         self.pdf2_diff_edit = QTextEdit(self)
-        self.pdf2_diff_edit.textChanged.connect(self.save_current_label)
         self.right_layout.addWidget(self.pdf2_diff_edit)
+
+        self.radio_group = QButtonGroup(self)
+        self.radio_aplica = QRadioButton("Aplica")
+        self.radio_no_aplica = QRadioButton("No Aplica")
+        self.radio_otro = QRadioButton("Otro")
+        self.radio_group.addButton(self.radio_aplica)
+        self.radio_group.addButton(self.radio_no_aplica)
+        self.radio_group.addButton(self.radio_otro)
+
+        self.right_layout.addWidget(self.radio_aplica)
+        self.right_layout.addWidget(self.radio_no_aplica)
+        self.right_layout.addWidget(self.radio_otro)
+
+        self.otro_text = QLineEdit(self)
+        self.otro_text.setPlaceholderText("Especificar otro...")
+        self.otro_text.setVisible(False)
+        self.right_layout.addWidget(self.otro_text)
+
+        self.radio_otro.toggled.connect(self.show_otro_text)
 
         self.prev_diff_button = QPushButton("Previous Difference", self)
         self.prev_diff_button.clicked.connect(self.prev_difference)
@@ -319,7 +336,6 @@ class PDFComparer(QMainWindow):
 
     def update_difference_labels(self):
         total_page_diffs = len(self.differences)
-        self.page_differences += total_page_diffs  # Incrementar contador de diferencias por página
         self.page_diff_label.setText(f"Página {self.current_page + 1} - Diferencia {self.current_difference_index + 1} de {total_page_diffs}")
 
     def next_difference(self):
@@ -346,9 +362,10 @@ class PDFComparer(QMainWindow):
                 if reply == QMessageBox.Yes:
                     while self.current_difference_index < len(self.differences) - 1:
                         self.current_difference_index += 1
+                        self.radio_no_aplica.setChecked(True)
                         self.save_current_label()
 
-            if reply == QMessageBox.Yes and self.current_page < self.total_pages - 1:
+            if self.current_page < self.total_pages - 1:
                 self.current_page += 1
                 self.prev_button.setEnabled(True)
 
@@ -404,10 +421,16 @@ class PDFComparer(QMainWindow):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
             diff1, diff2 = self.differences[self.current_difference_index]
             diff_text = ' '.join([word[4] for word in diff1]) if diff1 else ''
-            if diff1:
-                self.labels[(self.current_page, diff_text)] = self.pdf1_diff_edit.toPlainText()
-            if diff2:
-                self.labels[(self.current_page, diff_text)] = self.pdf2_diff_edit.toPlainText()
+            if diff1 or diff2:
+                if self.radio_aplica.isChecked():
+                    self.labels[(self.current_page, diff_text)] = "Aplica"
+                elif self.radio_no_aplica.isChecked():
+                    self.labels[(self.current_page, diff_text)] = "No Aplica"
+                elif self.radio_otro.isChecked():
+                    self.labels[(self.current_page, diff_text)] = f"Otro: {self.otro_text.text()}"
+
+    def show_otro_text(self):
+        self.otro_text.setVisible(self.radio_otro.isChecked())
 
     def show_summary_button(self):
         if not self.summary_button:
@@ -417,12 +440,12 @@ class PDFComparer(QMainWindow):
 
     def show_summary(self):
         # Calcular el total de diferencias acumuladas en todas las páginas
-        total_differences = self.page_differences
+        total_differences = sum(len(page) for page in self.temp_pdf1_paths)
         
-        # Calcular el total de diferencias categorizadas como "Aplica" y "No Aplica"
-        total_no_aplica = sum(1 for label in self.labels.values() if label == "No Aplica")
+        # Calcular el total de diferencias categorizadas
         total_aplica = sum(1 for label in self.labels.values() if label == "Aplica")
-        total_otro = total_differences - total_aplica - total_no_aplica
+        total_no_aplica = sum(1 for label in self.labels.values() if label == "No Aplica")
+        total_otro = sum(1 for label in self.labels.values() if "Otro" in label)
 
         total_diffs_excl_no_aplica = total_differences - total_no_aplica
 
@@ -430,7 +453,7 @@ class PDFComparer(QMainWindow):
         summary_message = QMessageBox()
         summary_message.setWindowTitle("Resumen de Diferencias")
         summary_message.setText(
-            f"Total de diferencias en el documento: {total_differences}\n"
+            f"Total de diferencias en el documento: {self.page_differences}\n"
             f"Diferencias 'Aplica': {total_aplica}\n"
             f"Diferencias 'No Aplica': {total_no_aplica}\n"
             f"Diferencias 'Otro': {total_otro}\n"
