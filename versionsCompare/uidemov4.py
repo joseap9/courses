@@ -232,68 +232,44 @@ class PDFComparer(QMainWindow):
             self.highlight_current_difference()
 
     def highlight_differences(self, doc, words1, words2, page_num):
-        differences_pdf1 = []
-        differences_pdf2 = []
-        current_diff_pdf1 = []
-        current_diff_pdf2 = []
+        differences = []
+        current_diff = []
 
-        if page_num < len(words1):
-            words1_set = set(word[4] for word in words1[page_num])
-        else:
-            words1_set = set()
+        if page_num < len(words1) and page_num < len(words2):
+            words1_set = set((word[4] for word in words1[page_num]))
+            words2_set = set((word[4] for word in words2[page_num]))
 
-        if page_num < len(words2):
-            words2_set = set(word[4] for word in words2[page_num])
-        else:
-            words2_set = set()
-
-        # Comparación basada en PDF1
-        if page_num < len(words1):
             for word1 in words1[page_num]:
-                x0, y0, x1, y1, text = word1[:5]  # Unpacking the first five elements, ignoring others
-                if text not in words2_set:
-                    if current_diff_pdf1 and (int(x0) > int(current_diff_pdf1[-1][2]) + 10):
-                        differences_pdf1.append(current_diff_pdf1)
-                        current_diff_pdf1 = []
-                    current_diff_pdf1.append(word1)
-                    highlight = fitz.Rect(x0, y0, x1, y1)
+                if word1[4] not in words2_set:
+                    if current_diff and (int(word1[0]) > int(current_diff[-1][2]) + 10):  # Verifica si las palabras no son consecutivas
+                        differences.append(current_diff)
+                        current_diff = []
+                    current_diff.append(word1)
+                    highlight = fitz.Rect(word1[:4])
                     doc[page_num].add_highlight_annot(highlight)
                 else:
-                    if current_diff_pdf1:
-                        differences_pdf1.append(current_diff_pdf1)
-                        current_diff_pdf1 = []
-
-            if current_diff_pdf1:
-                differences_pdf1.append(current_diff_pdf1)
-
-        # Comparar diferencias adicionales en PDF2
-        if page_num < len(words2):
+                    if current_diff:
+                        differences.append(current_diff)
+                        current_diff = []
+            if current_diff:
+                differences.append(current_diff)
+        elif page_num < len(words1):  # Caso donde solo hay texto en el primer PDF
+            for word1 in words1[page_num]:
+                current_diff.append(word1)
+                highlight = fitz.Rect(word1[:4])
+                doc[page_num].add_highlight_annot(highlight)
+            differences.append(current_diff)
+            self.pdf1_diff_edit.setText(f"Texto encontrado en PDF1 pero no en PDF2:\n{' '.join([word[4] for word in current_diff])}")
+        elif page_num < len(words2):  # Caso donde solo hay texto en el segundo PDF
             for word2 in words2[page_num]:
-                x0, y0, x1, y1, text = word2[:5]  # Unpacking the first five elements, ignoring others
-                if text not in words1_set:
-                    if current_diff_pdf2 and (int(x0) > int(current_diff_pdf2[-1][2]) + 10):
-                        differences_pdf2.append(current_diff_pdf2)
-                        current_diff_pdf2 = []
-                    current_diff_pdf2.append(word2)
-                    highlight = fitz.Rect(x0, y0, x1, y1)
-                    doc[page_num].add_highlight_annot(highlight)
-                else:
-                    if current_diff_pdf2:
-                        differences_pdf2.append(current_diff_pdf2)
-                        current_diff_pdf2 = []
+                current_diff.append(word2)
+                highlight = fitz.Rect(word2[:4])
+                doc[page_num].add_highlight_annot(highlight)
+            differences.append(current_diff)
+            self.pdf2_diff_edit.setText(f"Texto encontrado en PDF2 pero no en PDF1:\n{' '.join([word[4] for word in current_diff])}")
 
-            if current_diff_pdf2:
-                differences_pdf2.append(current_diff_pdf2)
-
-        # Manejo de casos donde solo hay texto en PDF1 o PDF2
-        if not differences_pdf2 and differences_pdf1:
-            self.pdf1_diff_edit.setText(f"Texto encontrado en PDF1 pero no en PDF2:\n{' '.join([word[4] for word in current_diff_pdf1])}")
-        elif not differences_pdf1 and differences_pdf2:
-            self.pdf2_diff_edit.setText(f"Texto encontrado en PDF2 pero no en PDF1:\n{' '.join([word[4] for word in current_diff_pdf2])}")
-
-        self.total_diffs += len(differences_pdf1)
-        return doc, list(zip(differences_pdf1, differences_pdf2))
-
+        self.total_diffs += len(differences)  # Acumular diferencias totales
+        return doc, differences
 
     def load_page_pair(self, page_num):
         doc1 = self.temp_pdf1_paths[self.current_page] if len(self.temp_pdf1_paths) > self.current_page else fitz.open(self.pdf1_path)
@@ -341,33 +317,47 @@ class PDFComparer(QMainWindow):
 
             page_num = self.current_page
 
+            # Resaltar la diferencia en PDF1 si no está dentro de un recuadro ya existente
             if diff1:
                 doc1 = self.temp_pdf1_paths[self.current_page]
                 start_rect1 = fitz.Rect(diff1[0][:4])
                 for word in diff1[1:]:
                     start_rect1 = start_rect1 | fitz.Rect(word[:4])
-                rect_annot1 = doc1[page_num].add_rect_annot(start_rect1)
-                rect_annot1.set_colors({"stroke": (1, 0, 0)})
-                rect_annot1.update()
-                self.display_pdfs(self.pdf1_layout, doc1, page_num)
+                
+                # Verificar si ya existe un recuadro que cubra esta área
+                if not self.is_already_highlighted(doc1[page_num], start_rect1):
+                    rect_annot1 = doc1[page_num].add_rect_annot(start_rect1)
+                    rect_annot1.set_colors({"stroke": (1, 0, 0)})
+                    rect_annot1.update()
+                    self.display_pdfs(self.pdf1_layout, doc1, page_num)
 
+            # Resaltar la diferencia en PDF2 si no está dentro de un recuadro ya existente
             if diff2:
                 doc2 = self.temp_pdf2_paths[self.current_page]
                 start_rect2 = fitz.Rect(diff2[0][:4])
                 for word in diff2[1:]:
                     start_rect2 = start_rect2 | fitz.Rect(word[:4])
-                rect_annot2 = doc2[page_num].add_rect_annot(start_rect2)
-                rect_annot2.set_colors({"stroke": (1, 0, 0)})
-                rect_annot2.update()
-                self.display_pdfs(self.pdf2_layout, doc2, page_num)
 
-            # Sincronización y visualización en los labels
-            combined_diff1 = ' '.join([word[4] for word in diff1]) if diff1 else ''
-            combined_diff2 = ' '.join([word[4] for word in diff2]) if diff2 else ''
-            
-            self.pdf1_diff_edit.setText(combined_diff1)
-            self.pdf2_diff_edit.setText(combined_diff2)
+                # Verificar si ya existe un recuadro que cubra esta área
+                if not self.is_already_highlighted(doc2[page_num], start_rect2):
+                    rect_annot2 = doc2[page_num].add_rect_annot(start_rect2)
+                    rect_annot2.set_colors({"stroke": (1, 0, 0)})
+                    rect_annot2.update()
+                    self.display_pdfs(self.pdf2_layout, doc2, page_num)
 
+            if diff1 and diff2:
+                combined_diff1 = ' '.join([word[4] for word in diff1])
+                combined_diff2 = ' '.join([word[4] for word in diff2])
+                self.pdf1_diff_edit.setText(combined_diff1)
+                self.pdf2_diff_edit.setText(combined_diff2)
+    
+    def is_already_highlighted(self, page, rect):
+        for annot in page.annots():
+            annot_rect = annot.rect
+            # Verifica si el recuadro nuevo está contenido dentro de algún recuadro existente
+            if annot_rect.contains(rect):
+                return True
+        return False
 
 
     def update_navigation_buttons(self):
@@ -380,7 +370,6 @@ class PDFComparer(QMainWindow):
     def update_difference_labels(self):
         total_page_diffs = len(self.differences)
         self.page_diff_label.setText(f"Página {self.current_page + 1} - Diferencia {self.current_difference_index + 1} de {total_page_diffs}")
-
 
     def toggle_other_input(self):
         if self.radio_otro.isChecked():
