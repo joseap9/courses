@@ -250,12 +250,13 @@ class PDFComparer(QMainWindow):
         # Comparación basada en PDF1
         if page_num < len(words1):
             for word1 in words1[page_num]:
-                if word1[4] not in words2_set:
-                    if current_diff_pdf1 and (int(word1[0]) > int(current_diff_pdf1[-1][2]) + 10):
+                word1_x0, word1_y0, word1_x1, word1_y1, word1_text, word1_block_no = word1
+                if word1_text not in words2_set:
+                    if current_diff_pdf1 and (int(word1_x0) > int(current_diff_pdf1[-1][2]) + 10):
                         differences_pdf1.append(current_diff_pdf1)
                         current_diff_pdf1 = []
                     current_diff_pdf1.append(word1)
-                    highlight = fitz.Rect(word1[:4])
+                    highlight = fitz.Rect(word1_x0, word1_y0, word1_x1, word1_y1)
                     doc[page_num].add_highlight_annot(highlight)
                 else:
                     if current_diff_pdf1:
@@ -268,12 +269,13 @@ class PDFComparer(QMainWindow):
         # Comparar diferencias adicionales en PDF2
         if page_num < len(words2):
             for word2 in words2[page_num]:
-                if word2[4] not in words1_set:
-                    if current_diff_pdf2 and (int(word2[0]) > int(current_diff_pdf2[-1][2]) + 10):
+                word2_x0, word2_y0, word2_x1, word2_y1, word2_text, word2_block_no = word2
+                if word2_text not in words1_set:
+                    if current_diff_pdf2 and (int(word2_x0) > int(current_diff_pdf2[-1][2]) + 10):
                         differences_pdf2.append(current_diff_pdf2)
                         current_diff_pdf2 = []
                     current_diff_pdf2.append(word2)
-                    highlight = fitz.Rect(word2[:4])
+                    highlight = fitz.Rect(word2_x0, word2_y0, word2_x1, word2_y1)
                     doc[page_num].add_highlight_annot(highlight)
                 else:
                     if current_diff_pdf2:
@@ -291,6 +293,7 @@ class PDFComparer(QMainWindow):
 
         self.total_diffs += len(differences_pdf1)
         return doc, list(zip(differences_pdf1, differences_pdf2))
+
 
 
 
