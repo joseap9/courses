@@ -1,4 +1,5 @@
 import fitz  # PyMuPDF
+import re
 
 # Abre el archivo PDF
 doc = fitz.open("archivo.pdf")
@@ -22,10 +23,29 @@ for page_num in range(len(doc)):
     print(cleaned_text)
     print("-----")
 
-# Función para delimitar párrafos
 def delimit_paragraphs(text):
-    paragraphs = text.split('\n\n')  # Divide el texto en párrafos usando salto de línea doble
-    return paragraphs
+    # Usa una expresión regular para encontrar finales de párrafo típicos seguidos de un salto de línea
+    paragraph_endings = r'(\.\s|\.\n|:\s|:\n)'
+    
+    # Divide el texto usando los puntos de finalización de párrafos
+    paragraphs = re.split(paragraph_endings, text)
+    
+    # Reconstruye los párrafos correctamente sin perder los delimitadores
+    reconstructed_paragraphs = []
+    current_paragraph = ""
+    
+    for segment in paragraphs:
+        if re.match(paragraph_endings, segment):
+            current_paragraph += segment
+            reconstructed_paragraphs.append(current_paragraph.strip())
+            current_paragraph = ""
+        else:
+            current_paragraph += segment
+    
+    if current_paragraph:  # Añadir el último párrafo si existe
+        reconstructed_paragraphs.append(current_paragraph.strip())
+    
+    return reconstructed_paragraphs
 
 # Aplicar la delimitación de párrafos
 for page_num in range(len(doc)):
@@ -43,4 +63,5 @@ for page_num in range(len(doc)):
         print(f"Párrafo {i} de la página {page_num + 1}:")
         print(paragraph)
         print("-----")
+
 
