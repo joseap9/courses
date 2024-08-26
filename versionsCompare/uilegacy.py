@@ -222,23 +222,31 @@ class PDFComparer(QMainWindow):
         return paragraphs, words_by_paragraph
 
     def delimit_paragraphs(self, text):
-        paragraph_endings = r'(?<!\b(?:S\.A|C\.A|Ltda)\.)(\.\s|\.\n|:\s|:\n)'
-        paragraphs = re.split(paragraph_endings, text)
+        # Divide el texto en párrafos considerando puntos seguidos de un espacio o salto de línea
+        paragraphs = re.split(r'(\.\s|\.\n|:\s|:\n)', text)
+
+        # Reconstruir los párrafos y limpiar casos como 'S.A.'
         reconstructed_paragraphs = []
         current_paragraph = ""
 
-        for segment in paragraphs:
-            if re.match(paragraph_endings, segment):
-                current_paragraph += segment
-                reconstructed_paragraphs.append(current_paragraph.strip())
-                current_paragraph = ""
+        for i in range(0, len(paragraphs), 2):
+            segment = paragraphs[i]
+            if i + 1 < len(paragraphs):
+                delimiter = paragraphs[i + 1]
+                if segment.endswith('S.A') or segment.endswith('C.A') or segment.endswith('Ltda'):
+                    current_paragraph += segment + delimiter
+                else:
+                    current_paragraph += segment
+                    reconstructed_paragraphs.append(current_paragraph.strip())
+                    current_paragraph = ""
             else:
                 current_paragraph += segment
 
-        if current_paragraph:
+        if current_paragraph:  # Añadir el último párrafo si existe
             reconstructed_paragraphs.append(current_paragraph.strip())
 
         return reconstructed_paragraphs
+
 
     def compare_pdfs(self):
         if self.pdf1_path and self.pdf2_path:
