@@ -1,7 +1,7 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QPushButton, QFileDialog, QHBoxLayout, QLabel, QScrollArea
 from PyQt5.QtGui import QPixmap, QImage
-from PyQt5.QtCore import Qt, QByteArray
+from PyQt5.QtCore import Qt
 import fitz  # PyMuPDF
 
 class PDFComparer(QMainWindow):
@@ -88,14 +88,22 @@ class PDFComparer(QMainWindow):
 
             self.differences = []
             for i in range(self.total_pages):
-                text1 = doc1[i].get_text("blocks")
-                text2 = doc2[i].get_text("blocks")
-                differences_in_page = []
-                for block1, block2 in zip(text1, text2):
-                    if block1[4] != block2[4]:
-                        differences_in_page.append((block1, block2))
-                if differences_in_page:
-                    self.differences.append((i, differences_in_page))
+                words1 = doc1[i].get_text("words")
+                words2 = doc2[i].get_text("words")
+                page_differences = []
+                paragraphs = {}
+                for word1, word2 in zip(words1, words2):
+                    if word1[4] != word2[4]:
+                        page_differences.append((word1, word2))
+                        # Agrupamos las diferencias por párrafo
+                        para_key = (word1[0], word1[1])  # Use the top left corner as the key for the paragraph
+                        if para_key not in paragraphs:
+                            paragraphs[para_key] = [word1]
+                        else:
+                            paragraphs[para_key].append(word1)
+
+                if page_differences:
+                    self.differences.append((i, page_differences, paragraphs))
 
             if self.differences:
                 self.current_difference_index = 0
@@ -103,33 +111,36 @@ class PDFComparer(QMainWindow):
 
     def go_to_difference(self):
         if self.differences:
-            diff_page, differences_in_page = self.differences[self.current_difference_index]
+            diff_page, page_differences, paragraphs = self.differences[self.current_difference_index]
             self.current_page = diff_page
 
             # Resalta las diferencias en ambas páginas
-            img1 = self.render_page_with_highlight(self.pdf1_path, differences_in_page, 0)
-            img2 = self.render_page_with_highlight(self.pdf2_path, differences_in_page, 1)
+            img1 = self.render_page_with_highlight(self.pdf1_path, page_differences, paragraphs, 0)
+            img2 = self.render_page_with_highlight(self.pdf2_path, page_differences, paragraphs, 1)
 
             self.display_image(self.pdf1_viewer, img1)
             self.display_image(self.pdf2_viewer, img2)
 
             self.update_navigation_buttons()
 
-    def render_page_with_highlight(self, pdf_path, differences_in_page, pdf_index):
+    def render_page_with_highlight(self, pdf_path, page_differences, paragraphs, pdf_index):
         doc = fitz.open(pdf_path)
         page = doc[self.current_page]
 
-        # Resalta en amarillo las diferencias
-        for block in differences_in_page:
-            block_rect = fitz.Rect(block[pdf_index][:4])
-            highlight = page.add_highlight_annot(block_rect)
-            highlight.update()
+        # Resalta solo las palabras diferentes en amarillo
+        for word1, word2 in page_differences:
+            if word1[4] != word2[4]:
+                word_rect = fitz.Rect(word1[:4])
+                highlight = page.add_highlight_annot(word_rect)
+                highlight.set_colors({"fill": (1, 1, 0)})  # Amarillo
+                highlight.update()
 
-        # Añade un recuadro rojo al párrafo completo
-        if self.current_difference_index >= 0:
-            diff_block = differences_in_page[self.current_difference_index][pdf_index]
-            block_rect = fitz.Rect(diff_block[:4])
-            rect = page.add_rect_annot(block_rect)
+        # Añade un recuadro rojo al párrafo completo que contiene diferencias
+        for para_key, para_words in paragraphs.items():
+            first_word_rect = fitz.Rect(para_words[0][:4])
+            for word in para_words[1:]:
+                first_word_rect |= fitz.Rect(word[:4])
+            rect = page.add_rect_annot(first_word_rect)
             rect.set_colors({"stroke": (1, 0, 0)})  # Rojo
             rect.update()
 
