@@ -238,44 +238,40 @@ class PDFComparer(QMainWindow):
         current_diff = []
 
         if page_num < len(words1) and page_num < len(words2):
-            words1_set = set((word[4] for word in words1[page_num] if isinstance(word[4], str)))
-            words2_set = set((word[4] for word in words2[page_num] if isinstance(word[4], str)))
+            words1_set = set((word[4] for word in words1[page_num]))
+            words2_set = set((word[4] for word in words2[page_num]))
 
             for word1 in words1[page_num]:
-                if isinstance(word1, list) and len(word1) >= 5:  # Asegúrate de que word1 es una lista con al menos 5 elementos
-                    if word1[4] not in words2_set:
-                        if current_diff and (int(word1[0]) > int(current_diff[-1][2]) + 10):  # Verifica si las palabras no son consecutivas
-                            differences.append(current_diff)
-                            current_diff = []
-                        current_diff.append(word1)
-                        highlight = fitz.Rect(word1[:4])
-                        doc[page_num].add_highlight_annot(highlight)
-                    else:
-                        if current_diff:
-                            differences.append(current_diff)
-                            current_diff = []
+                if word1[4] not in words2_set:
+                    if current_diff and (int(word1[0]) > int(current_diff[-1][2]) + 10):  # Verifica si las palabras no son consecutivas
+                        differences.append(current_diff)
+                        current_diff = []
+                    current_diff.append(word1)
+                    highlight = fitz.Rect(word1[:4])
+                    doc[page_num].add_highlight_annot(highlight)
+                else:
+                    if current_diff:
+                        differences.append(current_diff)
+                        current_diff = []
             if current_diff:
                 differences.append(current_diff)
         elif page_num < len(words1):  # Caso donde solo hay texto en el primer PDF
             for word1 in words1[page_num]:
-                if isinstance(word1, list) and len(word1) >= 5:
-                    current_diff.append(word1)
-                    highlight = fitz.Rect(word1[:4])
-                    doc[page_num].add_highlight_annot(highlight)
+                current_diff.append(word1)
+                highlight = fitz.Rect(word1[:4])
+                doc[page_num].add_highlight_annot(highlight)
             differences.append(current_diff)
-            self.pdf1_diff_edit.setText(f"Texto encontrado en PDF1 pero no en PDF2:\n{' '.join([word[4] for word in current_diff if isinstance(word[4], str)])}")
+            self.pdf1_diff_edit.setText(f"Texto encontrado en PDF1 pero no en PDF2:\n{' '.join([word[4] for word in current_diff])}")
         elif page_num < len(words2):  # Caso donde solo hay texto en el segundo PDF
             for word2 in words2[page_num]:
-                if isinstance(word2, list) and len(word2) >= 5:
-                    current_diff.append(word2)
-                    highlight = fitz.Rect(word2[:4])
-                    doc[page_num].add_highlight_annot(highlight)
+                current_diff.append(word2)
+                highlight = fitz.Rect(word2[:4])
+                doc[page_num].add_highlight_annot(highlight)
             differences.append(current_diff)
-            self.pdf2_diff_edit.setText(f"Texto encontrado en PDF2 pero no en PDF1:\n{' '.join([word[4] for word in current_diff if isinstance(word[4], str)])}")
+            self.pdf2_diff_edit.setText(f"Texto encontrado en PDF2 pero no en PDF1:\n{' '.join([word[4] for word in current_diff])}")
 
         self.total_diffs += len(differences)  # Acumular diferencias totales
         return doc, differences
-
 
     def load_page_pair(self, page_num):
         doc1 = self.temp_pdf1_paths[self.current_page] if len(self.temp_pdf1_paths) > self.current_page else fitz.open(self.pdf1_path)
@@ -313,10 +309,25 @@ class PDFComparer(QMainWindow):
         label.setPixmap(QPixmap.fromImage(img))
         layout.addWidget(label)
 
+    def find_closest_difference(self, current_diff, diffs):
+        """
+        Encuentra la diferencia más cercana a la diferencia actual basada en la posición de las palabras.
+        """
+        if not current_diff or not diffs:
+            return diffs[0] if diffs else None
+        
+        current_pos = current_diff[0][1]  # Posición Y de la primera palabra
+        closest_diff = min(diffs, key=lambda diff: abs(diff[0][1] - current_pos))
+        
+        return closest_diff
+
     def highlight_current_difference(self):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
             diff1, diff2 = self.differences[self.current_difference_index]
 
+            # Encontrar la diferencia más cercana para resaltar en PDF2
+            closest_diff2 = self.find_closest_difference(diff1, diff2)
+            
             page_num = self.current_page
 
             if diff1:
@@ -329,40 +340,21 @@ class PDFComparer(QMainWindow):
                 rect_annot1.update()
                 self.display_pdfs(self.pdf1_layout, doc1, page_num)
 
-            if diff2:
+            if closest_diff2:
                 doc2 = self.temp_pdf2_paths[self.current_page]
-                closest_diff = self.find_closest_difference(diff1, diff2)
-                start_rect2 = fitz.Rect(closest_diff[0][:4])
-                for word in closest_diff[1:]:
+                start_rect2 = fitz.Rect(closest_diff2[0][:4])
+                for word in closest_diff2[1:]:
                     start_rect2 = start_rect2 | fitz.Rect(word[:4])
                 rect_annot2 = doc2[page_num].add_rect_annot(start_rect2)
                 rect_annot2.set_colors({"stroke": (1, 0, 0)})
                 rect_annot2.update()
                 self.display_pdfs(self.pdf2_layout, doc2, page_num)
 
-            if diff1 and closest_diff:
+            if diff1 and closest_diff2:
                 combined_diff1 = ' '.join([word[4] for word in diff1])
-                combined_diff2 = ' '.join([word[4] for word in closest_diff])
+                combined_diff2 = ' '.join([word[4] for word in closest_diff2])
                 self.pdf1_diff_edit.setText(combined_diff1)
                 self.pdf2_diff_edit.setText(combined_diff2)
-
-    def find_closest_difference(self, diff1, diffs2):
-        min_distance = float('inf')
-        closest_diff = diffs2[0]
-
-        diff1_center = self.calculate_center(diff1)
-
-        for diff in diffs2:
-            diff2_center = self.calculate_center(diff)
-            distance = abs(diff2_center - diff1_center)
-            if distance < min_distance:
-                min_distance = distance
-                closest_diff = diff
-
-        return closest_diff
-
-    def calculate_center(self, diff):
-        return sum(int(word[0]) + int(word[2]) for word in diff) / (2 * len(diff))
 
     def update_navigation_buttons(self):
         self.prev_diff_button.setEnabled(self.current_difference_index > 0)
