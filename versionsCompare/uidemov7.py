@@ -244,7 +244,7 @@ class PDFComparer(QMainWindow):
 
             for word1 in words1[page_num]:
                 if word1[4] not in words2_set:
-                    if non_diff_counter > 3:  # Si hay más de 3 palabras no diferentes entre diferencias, separar la diferencia actual
+                    if non_diff_counter > 5:  # Si hay más de 5 palabras no diferentes entre diferencias, separar la diferencia actual
                         if current_diff:
                             differences.append(current_diff)
                             current_diff = []
@@ -258,7 +258,7 @@ class PDFComparer(QMainWindow):
                     if current_diff:
                         non_diff_counter += 1
 
-                    if non_diff_counter > 3 and current_diff:
+                    if non_diff_counter > 5 and current_diff:
                         differences.append(current_diff)
                         current_diff = []
                         non_diff_counter = 0
@@ -283,6 +283,7 @@ class PDFComparer(QMainWindow):
 
         self.total_diffs += len(differences)  # Acumular diferencias totales
         return doc, differences
+
 
 
     def load_page_pair(self, page_num):
@@ -323,6 +324,9 @@ class PDFComparer(QMainWindow):
 
     def highlight_current_difference(self):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
+            # Elimina todos los resaltados anteriores antes de resaltar la siguiente diferencia
+            self.clear_highlights()
+
             diff1, diff2 = self.differences[self.current_difference_index]
 
             page_num = self.current_page
@@ -352,6 +356,20 @@ class PDFComparer(QMainWindow):
                 combined_diff2 = ' '.join([word[4] for word in diff2])
                 self.pdf1_diff_edit.setText(combined_diff1)
                 self.pdf2_diff_edit.setText(combined_diff2)
+
+    def clear_highlights(self):
+        # Eliminar todos los rectángulos resaltados de la página actual antes de resaltar la siguiente diferencia
+        if self.current_page < len(self.temp_pdf1_paths):
+            doc1 = self.temp_pdf1_paths[self.current_page]
+            for annot in doc1[self.current_page].annots():
+                if annot.type[0] == 2:  # Tipo 2 es highlight
+                    doc1[self.current_page].delete_annot(annot)
+
+        if self.current_page < len(self.temp_pdf2_paths):
+            doc2 = self.temp_pdf2_paths[self.current_page]
+            for annot in doc2[self.current_page].annots():
+                if annot.type[0] == 2:  # Tipo 2 es highlight
+                    doc2[self.current_page].delete_annot(annot)
 
     def update_navigation_buttons(self):
         self.prev_diff_button.setEnabled(self.current_difference_index > 0)
