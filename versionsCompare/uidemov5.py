@@ -305,9 +305,11 @@ class PDFComparer(QMainWindow):
                 start_rect1 = fitz.Rect(diff1[0][:4])
                 for word in diff1[1:]:
                     start_rect1 = start_rect1 | fitz.Rect(word[:4])
-                rect_annot1 = doc1[page_num].add_rect_annot(start_rect1)
-                rect_annot1.set_colors({"stroke": (1, 0, 0)})
-                rect_annot1.update()
+                # Solo marca el conjunto si es un conjunto
+                if len(diff1) > 1:
+                    rect_annot1 = doc1[page_num].add_rect_annot(start_rect1)
+                    rect_annot1.set_colors({"stroke": (1, 0, 0)})
+                    rect_annot1.update()
                 self.display_pdfs(self.pdf1_layout, doc1, page_num)
 
             if diff2:
@@ -315,9 +317,11 @@ class PDFComparer(QMainWindow):
                 start_rect2 = fitz.Rect(diff2[0][:4])
                 for word in diff2[1:]:
                     start_rect2 = start_rect2 | fitz.Rect(word[:4])
-                rect_annot2 = doc2[page_num].add_rect_annot(start_rect2)
-                rect_annot2.set_colors({"stroke": (1, 0, 0)})
-                rect_annot2.update()
+                # Solo marca el conjunto si es un conjunto
+                if len(diff2) > 1:
+                    rect_annot2 = doc2[page_num].add_rect_annot(start_rect2)
+                    rect_annot2.set_colors({"stroke": (1, 0, 0)})
+                    rect_annot2.update()
                 self.display_pdfs(self.pdf2_layout, doc2, page_num)
 
             if diff1 and diff2:
@@ -325,6 +329,20 @@ class PDFComparer(QMainWindow):
                 combined_diff2 = ' '.join([word[4] for word in diff2])
                 self.pdf1_diff_edit.setText(combined_diff1)
                 self.pdf2_diff_edit.setText(combined_diff2)
+
+    def next_difference(self):
+        if self.current_difference_index < len(self.differences) - 1:
+            self.save_current_label()
+            # Saltar a la siguiente diferencia no solapada
+            while self.current_difference_index < len(self.differences) - 1:
+                self.current_difference_index += 1
+                diff1, diff2 = self.differences[self.current_difference_index]
+                if len(diff1) > 1 or len(diff2) > 1:
+                    break
+            self.update_navigation_buttons()
+            self.highlight_current_difference()
+            self.load_current_label()  # Cargar la etiqueta guardada al avanzar
+
 
 
     def update_navigation_buttons(self):
