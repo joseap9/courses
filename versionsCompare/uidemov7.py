@@ -363,14 +363,15 @@ class PDFComparer(QMainWindow):
             for annot in doc1[self.current_page].annots():
                 if annot.type[0] == 1:  # Tipo 1 es rectángulo (recuadro rojo)
                     doc1[self.current_page].delete_annot(annot)
-            doc1.saveIncr()
+            doc1.save(self.pdf1_path)  # Usar save() en lugar de saveIncr()
 
         if self.current_page < len(self.temp_pdf2_paths):
             doc2 = self.temp_pdf2_paths[self.current_page]
             for annot in doc2[self.current_page].annots():
                 if annot.type[0] == 1:  # Tipo 1 es rectángulo (recuadro rojo)
                     doc2[self.current_page].delete_annot(annot)
-            doc2.saveIncr()
+            doc2.save(self.pdf2_path)  # Usar save() en lugar de saveIncr()
+
 
 
 
