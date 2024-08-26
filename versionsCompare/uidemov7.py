@@ -233,43 +233,6 @@ class PDFComparer(QMainWindow):
             self.update_difference_labels()  # Actualiza las etiquetas de diferencias
             self.highlight_current_difference()
 
-
-    def load_page_pair(self, page_num):
-        doc1 = self.temp_pdf1_paths[self.current_page] if len(self.temp_pdf1_paths) > self.current_page else fitz.open(self.pdf1_path)
-        doc1, differences1 = self.highlight_differences(doc1, self.pdf1_words, self.pdf2_words, page_num)
-
-        doc2 = self.temp_pdf2_paths[self.current_page] if len(self.temp_pdf2_paths) > self.current_page else fitz.open(self.pdf2_path)
-        doc2, differences2 = self.highlight_differences(doc2, self.pdf2_words, self.pdf1_words, page_num)
-
-        self.display_pdfs(self.pdf1_layout, doc1, page_num)
-        self.display_pdfs(self.pdf2_layout, doc2, page_num)
-
-        self.differences = list(zip(differences1, differences2))
-        self.current_difference_index = 0
-        self.update_navigation_buttons()
-        self.update_difference_labels()  # Actualiza las etiquetas de diferencias
-
-        if len(self.temp_pdf1_paths) <= self.current_page:
-            self.temp_pdf1_paths.append(doc1)
-        else:
-            self.temp_pdf1_paths[self.current_page] = doc1
-
-        if len(self.temp_pdf2_paths) <= self.current_page:
-            self.temp_pdf2_paths.append(doc2)
-        else:
-            self.temp_pdf2_paths[self.current_page] = doc2
-
-    def display_pdfs(self, layout, doc, page_num):
-        for i in reversed(range(layout.count())):
-            layout.itemAt(i).widget().deleteLater()
-
-        page = doc.load_page(page_num)
-        pix = page.get_pixmap()
-        img = QImage(pix.samples, pix.width, pix.height, pix.stride, QImage.Format_RGB888)
-        label = QLabel(self)
-        label.setPixmap(QPixmap.fromImage(img))
-        layout.addWidget(label)
-
     def highlight_differences(self, doc, words1, words2, page_num):
         differences = []
         current_diff = []
@@ -321,11 +284,37 @@ class PDFComparer(QMainWindow):
         self.total_diffs += len(differences)  # Acumular diferencias totales
         return doc, differences
 
+    def load_page_pair(self, page_num):
+        doc1 = fitz.open(self.pdf1_path)
+        doc1, differences1 = self.highlight_differences(doc1, self.pdf1_words, self.pdf2_words, page_num)
+
+        doc2 = fitz.open(self.pdf2_path)
+        doc2, differences2 = self.highlight_differences(doc2, self.pdf2_words, self.pdf1_words, page_num)
+
+        self.display_pdfs(self.pdf1_layout, doc1, page_num)
+        self.display_pdfs(self.pdf2_layout, doc2, page_num)
+
+        self.differences = list(zip(differences1, differences2))
+        self.current_difference_index = 0
+        self.update_navigation_buttons()
+        self.update_difference_labels()  # Actualiza las etiquetas de diferencias
+
+    def display_pdfs(self, layout, doc, page_num):
+        for i in reversed(range(layout.count())):
+            layout.itemAt(i).widget().deleteLater()
+
+        page = doc.load_page(page_num)
+        pix = page.get_pixmap()
+        img = QImage(pix.samples, pix.width, pix.height, pix.stride, QImage.Format_RGB888)
+        label = QLabel(self)
+        label.setPixmap(QPixmap.fromImage(img))
+        layout.addWidget(label)
+
     def highlight_current_difference(self):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
             # Regenerar las imágenes sin recuadros rojos anteriores
-            self.display_pdfs(self.pdf1_layout, self.temp_pdf1_paths[self.current_page], self.current_page)
-            self.display_pdfs(self.pdf2_layout, self.temp_pdf2_paths[self.current_page], self.current_page)
+            self.display_pdfs(self.pdf1_layout, fitz.open(self.pdf1_path), self.current_page)
+            self.display_pdfs(self.pdf2_layout, fitz.open(self.pdf2_path), self.current_page)
 
             # Resaltar la nueva diferencia
             diff1, diff2 = self.differences[self.current_difference_index]
@@ -333,7 +322,7 @@ class PDFComparer(QMainWindow):
             page_num = self.current_page
 
             if diff1:
-                doc1 = self.temp_pdf1_paths[self.current_page]
+                doc1 = fitz.open(self.pdf1_path)
                 start_rect1 = fitz.Rect(diff1[0][:4])
                 for word in diff1[1:]:
                     start_rect1 = start_rect1 | fitz.Rect(word[:4])
@@ -343,7 +332,7 @@ class PDFComparer(QMainWindow):
                 self.display_pdfs(self.pdf1_layout, doc1, page_num)
 
             if diff2:
-                doc2 = self.temp_pdf2_paths[self.current_page]
+                doc2 = fitz.open(self.pdf2_path)
                 start_rect2 = fitz.Rect(diff2[0][:4])
                 for word in diff2[1:]:
                     start_rect2 = start_rect2 | fitz.Rect(word[:4])
@@ -357,22 +346,6 @@ class PDFComparer(QMainWindow):
                 combined_diff2 = ' '.join([word[4] for word in diff2])
                 self.pdf1_diff_edit.setText(combined_diff1)
                 self.pdf2_diff_edit.setText(combined_diff2)
-
-    def clear_highlights(self):
-        # Eliminar solo los recuadros rojos, mantener los resaltados amarillos
-        if self.current_page < len(self.temp_pdf1_paths):
-            doc1 = self.temp_pdf1_paths[self.current_page]
-            for annot in doc1[self.current_page].annots():
-                if annot.type[0] == 1:  # Tipo 1 es rectángulo (recuadro rojo)
-                    doc1[self.current_page].delete_annot(annot)
-            doc1.save(self.pdf1_path)  # Usar save() en lugar de saveIncr()
-
-        if self.current_page < len(self.temp_pdf2_paths):
-            doc2 = self.temp_pdf2_paths[self.current_page]
-            for annot in doc2[self.current_page].annots():
-                if annot.type[0] == 1:  # Tipo 1 es rectángulo (recuadro rojo)
-                    doc2[self.current_page].delete_annot(annot)
-            doc2.save(self.pdf2_path)  # Usar save() en lugar de saveIncr()
 
     def update_navigation_buttons(self):
         self.prev_diff_button.setEnabled(self.current_difference_index > 0)
@@ -426,8 +399,8 @@ class PDFComparer(QMainWindow):
             if self.current_page >= len(self.temp_pdf1_paths):
                 self.load_page_pair(self.current_page)
             else:
-                self.display_pdfs(self.pdf1_layout, self.temp_pdf1_paths[self.current_page], self.current_page)
-                self.display_pdfs(self.pdf2_layout, self.temp_pdf2_paths[self.current_page], self.current_page)
+                self.display_pdfs(self.pdf1_layout, fitz.open(self.pdf1_path), self.current_page)
+                self.display_pdfs(self.pdf2_layout, fitz.open(self.pdf2_path), self.current_page)
 
             # Resaltar la primera diferencia automáticamente en la nueva página
             self.current_difference_index = 0
@@ -445,8 +418,8 @@ class PDFComparer(QMainWindow):
             if self.current_page >= len(self.temp_pdf1_paths):
                 self.load_page_pair(self.current_page)
             else:
-                self.display_pdfs(self.pdf1_layout, self.temp_pdf1_paths[self.current_page], self.current_page)
-                self.display_pdfs(self.pdf2_layout, self.temp_pdf2_paths[self.current_page], self.current_page)
+                self.display_pdfs(self.pdf1_layout, fitz.open(self.pdf1_path), self.current_page)
+                self.display_pdfs(self.pdf2_layout, fitz.open(self.pdf2_path), self.current_page)
 
             # Resaltar la primera diferencia automáticamente en la nueva página
             self.current_difference_index = 0
