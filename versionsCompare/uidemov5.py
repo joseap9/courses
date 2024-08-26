@@ -1,8 +1,7 @@
 import sys
-import os
-from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QPushButton, QFileDialog, QHBoxLayout
-from PyQt5.QtWebEngineWidgets import QWebEngineView
-from PyQt5.QtCore import QUrl
+from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QPushButton, QFileDialog, QHBoxLayout, QLabel, QScrollArea
+from PyQt5.QtGui import QPixmap, QImage
+from PyQt5.QtCore import Qt, QByteArray
 import fitz  # PyMuPDF
 
 class PDFComparer(QMainWindow):
@@ -30,10 +29,19 @@ class PDFComparer(QMainWindow):
         # Sección de visualización de PDFs
         self.viewer_layout = QHBoxLayout()
 
-        self.pdf1_viewer = QWebEngineView(self)
-        self.pdf2_viewer = QWebEngineView(self)
-        self.viewer_layout.addWidget(self.pdf1_viewer)
-        self.viewer_layout.addWidget(self.pdf2_viewer)
+        self.pdf1_viewer = QLabel(self)
+        self.pdf1_viewer.setAlignment(Qt.AlignTop)
+        self.pdf1_scroll = QScrollArea()
+        self.pdf1_scroll.setWidgetResizable(True)
+        self.pdf1_scroll.setWidget(self.pdf1_viewer)
+        self.viewer_layout.addWidget(self.pdf1_scroll)
+
+        self.pdf2_viewer = QLabel(self)
+        self.pdf2_viewer.setAlignment(Qt.AlignTop)
+        self.pdf2_scroll = QScrollArea()
+        self.pdf2_scroll.setWidgetResizable(True)
+        self.pdf2_scroll.setWidget(self.pdf2_viewer)
+        self.viewer_layout.addWidget(self.pdf2_scroll)
 
         layout.addLayout(self.viewer_layout)
 
@@ -65,13 +73,11 @@ class PDFComparer(QMainWindow):
     def load_first_pdf(self):
         self.pdf1_path, _ = QFileDialog.getOpenFileName(self, "Select First PDF", "", "PDF Files (*.pdf)")
         if self.pdf1_path:
-            self.pdf1_viewer.setUrl(QUrl.fromLocalFile(self.pdf1_path))
             self.extract_differences()
 
     def load_second_pdf(self):
         self.pdf2_path, _ = QFileDialog.getOpenFileName(self, "Select Second PDF", "", "PDF Files (*.pdf)")
         if self.pdf2_path:
-            self.pdf2_viewer.setUrl(QUrl.fromLocalFile(self.pdf2_path))
             self.extract_differences()
 
     def extract_differences(self):
@@ -80,7 +86,6 @@ class PDFComparer(QMainWindow):
             doc2 = fitz.open(self.pdf2_path)
             self.total_pages = min(len(doc1), len(doc2))
 
-            # Lógica simplificada para extraer diferencias
             self.differences = []
             for i in range(self.total_pages):
                 text1 = doc1[i].get_text("blocks")
@@ -102,25 +107,39 @@ class PDFComparer(QMainWindow):
             self.current_page = diff_page
 
             # Resalta las diferencias en ambas páginas
-            self.highlight_page_differences(self.pdf1_path, differences_in_page, self.pdf1_viewer, 0)
-            self.highlight_page_differences(self.pdf2_path, differences_in_page, self.pdf2_viewer, 1)
+            img1 = self.render_page_with_highlight(self.pdf1_path, differences_in_page, 0)
+            img2 = self.render_page_with_highlight(self.pdf2_path, differences_in_page, 1)
+
+            self.display_image(self.pdf1_viewer, img1)
+            self.display_image(self.pdf2_viewer, img2)
 
             self.update_navigation_buttons()
 
-    def highlight_page_differences(self, pdf_path, differences_in_page, viewer, pdf_index):
+    def render_page_with_highlight(self, pdf_path, differences_in_page, pdf_index):
         doc = fitz.open(pdf_path)
         page = doc[self.current_page]
 
+        # Resalta en amarillo las diferencias
         for block in differences_in_page:
             block_rect = fitz.Rect(block[pdf_index][:4])
             highlight = page.add_highlight_annot(block_rect)
-            highlight.set_colors({"stroke": (1, 0, 0)})  # Rojo
             highlight.update()
 
-        temp_dir = os.path.abspath(os.path.dirname(__file__))
-        temp_path = os.path.join(temp_dir, f"temp_{pdf_index}_page_{self.current_page}.pdf")
-        doc.save(temp_path)
-        viewer.setUrl(QUrl.fromLocalFile(temp_path))
+        # Añade un recuadro rojo al párrafo completo
+        if self.current_difference_index >= 0:
+            diff_block = differences_in_page[self.current_difference_index][pdf_index]
+            block_rect = fitz.Rect(diff_block[:4])
+            rect = page.add_rect_annot(block_rect)
+            rect.set_colors({"stroke": (1, 0, 0)})  # Rojo
+            rect.update()
+
+        # Renderizar la página a imagen
+        pix = page.get_pixmap()
+        img = QImage(pix.samples, pix.width, pix.height, pix.stride, QImage.Format_RGB888)
+        return img
+
+    def display_image(self, label, img):
+        label.setPixmap(QPixmap.fromImage(img))
 
     def update_navigation_buttons(self):
         self.prev_diff_button.setEnabled(self.current_difference_index > 0)
