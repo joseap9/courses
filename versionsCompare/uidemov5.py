@@ -343,8 +343,6 @@ class PDFComparer(QMainWindow):
             self.highlight_current_difference()
             self.load_current_label()  # Cargar la etiqueta guardada al avanzar
 
-
-
     def update_navigation_buttons(self):
         self.prev_diff_button.setEnabled(self.current_difference_index > 0)
         self.next_diff_button.setEnabled(self.current_difference_index < len(self.differences) - 1)
@@ -364,14 +362,6 @@ class PDFComparer(QMainWindow):
         """Verifica si todas las diferencias han sido etiquetadas y muestra el botón de resumen."""
         if len(self.labels) == self.total_diffs:
             self.summary_button.setVisible(True)
-
-    def next_difference(self):
-        if self.current_difference_index < len(self.differences) - 1:
-            self.save_current_label()
-            self.current_difference_index += 1
-            self.update_navigation_buttons()
-            self.highlight_current_difference()
-            self.load_current_label()  # Cargar la etiqueta guardada al avanzar
 
     def prev_difference(self):
         if self.current_difference_index > 0:
