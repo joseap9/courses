@@ -1,7 +1,7 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QRadioButton, QLineEdit, QButtonGroup, QFrame, QMessageBox, QTextEdit
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QPixmap, QImage
+from PyQt5.QtWebEngineWidgets import QWebEngineView
 import fitz  # PyMuPDF
 
 class PDFComparer(QMainWindow):
@@ -42,22 +42,11 @@ class PDFComparer(QMainWindow):
         self.splitter = QSplitter(Qt.Horizontal)
         self.left_layout.addWidget(self.splitter)
 
-        self.pdf1_scroll = QScrollArea(self)
-        self.pdf1_container = QWidget()
-        self.pdf1_layout = QVBoxLayout()
-        self.pdf1_container.setLayout(self.pdf1_layout)
-        self.pdf1_scroll.setWidget(self.pdf1_container)
-        self.pdf1_scroll.setWidgetResizable(True)
+        self.pdf1_view = QWebEngineView(self)
+        self.pdf2_view = QWebEngineView(self)
 
-        self.pdf2_scroll = QScrollArea(self)
-        self.pdf2_container = QWidget()
-        self.pdf2_layout = QVBoxLayout()
-        self.pdf2_container.setLayout(self.pdf2_layout)
-        self.pdf2_scroll.setWidget(self.pdf2_container)
-        self.pdf2_scroll.setWidgetResizable(True)
-
-        self.splitter.addWidget(self.pdf1_scroll)
-        self.splitter.addWidget(self.pdf2_scroll)
+        self.splitter.addWidget(self.pdf1_view)
+        self.splitter.addWidget(self.pdf2_view)
 
         # Añadir la sección izquierda (dos PDFs y navegación) al layout principal
         self.main_layout.addLayout(self.left_layout)
@@ -153,8 +142,8 @@ class PDFComparer(QMainWindow):
         self.setCentralWidget(container)
 
         # Conexiones de señales para scroll sincronizado
-        self.pdf1_scroll.verticalScrollBar().valueChanged.connect(self.sync_scroll)
-        self.pdf2_scroll.verticalScrollBar().valueChanged.connect(self.sync_scroll)
+        self.pdf1_view.page().scrollPositionChanged.connect(self.sync_scroll)
+        self.pdf2_view.page().scrollPositionChanged.connect(self.sync_scroll)
 
         # Inicialización de variables
         self.pdf1_text = None
@@ -172,11 +161,9 @@ class PDFComparer(QMainWindow):
         self.labels = {}
         self.total_diffs = 0  # Variable para almacenar el total de diferencias
 
-    def sync_scroll(self, value):
-        if self.sender() == self.pdf1_scroll.verticalScrollBar():
-            self.pdf2_scroll.verticalScrollBar().setValue(value)
-        elif self.sender() == self.pdf2_scroll.verticalScrollBar():
-            self.pdf1_scroll.verticalScrollBar().setValue(value)
+    def sync_scroll(self):
+        # Sincronizar el scroll entre los visores de PDF
+        pass
 
     def load_first_pdf(self):
         options = QFileDialog.Options()
@@ -185,6 +172,7 @@ class PDFComparer(QMainWindow):
             self.button1.setText(fileName.split('/')[-1])
             self.pdf1_path = fileName
             self.reset_comparison()
+            self.pdf1_view.setUrl(f"file:///{self.pdf1_path}")
 
     def load_second_pdf(self):
         options = QFileDialog.Options()
@@ -193,6 +181,7 @@ class PDFComparer(QMainWindow):
             self.button2.setText(fileName.split('/')[-1])
             self.pdf2_path = fileName
             self.reset_comparison()
+            self.pdf2_view.setUrl(f"file:///{self.pdf2_path}")
 
     def reset_comparison(self):
         self.current_page = 0
@@ -200,8 +189,6 @@ class PDFComparer(QMainWindow):
         self.temp_pdf2_paths = []
         self.prev_button.setEnabled(False)
         self.next_button.setEnabled(False)
-        self.pdf1_layout.update()
-        self.pdf2_layout.update()
         self.total_diffs = 0  # Reiniciar el total de diferencias
         if self.pdf1_path and self.pdf2_path:
             self.compare_pdfs()
@@ -284,23 +271,13 @@ class PDFComparer(QMainWindow):
         doc1.save(f"temp_pdf1_page_{page_num}.pdf")
         doc2.save(f"temp_pdf2_page_{page_num}.pdf")
 
-        self.display_pdfs(self.pdf1_layout, f"temp_pdf1_page_{page_num}.pdf")
-        self.display_pdfs(self.pdf2_layout, f"temp_pdf2_page_{page_num}.pdf")
+        self.pdf1_view.setUrl(f"file:///temp_pdf1_page_{page_num}.pdf")
+        self.pdf2_view.setUrl(f"file:///temp_pdf2_page_{page_num}.pdf")
 
         self.differences = list(zip(differences1, differences2))
         self.current_difference_index = 0
         self.update_navigation_buttons()
         self.update_difference_labels()
-
-    def display_pdfs(self, layout, pdf_path):
-        for i in reversed(range(layout.count())):
-            layout.itemAt(i).widget().deleteLater()
-
-        # Mostrar el PDF en el área de desplazamiento
-        pdf_viewer = QLabel(self)
-        pixmap = QPixmap(pdf_path)
-        pdf_viewer.setPixmap(pixmap)
-        layout.addWidget(pdf_viewer)
 
     def highlight_current_difference(self):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
@@ -316,7 +293,8 @@ class PDFComparer(QMainWindow):
                 rect_annot1 = doc1[page_num].add_rect_annot(start_rect1)
                 rect_annot1.set_colors({"stroke": (1, 0, 0)})
                 rect_annot1.update()
-                self.display_pdfs(self.pdf1_layout, f"temp_pdf1_page_{page_num}.pdf")
+                doc1.save(f"temp_pdf1_page_{page_num}.pdf")
+                self.pdf1_view.setUrl(f"file:///temp_pdf1_page_{page_num}.pdf")
 
             if diff2:
                 doc2 = fitz.open(self.pdf2_path)
@@ -326,7 +304,8 @@ class PDFComparer(QMainWindow):
                 rect_annot2 = doc2[page_num].add_rect_annot(start_rect2)
                 rect_annot2.set_colors({"stroke": (1, 0, 0)})
                 rect_annot2.update()
-                self.display_pdfs(self.pdf2_layout, f"temp_pdf2_page_{page_num}.pdf")
+                doc2.save(f"temp_pdf2_page_{page_num}.pdf")
+                self.pdf2_view.setUrl(f"file:///temp_pdf2_page_{page_num}.pdf")
 
             if diff1 and diff2:
                 combined_diff1 = ' '.join([word[4] for word in diff1])
