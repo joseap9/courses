@@ -289,7 +289,7 @@ class PDFComparer(QMainWindow):
 
                     current_diff.append(word1)
                     highlight = fitz.Rect(word1[:4])
-                    doc[page_num].add_highlight_annot(highlight)
+                    doc[page_num].add_highlight_annot(highlight)  # Resaltado amarillo
                     non_diff_counter = 0  # Reinicia el contador de palabras no diferentes
                 else:
                     if current_diff:
@@ -307,14 +307,14 @@ class PDFComparer(QMainWindow):
             for word1 in words1[page_num]:
                 current_diff.append(word1)
                 highlight = fitz.Rect(word1[:4])
-                doc[page_num].add_highlight_annot(highlight)
+                doc[page_num].add_highlight_annot(highlight)  # Resaltado amarillo
             differences.append(current_diff)
             self.pdf1_diff_edit.setText(f"Texto encontrado en PDF1 pero no en PDF2:\n{' '.join([word[4] for word in current_diff])}")
         elif page_num < len(words2):  # Caso donde solo hay texto en el segundo PDF
             for word2 in words2[page_num]:
                 current_diff.append(word2)
                 highlight = fitz.Rect(word2[:4])
-                doc[page_num].add_highlight_annot(highlight)
+                doc[page_num].add_highlight_annot(highlight)  # Resaltado amarillo
             differences.append(current_diff)
             self.pdf2_diff_edit.setText(f"Texto encontrado en PDF2 pero no en PDF1:\n{' '.join([word[4] for word in current_diff])}")
 
@@ -323,7 +323,7 @@ class PDFComparer(QMainWindow):
 
     def highlight_current_difference(self):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
-            # Elimina todos los resaltados anteriores antes de resaltar la siguiente diferencia
+            # Elimina los recuadros rojos anteriores antes de resaltar la siguiente diferencia
             self.clear_highlights()
 
             diff1, diff2 = self.differences[self.current_difference_index]
@@ -357,18 +357,21 @@ class PDFComparer(QMainWindow):
                 self.pdf2_diff_edit.setText(combined_diff2)
 
     def clear_highlights(self):
-        # Eliminar todos los rectángulos resaltados de la página actual antes de resaltar la siguiente diferencia
+        # Eliminar solo los recuadros rojos, mantener los resaltados amarillos
         if self.current_page < len(self.temp_pdf1_paths):
             doc1 = self.temp_pdf1_paths[self.current_page]
             for annot in doc1[self.current_page].annots():
-                doc1[self.current_page].delete_annot(annot)
+                if annot.type[0] == 1:  # Tipo 1 es rectángulo (recuadro rojo)
+                    doc1[self.current_page].delete_annot(annot)
             doc1.saveIncr()
 
         if self.current_page < len(self.temp_pdf2_paths):
             doc2 = self.temp_pdf2_paths[self.current_page]
             for annot in doc2[self.current_page].annots():
-                doc2[self.current_page].delete_annot(annot)
+                if annot.type[0] == 1:  # Tipo 1 es rectángulo (recuadro rojo)
+                    doc2[self.current_page].delete_annot(annot)
             doc2.saveIncr()
+
 
 
     def update_navigation_buttons(self):
