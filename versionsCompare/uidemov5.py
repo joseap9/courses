@@ -302,26 +302,26 @@ class PDFComparer(QMainWindow):
 
             if diff1:
                 doc1 = self.temp_pdf1_paths[self.current_page]
-                start_rect1 = fitz.Rect(diff1[0][:4])
+                # Crear un único rectángulo que abarque todo el conjunto de diferencias en PDF1
+                conjunto_rect1 = fitz.Rect(diff1[0][:4])
                 for word in diff1[1:]:
-                    start_rect1 = start_rect1 | fitz.Rect(word[:4])
-                # Solo marca el conjunto si es un conjunto
-                if len(diff1) > 1:
-                    rect_annot1 = doc1[page_num].add_rect_annot(start_rect1)
-                    rect_annot1.set_colors({"stroke": (1, 0, 0)})
-                    rect_annot1.update()
+                    conjunto_rect1 = conjunto_rect1 | fitz.Rect(word[:4])
+                # Agregar anotación del rectángulo rojo
+                rect_annot1 = doc1[page_num].add_rect_annot(conjunto_rect1)
+                rect_annot1.set_colors({"stroke": (1, 0, 0)})
+                rect_annot1.update()
                 self.display_pdfs(self.pdf1_layout, doc1, page_num)
 
             if diff2:
                 doc2 = self.temp_pdf2_paths[self.current_page]
-                start_rect2 = fitz.Rect(diff2[0][:4])
+                # Crear un único rectángulo que abarque todo el conjunto de diferencias en PDF2
+                conjunto_rect2 = fitz.Rect(diff2[0][:4])
                 for word in diff2[1:]:
-                    start_rect2 = start_rect2 | fitz.Rect(word[:4])
-                # Solo marca el conjunto si es un conjunto
-                if len(diff2) > 1:
-                    rect_annot2 = doc2[page_num].add_rect_annot(start_rect2)
-                    rect_annot2.set_colors({"stroke": (1, 0, 0)})
-                    rect_annot2.update()
+                    conjunto_rect2 = conjunto_rect2 | fitz.Rect(word[:4])
+                # Agregar anotación del rectángulo rojo
+                rect_annot2 = doc2[page_num].add_rect_annot(conjunto_rect2)
+                rect_annot2.set_colors({"stroke": (1, 0, 0)})
+                rect_annot2.update()
                 self.display_pdfs(self.pdf2_layout, doc2, page_num)
 
             if diff1 and diff2:
@@ -333,15 +333,12 @@ class PDFComparer(QMainWindow):
     def next_difference(self):
         if self.current_difference_index < len(self.differences) - 1:
             self.save_current_label()
-            # Saltar a la siguiente diferencia no solapada
-            while self.current_difference_index < len(self.differences) - 1:
-                self.current_difference_index += 1
-                diff1, diff2 = self.differences[self.current_difference_index]
-                if len(diff1) > 1 or len(diff2) > 1:
-                    break
+            # Mover al siguiente conjunto de diferencias sin solapar con el actual
+            self.current_difference_index += 1
             self.update_navigation_buttons()
             self.highlight_current_difference()
             self.load_current_label()  # Cargar la etiqueta guardada al avanzar
+
 
     def update_navigation_buttons(self):
         self.prev_diff_button.setEnabled(self.current_difference_index > 0)
