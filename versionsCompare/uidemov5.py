@@ -317,9 +317,18 @@ class PDFComparer(QMainWindow):
             return diffs[0] if diffs else None
         
         current_pos = current_diff[0][1]  # Posición Y de la primera palabra
-        closest_diff = min(diffs, key=lambda diff: abs(diff[0][1] - current_pos))
+        
+        # Asegúrate de que todos los elementos de diffs sean listas o tuplas antes de intentar acceder a ellos
+        valid_diffs = [diff for diff in diffs if isinstance(diff, list) and len(diff) > 0 and isinstance(diff[0], tuple)]
+        
+        if not valid_diffs:
+            print("Error: No se encontraron diferencias válidas en diffs.")
+            return None
+        
+        closest_diff = min(valid_diffs, key=lambda diff: abs(diff[0][1] - current_pos))
         
         return closest_diff
+
 
     def highlight_current_difference(self):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
