@@ -239,37 +239,19 @@ class PDFComparer(QMainWindow):
         current_diff = []
 
         if page_num < len(words1) and page_num < len(words2):
+            paragraphs1 = self.delimit_paragraphs(self.pdf1_text[page_num])
+            paragraphs2 = self.delimit_paragraphs(self.pdf2_text[page_num])
+
             words1_set = set((word[4] for word in words1[page_num]))
             words2_set = set((word[4] for word in words2[page_num]))
 
-            for word1 in words1[page_num]:
-                if word1[4] not in words2_set:
-                    if current_diff and (int(word1[0]) > int(current_diff[-1][2]) + 10):  # Verifica si las palabras no son consecutivas
-                        differences.append(current_diff)
-                        current_diff = []
-                    current_diff.append(word1)
-                    highlight = fitz.Rect(word1[:4])
-                    doc[page_num].add_highlight_annot(highlight)
-                else:
-                    if current_diff:
-                        differences.append(current_diff)
-                        current_diff = []
-            if current_diff:
-                differences.append(current_diff)
-        elif page_num < len(words1):  # Caso donde solo hay texto en el primer PDF
-            for word1 in words1[page_num]:
-                current_diff.append(word1)
-                highlight = fitz.Rect(word1[:4])
-                doc[page_num].add_highlight_annot(highlight)
-            differences.append(current_diff)
-            self.pdf1_diff_edit.setText(f"Texto encontrado en PDF1 pero no en PDF2:\n{' '.join([word[4] for word in current_diff])}")
-        elif page_num < len(words2):  # Caso donde solo hay texto en el segundo PDF
-            for word2 in words2[page_num]:
-                current_diff.append(word2)
-                highlight = fitz.Rect(word2[:4])
-                doc[page_num].add_highlight_annot(highlight)
-            differences.append(current_diff)
-            self.pdf2_diff_edit.setText(f"Texto encontrado en PDF2 pero no en PDF1:\n{' '.join([word[4] for word in current_diff])}")
+            for paragraph1 in paragraphs1:
+                paragraph_words1 = [word for word in words1[page_num] if word[4] in paragraph1]
+                if any(word[4] not in words2_set for word in paragraph_words1):
+                    current_diff.append(paragraph_words1)
+                    paragraph_rect = self.get_paragraph_rect(paragraph_words1)
+                    doc[page_num].add_highlight_annot(paragraph_rect)
+                    differences.append(paragraph_words1)
 
         self.total_diffs += len(differences)  # Acumular diferencias totales
         return doc, differences
@@ -318,8 +300,8 @@ class PDFComparer(QMainWindow):
 
             if diff1:
                 doc1 = self.temp_pdf1_paths[self.current_page]
-                paragraph_text1 = self.get_paragraph_containing_word(diff1[0][4], self.pdf1_text[page_num])
-                paragraph_rect1 = self.get_paragraph_rect(paragraph_text1, self.pdf1_words[page_num])
+                paragraph_text1 = ' '.join([word[4] for word in diff1])
+                paragraph_rect1 = self.get_paragraph_rect(diff1)
                 rect_annot1 = doc1[page_num].add_rect_annot(paragraph_rect1)
                 rect_annot1.set_colors({"stroke": (1, 0, 0)})
                 rect_annot1.update()
@@ -327,8 +309,8 @@ class PDFComparer(QMainWindow):
 
             if diff2:
                 doc2 = self.temp_pdf2_paths[self.current_page]
-                paragraph_text2 = self.get_paragraph_containing_word(diff2[0][4], self.pdf2_text[page_num])
-                paragraph_rect2 = self.get_paragraph_rect(paragraph_text2, self.pdf2_words[page_num])
+                paragraph_text2 = ' '.join([word[4] for word in diff2])
+                paragraph_rect2 = self.get_paragraph_rect(diff2)
                 rect_annot2 = doc2[page_num].add_rect_annot(paragraph_rect2)
                 rect_annot2.set_colors({"stroke": (1, 0, 0)})
                 rect_annot2.update()
@@ -346,11 +328,10 @@ class PDFComparer(QMainWindow):
                 return paragraph
         return ""
 
-    def get_paragraph_rect(self, paragraph, word_list):
-        words_in_paragraph = [word for word in word_list if word[4] in paragraph]
-        if words_in_paragraph:
-            paragraph_rect = fitz.Rect(words_in_paragraph[0][:4])
-            for word in words_in_paragraph[1:]:
+    def get_paragraph_rect(self, paragraph_words):
+        if paragraph_words:
+            paragraph_rect = fitz.Rect(paragraph_words[0][:4])
+            for word in paragraph_words[1:]:
                 paragraph_rect = paragraph_rect | fitz.Rect(word[:4])
             return paragraph_rect
         return fitz.Rect(0, 0, 0, 0)
