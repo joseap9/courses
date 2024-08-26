@@ -148,7 +148,7 @@ class PDFComparer(QMainWindow):
 
         self.differences = []
         self.current_difference_index = -1
-        self.labels = {}
+        self.annotations = {}  # Diccionario para almacenar referencias fuertes a las anotaciones
         self.total_diffs = 0
 
         self.total_aplica = 0
@@ -186,7 +186,7 @@ class PDFComparer(QMainWindow):
         self.pdf1_layout.update()
         self.pdf2_layout.update()
         self.total_diffs = 0
-        self.labels.clear()
+        self.annotations.clear()  # Limpiar anotaciones anteriores
         self.total_aplica = 0
         self.total_no_aplica = 0
         self.total_otro = 0
@@ -211,10 +211,10 @@ class PDFComparer(QMainWindow):
             lines = []
             current_line = []
             last_y = None
-            y_threshold = 5  # Umbral para considerar palabras en la misma línea
+            y_threshold = 5  # Ajusta según la fuente y el espaciado
 
             for word in words:
-                y = word[1]  # Obtener la coordenada y de la palabra
+                y = word[1]
                 if last_y is None or abs(y - last_y) <= y_threshold:
                     current_line.append(word)
                 else:
@@ -228,7 +228,7 @@ class PDFComparer(QMainWindow):
             paragraphs_lines = []
             current_para = []
             last_y_end = None
-            para_gap_threshold = 10  # Umbral para considerar un nuevo párrafo
+            para_gap_threshold = 10  # Ajusta según el diseño de la página
 
             for line in lines:
                 y0 = line[0][1]  # Coordenada y de la primera palabra de la línea
@@ -242,7 +242,7 @@ class PDFComparer(QMainWindow):
             if current_para:
                 paragraphs_lines.append(current_para)
 
-            # Convertir las líneas de párrafos en textos de párrafos y listas de palabras
+            # Convertir líneas de párrafos en textos de párrafos y listas de palabras
             para_texts = []
             para_words_page = []
             for para in paragraphs_lines:
@@ -255,12 +255,6 @@ class PDFComparer(QMainWindow):
             words_by_paragraph.append(para_words_page)
 
         return paragraphs, words_by_paragraph
-
-
-    def delimit_paragraphs(self, text):
-        # Esta función ya no es necesaria con el nuevo método basado en posiciones
-        # Puedes eliminarla si ya no la utilizas
-        pass
 
     def compare_pdfs(self):
         if self.pdf1_path and self.pdf2_path:
@@ -333,7 +327,9 @@ class PDFComparer(QMainWindow):
 
     def display_pdfs(self, layout, doc, page_num):
         for i in reversed(range(layout.count())):
-            layout.itemAt(i).widget().deleteLater()
+            widget = layout.itemAt(i).widget()
+            if widget:
+                widget.deleteLater()
 
         page = doc.load_page(page_num)
         pix = page.get_pixmap()
@@ -342,6 +338,11 @@ class PDFComparer(QMainWindow):
         label.setPixmap(QPixmap.fromImage(img))
         layout.addWidget(label)
 
+        # Mantener una referencia fuerte al QLabel
+        if not hasattr(self, 'labels'):
+            self.labels = {}
+        self.labels[page_num] = label
+
     def highlight_current_difference(self):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
             diff1, diff2 = self.differences[self.current_difference_index]
@@ -349,9 +350,13 @@ class PDFComparer(QMainWindow):
             page_num = self.current_page
 
             # Limpiar recuadros rojos previos
-            for annot in self.labels.values():
-                annot.set_colors({"stroke": (1, 0, 0)})
-                annot.update()
+            if page_num in self.annotations:
+                for annot in self.annotations[page_num]:
+                    annot.set_colors({"stroke": (1, 0, 0)})
+                    annot.update()
+                self.annotations[page_num].clear()
+            else:
+                self.annotations[page_num] = []
 
             if diff1:
                 doc1 = self.temp_pdf1_paths[self.current_page]
@@ -361,6 +366,7 @@ class PDFComparer(QMainWindow):
                 rect_annot1 = doc1[page_num].add_rect_annot(start_rect1)
                 rect_annot1.set_colors({"stroke": (1, 0, 0)})
                 rect_annot1.update()
+                self.annotations[page_num].append(rect_annot1)  # Mantener una referencia fuerte
                 self.display_pdfs(self.pdf1_layout, doc1, page_num)
 
             if diff2:
@@ -371,6 +377,7 @@ class PDFComparer(QMainWindow):
                 rect_annot2 = doc2[page_num].add_rect_annot(start_rect2)
                 rect_annot2.set_colors({"stroke": (1, 0, 0)})
                 rect_annot2.update()
+                self.annotations[page_num].append(rect_annot2)  # Mantener una referencia fuerte
                 self.display_pdfs(self.pdf2_layout, doc2, page_num)
 
             # Actualizar los cuadros de texto de diferencias
@@ -396,7 +403,7 @@ class PDFComparer(QMainWindow):
 
     def check_all_labeled(self):
         """Verifica si todas las diferencias han sido etiquetadas y muestra el botón de resumen."""
-        if len(self.labels) == self.total_diffs:
+        if len(self.annotations) == self.total_diffs:
             self.summary_button.setVisible(True)
 
     def next_difference(self):
