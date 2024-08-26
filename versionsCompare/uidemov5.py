@@ -338,38 +338,62 @@ class PDFComparer(QMainWindow):
 
             page_num = self.current_page
 
-            if diff1:
+            if diff1 and diff2:
                 doc1 = self.temp_pdf1_paths[self.current_page]
-                start_rect1 = fitz.Rect(diff1[0][:4])
-                for word in diff1[1:]:
-                    start_rect1 = start_rect1 | fitz.Rect(word[:4])
+                doc2 = self.temp_pdf2_paths[self.current_page]
 
-                if len(diff1) > len(diff2):
-                    # Resaltar todo el párrafo si tiene más diferencias
-                    paragraph_rect = fitz.Rect(start_rect1)
-                    for word in diff1:
-                        paragraph_rect |= fitz.Rect(word[:4])
-                    rect_annot1 = doc1[page_num].add_rect_annot(paragraph_rect)
+                # Resaltar el párrafo completo si un documento tiene más diferencias en el párrafo que el otro
+                if len(diff1) != len(diff2):
+                    if len(diff1) > len(diff2):
+                        # Resaltar todo el párrafo en PDF 1
+                        paragraph_rect1 = fitz.Rect(diff1[0][:4])
+                        for word in diff1:
+                            paragraph_rect1 |= fitz.Rect(word[:4])
+                        rect_annot1 = doc1[page_num].add_rect_annot(paragraph_rect1)
+                        rect_annot1.set_colors({"stroke": (1, 0, 0)})
+                        rect_annot1.update()
+
+                        # Resaltar todo el párrafo en PDF 2 (asumimos que este párrafo está alineado con PDF 1)
+                        paragraph_rect2 = fitz.Rect(diff2[0][:4])
+                        for word in diff2:
+                            paragraph_rect2 |= fitz.Rect(word[:4])
+                        rect_annot2 = doc2[page_num].add_rect_annot(paragraph_rect2)
+                        rect_annot2.set_colors({"stroke": (1, 0, 0)})
+                        rect_annot2.update()
+                    else:
+                        # Resaltar todo el párrafo en PDF 2
+                        paragraph_rect2 = fitz.Rect(diff2[0][:4])
+                        for word in diff2:
+                            paragraph_rect2 |= fitz.Rect(word[:4])
+                        rect_annot2 = doc2[page_num].add_rect_annot(paragraph_rect2)
+                        rect_annot2.set_colors({"stroke": (1, 0, 0)})
+                        rect_annot2.update()
+
+                        # Resaltar todo el párrafo en PDF 1 (asumimos que este párrafo está alineado con PDF 2)
+                        paragraph_rect1 = fitz.Rect(diff1[0][:4])
+                        for word in diff1:
+                            paragraph_rect1 |= fitz.Rect(word[:4])
+                        rect_annot1 = doc1[page_num].add_rect_annot(paragraph_rect1)
+                        rect_annot1.set_colors({"stroke": (1, 0, 0)})
+                        rect_annot1.update()
+
+                else:
+                    # Resaltar solo las diferencias individuales
+                    start_rect1 = fitz.Rect(diff1[0][:4])
+                    for word in diff1[1:]:
+                        start_rect1 = start_rect1 | fitz.Rect(word[:4])
+                    rect_annot1 = doc1[page_num].add_rect_annot(start_rect1)
                     rect_annot1.set_colors({"stroke": (1, 0, 0)})
                     rect_annot1.update()
 
-                self.display_pdfs(self.pdf1_layout, doc1, page_num)
-
-            if diff2:
-                doc2 = self.temp_pdf2_paths[self.current_page]
-                start_rect2 = fitz.Rect(diff2[0][:4])
-                for word in diff2[1:]:
-                    start_rect2 = start_rect2 | fitz.Rect(word[:4])
-
-                if len(diff2) > len(diff1):
-                    # Resaltar todo el párrafo si tiene más diferencias
-                    paragraph_rect = fitz.Rect(start_rect2)
-                    for word in diff2:
-                        paragraph_rect |= fitz.Rect(word[:4])
-                    rect_annot2 = doc2[page_num].add_rect_annot(paragraph_rect)
+                    start_rect2 = fitz.Rect(diff2[0][:4])
+                    for word in diff2[1:]:
+                        start_rect2 = start_rect2 | fitz.Rect(word[:4])
+                    rect_annot2 = doc2[page_num].add_rect_annot(start_rect2)
                     rect_annot2.set_colors({"stroke": (1, 0, 0)})
                     rect_annot2.update()
 
+                self.display_pdfs(self.pdf1_layout, doc1, page_num)
                 self.display_pdfs(self.pdf2_layout, doc2, page_num)
 
             if diff1 and diff2:
