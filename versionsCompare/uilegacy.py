@@ -4,6 +4,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap, QImage
 import fitz  # PyMuPDF
 import re
+from itertools import zip_longest
 
 class PDFComparer(QMainWindow):
     def __init__(self):
@@ -201,52 +202,64 @@ class PDFComparer(QMainWindow):
 
         for page_num in range(document.page_count):
             page = document.load_page(page_num)
-            text = page.get_text("text")
-            words = page.get_text("words")
+            words = page.get_text("words")  # Lista de palabras con posiciones
 
-            # Delimitar los párrafos
-            para_texts = self.delimit_paragraphs(text)
-            para_words = []
+            # Ordenar palabras de arriba a abajo, izquierda a derecha
+            words = sorted(words, key=lambda w: (w[1], w[0]))
 
-            word_index = 0
-            for para_text in para_texts:
-                para_word_list = []
-                while word_index < len(words) and words[word_index][4] in para_text:
-                    para_word_list.append(words[word_index])
-                    word_index += 1
-                para_words.append(para_word_list)
+            # Agrupar palabras en líneas basadas en la coordenada y0
+            lines = []
+            current_line = []
+            last_y = None
+            y_threshold = 5  # Ajusta según la fuente y el espaciado
+
+            for word in words:
+                y = word[1]
+                if last_y is None or abs(y - last_y) <= y_threshold:
+                    current_line.append(word)
+                else:
+                    lines.append(current_line)
+                    current_line = [word]
+                last_y = y
+            if current_line:
+                lines.append(current_line)
+
+            # Agrupar líneas en párrafos basados en la separación vertical
+            paragraphs_lines = []
+            current_para = []
+            last_y_end = None
+            para_gap_threshold = 10  # Ajusta según el diseño de la página
+
+            for line in lines:
+                y0 = line[1]  # Coordenada y0 de la primera palabra de la línea
+                y1 = max(word[3] for word in line)  # Coordenada y1 máxima en la línea
+                if last_y_end is not None and (y0 - last_y_end) > para_gap_threshold:
+                    if current_para:
+                        paragraphs_lines.append(current_para)
+                        current_para = []
+                current_para.append(line)
+                last_y_end = y1
+            if current_para:
+                paragraphs_lines.append(current_para)
+
+            # Convertir líneas de párrafos en textos de párrafos y listas de palabras
+            para_texts = []
+            para_words_page = []
+            for para in paragraphs_lines:
+                para_text = ' '.join(word[4] for line in para for word in line)
+                para_texts.append(para_text)
+                para_word_list = [word for line in para for word in line]
+                para_words_page.append(para_word_list)
 
             paragraphs.append(para_texts)
-            words_by_paragraph.append(para_words)
+            words_by_paragraph.append(para_words_page)
 
         return paragraphs, words_by_paragraph
 
     def delimit_paragraphs(self, text):
-        # Divide el texto en párrafos considerando puntos seguidos de un espacio o salto de línea
-        paragraphs = re.split(r'(\.\s|\.\n|:\s|:\n)', text)
-
-        # Reconstruir los párrafos y limpiar casos como 'S.A.'
-        reconstructed_paragraphs = []
-        current_paragraph = ""
-
-        for i in range(0, len(paragraphs), 2):
-            segment = paragraphs[i]
-            if i + 1 < len(paragraphs):
-                delimiter = paragraphs[i + 1]
-                if segment.endswith('S.A') or segment.endswith('C.A') or segment.endswith('Ltda'):
-                    current_paragraph += segment + delimiter
-                else:
-                    current_paragraph += segment
-                    reconstructed_paragraphs.append(current_paragraph.strip())
-                    current_paragraph = ""
-            else:
-                current_paragraph += segment
-
-        if current_paragraph:  # Añadir el último párrafo si existe
-            reconstructed_paragraphs.append(current_paragraph.strip())
-
-        return reconstructed_paragraphs
-
+        # Esta función ya no es necesaria con el nuevo método basado en posiciones
+        # Puedes eliminarla si ya no la utilizas
+        pass
 
     def compare_pdfs(self):
         if self.pdf1_path and self.pdf2_path:
@@ -264,48 +277,45 @@ class PDFComparer(QMainWindow):
     def highlight_differences(self, doc, para_words1, para_words2, page_num):
         differences = []
 
-        for para_index in range(min(len(para_words1[page_num]), len(para_words2[page_num]))):
+        for para_index in range(min(len(para_words1), len(para_words2))):
             current_diff = []
-            paragraph_diffs = []
 
-            words1_set = set((word[4] for word in para_words1[page_num][para_index]))
-            words2_set = set((word[4] for word in para_words2[page_num][para_index]))
+            words1_set = set((word[4] for word in para_words1[para_index]))
+            words2_set = set((word[4] for word in para_words2[para_index]))
 
-            for word1 in para_words1[page_num][para_index]:
+            for word1 in para_words1[para_index]:
                 if word1[4] not in words2_set:
-                    # Resaltar en amarillo como antes
-                    highlight = fitz.Rect(word1[:4])
-                    doc[page_num].add_highlight_annot(highlight)
-
                     if current_diff and (int(word1[0]) > int(current_diff[-1][2]) + 10):
-                        paragraph_diffs.append(current_diff)
+                        differences.append(current_diff)
                         current_diff = []
                     current_diff.append(word1)
+                    highlight = fitz.Rect(word1[:4])
+                    # Resaltar en amarillo
+                    highlight_annot = doc[page_num].add_highlight_annot(highlight)
+                    highlight_annot.set_colors({"stroke": (1, 1, 0), "fill": (1, 1, 0)})
+                    highlight_annot.update()
                 else:
                     if current_diff:
-                        paragraph_diffs.append(current_diff)
+                        differences.append(current_diff)
                         current_diff = []
-
             if current_diff:
-                paragraph_diffs.append(current_diff)
+                differences.append(current_diff)
 
-            if paragraph_diffs:
-                differences.append(paragraph_diffs)
-
+        print(f"Página {page_num + 1}: {len(differences)} diferencias detectadas")  # Depuración
         return doc, differences
-
 
     def load_page_pair(self, page_num):
         doc1 = self.temp_pdf1_paths[self.current_page] if len(self.temp_pdf1_paths) > self.current_page else fitz.open(self.pdf1_path)
-        doc1, differences1 = self.highlight_differences(doc1, self.pdf1_words, self.pdf2_words, page_num)
+        doc1, differences1 = self.highlight_differences(doc1, self.pdf1_words[self.current_page], self.pdf2_words[self.current_page], page_num)
 
         doc2 = self.temp_pdf2_paths[self.current_page] if len(self.temp_pdf2_paths) > self.current_page else fitz.open(self.pdf2_path)
-        doc2, differences2 = self.highlight_differences(doc2, self.pdf2_words, self.pdf1_words, page_num)
+        doc2, differences2 = self.highlight_differences(doc2, self.pdf2_words[self.current_page], self.pdf1_words[self.current_page], page_num)
 
         self.display_pdfs(self.pdf1_layout, doc1, page_num)
         self.display_pdfs(self.pdf2_layout, doc2, page_num)
 
-        self.differences = list(zip(differences1, differences2))
+        # Utilizar zip_longest para emparejar todas las diferencias
+        self.differences = list(zip_longest(differences1, differences2, fillvalue=None))
         self.current_difference_index = 0
         self.update_navigation_buttons()
         self.update_difference_labels()
@@ -333,41 +343,40 @@ class PDFComparer(QMainWindow):
 
     def highlight_current_difference(self):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
-            diff1_group, diff2_group = self.differences[self.current_difference_index]
+            diff1, diff2 = self.differences[self.current_difference_index]
 
             page_num = self.current_page
 
-            # Recuadro rojo para PDF 1
-            if diff1_group:
+            # Limpiar recuadros rojos previos
+            for annot in self.labels.values():
+                annot.set_colors({"stroke": (1, 0, 0)})
+                annot.update()
+
+            if diff1:
                 doc1 = self.temp_pdf1_paths[self.current_page]
-                for diff1 in diff1_group:
-                    start_rect1 = fitz.Rect(diff1[0][:4])
-                    for word in diff1[1:]:
-                        start_rect1 = start_rect1 | fitz.Rect(word[:4])
-                    rect_annot1 = doc1[page_num].add_rect_annot(start_rect1)
-                    rect_annot1.set_colors({"stroke": (1, 0, 0)})
-                    rect_annot1.update()
+                start_rect1 = fitz.Rect(diff1[0][:4])
+                for word in diff1[1:]:
+                    start_rect1 = start_rect1 | fitz.Rect(word[:4])
+                rect_annot1 = doc1[page_num].add_rect_annot(start_rect1)
+                rect_annot1.set_colors({"stroke": (1, 0, 0)})
+                rect_annot1.update()
                 self.display_pdfs(self.pdf1_layout, doc1, page_num)
 
-            # Recuadro rojo para PDF 2
-            if diff2_group:
+            if diff2:
                 doc2 = self.temp_pdf2_paths[self.current_page]
-                for diff2 in diff2_group:
-                    start_rect2 = fitz.Rect(diff2[0][:4])
-                    for word in diff2[1:]:
-                        start_rect2 = start_rect2 | fitz.Rect(word[:4])
-                    rect_annot2 = doc2[page_num].add_rect_annot(start_rect2)
-                    rect_annot2.set_colors({"stroke": (1, 0, 0)})
-                    rect_annot2.update()
+                start_rect2 = fitz.Rect(diff2[0][:4])
+                for word in diff2[1:]:
+                    start_rect2 = start_rect2 | fitz.Rect(word[:4])
+                rect_annot2 = doc2[page_num].add_rect_annot(start_rect2)
+                rect_annot2.set_colors({"stroke": (1, 0, 0)})
+                rect_annot2.update()
                 self.display_pdfs(self.pdf2_layout, doc2, page_num)
 
-            # Mostrar texto en los editores de texto
-            if diff1_group and diff2_group:
-                combined_diff1 = ' '.join([word[4] for diff1 in diff1_group for word in diff1])
-                combined_diff2 = ' '.join([word[4] for diff2 in diff2_group for word in diff2])
-                self.pdf1_diff_edit.setText(combined_diff1)
-                self.pdf2_diff_edit.setText(combined_diff2)
-
+            # Actualizar los cuadros de texto de diferencias
+            combined_diff1 = ' '.join([word[4] for word in diff1]) if diff1 else ''
+            combined_diff2 = ' '.join([word[4] for word in diff2]) if diff2 else ''
+            self.pdf1_diff_edit.setText(combined_diff1)
+            self.pdf2_diff_edit.setText(combined_diff2)
 
     def update_navigation_buttons(self):
         self.prev_diff_button.setEnabled(self.current_difference_index > 0)
@@ -376,13 +385,13 @@ class PDFComparer(QMainWindow):
         self.next_button.setEnabled(self.current_page < self.total_pages - 1)
         self.update_difference_labels()
 
-    def update_difference_labels(self):
-        total_page_diffs = len(self.differences)
-        self.page_diff_label.setText(f"Página {self.current_page + 1} - Diferencia {self.current_difference_index + 1} de {total_page_diffs}")
-
         # Mostrar el botón de Summary si se está en la última página
         if self.current_page == self.total_pages - 1:
             self.summary_button.setVisible(True)
+
+    def update_difference_labels(self):
+        total_page_diffs = len(self.differences)
+        self.page_diff_label.setText(f"Página {self.current_page + 1} - Diferencia {self.current_difference_index + 1} de {total_page_diffs}")
 
     def check_all_labeled(self):
         """Verifica si todas las diferencias han sido etiquetadas y muestra el botón de resumen."""
@@ -475,7 +484,7 @@ class PDFComparer(QMainWindow):
     def save_current_label(self):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
             diff1, diff2 = self.differences[self.current_difference_index]
-            diff_text = ' '.join([word[4] for word in diff1]) if diff1 else ''
+            diff_text = ' '.join([word[4] for word in diff1]) if diff1 else ' '.join([word[4] for word in diff2]) if diff2 else ''
             
             # Remover el conteo previo si ya se había etiquetado esta diferencia
             if (self.current_page, diff_text) in self.labels:
@@ -501,7 +510,7 @@ class PDFComparer(QMainWindow):
     def load_current_label(self):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
             diff1, diff2 = self.differences[self.current_difference_index]
-            diff_text = ' '.join([word[4] for word in diff1]) if diff1 else ''
+            diff_text = ' '.join([word[4] for word in diff1]) if diff1 else ' '.join([word[4] for word in diff2]) if diff2 else ''
             
             # Cargar la etiqueta previamente guardada, si existe
             if (self.current_page, diff_text) in self.labels:
