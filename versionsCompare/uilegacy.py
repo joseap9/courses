@@ -3,6 +3,7 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog,
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap, QImage
 import fitz  # PyMuPDF
+import re
 
 class PDFComparer(QMainWindow):
     def __init__(self):
@@ -195,16 +196,49 @@ class PDFComparer(QMainWindow):
 
     def extract_text_and_positions(self, file_path):
         document = fitz.open(file_path)
-        text = []
-        words = []
+        paragraphs = []
+        words_by_paragraph = []
 
         for page_num in range(document.page_count):
             page = document.load_page(page_num)
-            text.append(page.get_text())
-            word_list = page.get_text("words")
-            words.append(word_list)
+            text = page.get_text("text")
+            words = page.get_text("words")
 
-        return text, words
+            # Delimitar los párrafos
+            para_texts = self.delimit_paragraphs(text)
+            para_words = []
+
+            word_index = 0
+            for para_text in para_texts:
+                para_word_list = []
+                while word_index < len(words) and words[word_index][4] in para_text:
+                    para_word_list.append(words[word_index])
+                    word_index += 1
+                para_words.append(para_word_list)
+
+            paragraphs.append(para_texts)
+            words_by_paragraph.append(para_words)
+
+        return paragraphs, words_by_paragraph
+
+    def delimit_paragraphs(self, text):
+        paragraph_endings = r'(?<!\b(?:S\.A|C\.A|Ltda)\.)(\.\s|\.\n|:\s|:\n)'
+        paragraphs = re.split(paragraph_endings, text)
+        reconstructed_paragraphs = []
+        current_paragraph = ""
+
+        for segment in paragraphs:
+            if re.match(paragraph_endings, segment):
+                current_paragraph += segment
+                reconstructed_paragraphs.append(current_paragraph.strip())
+                current_paragraph = ""
+            else:
+                current_paragraph += segment
+
+        if current_paragraph:
+            reconstructed_paragraphs.append(current_paragraph.strip())
+
+        return reconstructed_paragraphs
 
     def compare_pdfs(self):
         if self.pdf1_path and self.pdf2_path:
@@ -219,15 +253,16 @@ class PDFComparer(QMainWindow):
             self.update_difference_labels()
             self.highlight_current_difference()
 
-    def highlight_differences(self, doc, words1, words2, page_num):
+    def highlight_differences(self, doc, para_words1, para_words2, page_num):
         differences = []
-        current_diff = []
 
-        if page_num < len(words1) and page_num < len(words2):
-            words1_set = set((word[4] for word in words1[page_num]))
-            words2_set = set((word[4] for word in words2[page_num]))
+        for para_index in range(min(len(para_words1[page_num]), len(para_words2[page_num]))):
+            current_diff = []
 
-            for word1 in words1[page_num]:
+            words1_set = set((word[4] for word in para_words1[page_num][para_index]))
+            words2_set = set((word[4] for word in para_words2[page_num][para_index]))
+
+            for word1 in para_words1[page_num][para_index]:
                 if word1[4] not in words2_set:
                     if current_diff and (int(word1[0]) > int(current_diff[-1][2]) + 10):
                         differences.append(current_diff)
@@ -241,21 +276,7 @@ class PDFComparer(QMainWindow):
                         current_diff = []
             if current_diff:
                 differences.append(current_diff)
-        else:
-            if page_num < len(words1):
-                for word1 in words1[page_num]:
-                    current_diff.append(word1)
-                    highlight = fitz.Rect(word1[:4])
-                    doc[page_num].add_highlight_annot(highlight)
-                self.pdf1_diff_edit.setText(f"Texto encontrado en PDF1 pero no en PDF2:\n{' '.join([word[4] for word in current_diff])}")
-            if page_num < len(words2):
-                for word2 in words2[page_num]:
-                    current_diff.append(word2)
-                    highlight = fitz.Rect(word2[:4])
-                    doc[page_num].add_highlight_annot(highlight)
-                self.pdf2_diff_edit.setText(f"Texto encontrado en PDF2 pero no en PDF1:\n{' '.join([word[4] for word in current_diff])}")
 
-        self.total_diffs += len(differences)
         return doc, differences
 
     def load_page_pair(self, page_num):
@@ -507,5 +528,3 @@ if __name__ == "__main__":
     comparer = PDFComparer()
     comparer.show()
     sys.exit(app.exec_())
-
-                                  

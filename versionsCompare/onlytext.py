@@ -24,8 +24,8 @@ for page_num in range(len(doc)):
     print("-----")
 
 def delimit_paragraphs(text):
-    # Usa una expresión regular para encontrar finales de párrafo típicos seguidos de un salto de línea
-    paragraph_endings = r'(\.\s|\.\n|:\s|:\n)'
+    # Ajusta la expresión regular para no coincidir con abreviaturas comunes como 'S.A.'
+    paragraph_endings = r'(?<!\b(?:S\.A|C\.A|Ltda)\.)(\.\s|\.\n|:\s|:\n)'
     
     # Divide el texto usando los puntos de finalización de párrafos
     paragraphs = re.split(paragraph_endings, text)
@@ -47,21 +47,16 @@ def delimit_paragraphs(text):
     
     return reconstructed_paragraphs
 
-# Aplicar la delimitación de párrafos
-for page_num in range(len(doc)):
-    page = doc[page_num]
-    
-    # Extrae y limpia el texto
-    raw_text = page.get_text("text")
-    cleaned_text = clean_text(raw_text)
-    
-    # Delimita los párrafos
-    paragraphs = delimit_paragraphs(cleaned_text)
-    
-    # Imprime cada párrafo por separado
-    for i, paragraph in enumerate(paragraphs, start=1):
-        print(f"Párrafo {i} de la página {page_num + 1}:")
-        print(paragraph)
-        print("-----")
+# Ejemplo de uso con texto limpio
+text = "El crédito es otorgado por la entidad financiera S.A. y debe ser pagado mensualmente. El cliente debe aceptar los términos y condiciones."
+
+paragraphs = delimit_paragraphs(text)
+
+# Imprime cada párrafo por separado
+for i, paragraph in enumerate(paragraphs, start=1):
+    print(f"Párrafo {i}:")
+    print(paragraph)
+    print("-----")
+
 
 
