@@ -1,4 +1,5 @@
 import sys
+import os
 from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QPushButton, QFileDialog, QHBoxLayout
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 from PyQt5.QtCore import QUrl
@@ -116,7 +117,8 @@ class PDFComparer(QMainWindow):
             highlight.set_colors({"stroke": (1, 0, 0)})  # Rojo
             highlight.update()
 
-        temp_path = f"temp_{pdf_index}_page_{self.current_page}.pdf"
+        temp_dir = os.path.abspath(os.path.dirname(__file__))
+        temp_path = os.path.join(temp_dir, f"temp_{pdf_index}_page_{self.current_page}.pdf")
         doc.save(temp_path)
         viewer.setUrl(QUrl.fromLocalFile(temp_path))
 
