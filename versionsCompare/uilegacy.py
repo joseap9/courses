@@ -211,10 +211,10 @@ class PDFComparer(QMainWindow):
             lines = []
             current_line = []
             last_y = None
-            y_threshold = 5  # Ajusta según la fuente y el espaciado
+            y_threshold = 5  # Umbral para considerar palabras en la misma línea
 
             for word in words:
-                y = word[1]
+                y = word[1]  # Obtener la coordenada y de la palabra
                 if last_y is None or abs(y - last_y) <= y_threshold:
                     current_line.append(word)
                 else:
@@ -228,11 +228,11 @@ class PDFComparer(QMainWindow):
             paragraphs_lines = []
             current_para = []
             last_y_end = None
-            para_gap_threshold = 10  # Ajusta según el diseño de la página
+            para_gap_threshold = 10  # Umbral para considerar un nuevo párrafo
 
             for line in lines:
-                y0 = line[1]  # Coordenada y0 de la primera palabra de la línea
-                y1 = max(word[3] for word in line)  # Coordenada y1 máxima en la línea
+                y0 = line[0][1]  # Coordenada y de la primera palabra de la línea
+                y1 = max(word[3] for word in line)  # Coordenada y máxima de la línea
                 if last_y_end is not None and (y0 - last_y_end) > para_gap_threshold:
                     if current_para:
                         paragraphs_lines.append(current_para)
@@ -242,7 +242,7 @@ class PDFComparer(QMainWindow):
             if current_para:
                 paragraphs_lines.append(current_para)
 
-            # Convertir líneas de párrafos en textos de párrafos y listas de palabras
+            # Convertir las líneas de párrafos en textos de párrafos y listas de palabras
             para_texts = []
             para_words_page = []
             for para in paragraphs_lines:
@@ -255,6 +255,7 @@ class PDFComparer(QMainWindow):
             words_by_paragraph.append(para_words_page)
 
         return paragraphs, words_by_paragraph
+
 
     def delimit_paragraphs(self, text):
         # Esta función ya no es necesaria con el nuevo método basado en posiciones
