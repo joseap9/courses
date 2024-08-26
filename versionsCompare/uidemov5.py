@@ -209,10 +209,10 @@ class PDFComparer(QMainWindow):
 
     def load_page_pair(self, page_num):
         doc1 = self.temp_pdf1_paths[self.current_page] if len(self.temp_pdf1_paths) > self.current_page else fitz.open(self.pdf1_path)
-        doc1, differences1 = self.highlight_differences(doc1, self.pdf1_words, self.pdf2_words, page_num)
+        doc1, differences1 = self.highlight_differences(doc1, self.pdf1_text, self.pdf1_positions, self.pdf2_text, self.pdf2_positions, page_num)
 
         doc2 = self.temp_pdf2_paths[self.current_page] if len(self.temp_pdf2_paths) > self.current_page else fitz.open(self.pdf2_path)
-        doc2, differences2 = self.highlight_differences(doc2, self.pdf2_words, self.pdf1_words, page_num)
+        doc2, differences2 = self.highlight_differences(doc2, self.pdf2_text, self.pdf2_positions, self.pdf1_text, self.pdf1_positions, page_num)
 
         self.display_pdfs(self.pdf1_layout, doc1, page_num)
         self.display_pdfs(self.pdf2_layout, doc2, page_num)
@@ -220,7 +220,7 @@ class PDFComparer(QMainWindow):
         self.differences = list(zip(differences1, differences2))
         self.current_difference_index = 0
         self.update_navigation_buttons()
-        self.update_difference_labels()  # Actualiza las etiquetas de diferencias
+        self.update_difference_labels()
 
         if len(self.temp_pdf1_paths) <= self.current_page:
             self.temp_pdf1_paths.append(doc1)
@@ -231,6 +231,7 @@ class PDFComparer(QMainWindow):
             self.temp_pdf2_paths.append(doc2)
         else:
             self.temp_pdf2_paths[self.current_page] = doc2
+
 
     def display_pdfs(self, layout, doc, page_num):
         for i in reversed(range(layout.count())):
@@ -360,16 +361,19 @@ class PDFComparer(QMainWindow):
 
     def compare_pdfs(self):
         if self.pdf1_path and self.pdf2_path:
+            # Extraer textos y posiciones de párrafos
             self.pdf1_text, self.pdf1_positions = self.extract_text_and_positions(self.pdf1_path)
             self.pdf2_text, self.pdf2_positions = self.extract_text_and_positions(self.pdf2_path)
 
+            # Ajustar el total de páginas a la menor cantidad entre los dos PDFs
             self.total_pages = min(len(self.pdf1_text), len(self.pdf2_text))
             self.load_page_pair(self.current_page)
 
             self.next_button.setEnabled(True)
             self.current_difference_index = 0
-            self.update_difference_labels()  # Actualiza las etiquetas de diferencias
+            self.update_difference_labels()
             self.highlight_current_difference()
+
 
     def highlight_differences(self, doc, paragraphs1, positions1, paragraphs2, positions2, page_num):
         differences = []
