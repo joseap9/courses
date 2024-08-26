@@ -3,7 +3,6 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog,
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap, QImage
 import fitz  # PyMuPDF
-import re
 
 class PDFComparer(QMainWindow):
     def __init__(self):
@@ -208,54 +207,6 @@ class PDFComparer(QMainWindow):
             self.compare_pdfs()
             self.highlight_current_difference()
 
-    def extract_text_and_positions(self, file_path):
-        document = fitz.open(file_path)
-        text = []
-        words = []
-
-        for page_num in range(document.page_count):
-            page = document.load_page(page_num)
-            text.append(page.get_text())
-            word_list = page.get_text("words")
-            words.append(word_list)
-
-        return text, words
-
-    def compare_pdfs(self):
-        if self.pdf1_path and self.pdf2_path:
-            self.pdf1_text, self.pdf1_words = self.extract_text_and_positions(self.pdf1_path)
-            self.pdf2_text, self.pdf2_words = self.extract_text_and_positions(self.pdf2_path)
-
-            self.total_pages = min(len(self.pdf1_words), len(self.pdf2_words))
-            self.load_page_pair(self.current_page)
-
-            self.next_button.setEnabled(True)
-            self.current_difference_index = 0
-            self.update_difference_labels()  # Actualiza las etiquetas de diferencias
-            self.highlight_current_difference()
-
-    def highlight_differences(self, doc, words1, words2, page_num):
-        differences = []
-        current_diff = []
-
-        if page_num < len(words1) and page_num < len(words2):
-            paragraphs1 = self.delimit_paragraphs(self.pdf1_text[page_num])
-            paragraphs2 = self.delimit_paragraphs(self.pdf2_text[page_num])
-
-            words1_set = set((word[4] for word in words1[page_num]))
-            words2_set = set((word[4] for word in words2[page_num]))
-
-            for paragraph1 in paragraphs1:
-                paragraph_words1 = [word for word in words1[page_num] if word[4] in paragraph1]
-                if any(word[4] not in words2_set for word in paragraph_words1):
-                    current_diff.append(paragraph_words1)
-                    paragraph_rect = self.get_paragraph_rect(paragraph_words1)
-                    doc[page_num].add_highlight_annot(paragraph_rect)
-                    differences.append(paragraph_words1)
-
-        self.total_diffs += len(differences)  # Acumular diferencias totales
-        return doc, differences
-
     def load_page_pair(self, page_num):
         doc1 = self.temp_pdf1_paths[self.current_page] if len(self.temp_pdf1_paths) > self.current_page else fitz.open(self.pdf1_path)
         doc1, differences1 = self.highlight_differences(doc1, self.pdf1_words, self.pdf2_words, page_num)
@@ -291,50 +242,6 @@ class PDFComparer(QMainWindow):
         label = QLabel(self)
         label.setPixmap(QPixmap.fromImage(img))
         layout.addWidget(label)
-
-    def highlight_current_difference(self):
-        if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
-            diff1, diff2 = self.differences[self.current_difference_index]
-
-            page_num = self.current_page
-
-            if diff1:
-                doc1 = self.temp_pdf1_paths[self.current_page]
-                paragraph_text1 = ' '.join([word[4] for word in diff1])
-                paragraph_rect1 = self.get_paragraph_rect(diff1)
-                rect_annot1 = doc1[page_num].add_rect_annot(paragraph_rect1)
-                rect_annot1.set_colors({"stroke": (1, 0, 0)})
-                rect_annot1.update()
-                self.display_pdfs(self.pdf1_layout, doc1, page_num)
-
-            if diff2:
-                doc2 = self.temp_pdf2_paths[self.current_page]
-                paragraph_text2 = ' '.join([word[4] for word in diff2])
-                paragraph_rect2 = self.get_paragraph_rect(diff2)
-                rect_annot2 = doc2[page_num].add_rect_annot(paragraph_rect2)
-                rect_annot2.set_colors({"stroke": (1, 0, 0)})
-                rect_annot2.update()
-                self.display_pdfs(self.pdf2_layout, doc2, page_num)
-
-            if diff1:
-                self.pdf1_diff_edit.setText(paragraph_text1)
-            if diff2:
-                self.pdf2_diff_edit.setText(paragraph_text2)
-
-    def get_paragraph_containing_word(self, word, page_text):
-        paragraphs = self.delimit_paragraphs(page_text)
-        for paragraph in paragraphs:
-            if word in paragraph:
-                return paragraph
-        return ""
-
-    def get_paragraph_rect(self, paragraph_words):
-        if paragraph_words:
-            paragraph_rect = fitz.Rect(paragraph_words[0][:4])
-            for word in paragraph_words[1:]:
-                paragraph_rect = paragraph_rect | fitz.Rect(word[:4])
-            return paragraph_rect
-        return fitz.Rect(0, 0, 0, 0)
 
     def update_navigation_buttons(self):
         self.prev_diff_button.setEnabled(self.current_difference_index > 0)
@@ -429,31 +336,91 @@ class PDFComparer(QMainWindow):
             elif self.radio_otro.isChecked():
                 self.labels[(self.current_page, diff_text)] = self.other_input.text()
 
-    def delimit_paragraphs(self, text):
-        # Divide el texto en párrafos considerando puntos seguidos de un espacio o salto de línea
-        paragraphs = re.split(r'(\.\s|\.\n|:\s|:\n)', text)
+    def extract_text_and_positions(self, file_path):
+        document = fitz.open(file_path)
+        paragraphs = []
+        paragraph_positions = []
 
-        # Reconstruir los párrafos y limpiar casos como 'S.A.'
-        reconstructed_paragraphs = []
-        current_paragraph = ""
+        for page_num in range(document.page_count):
+            page = document.load_page(page_num)
+            blocks = page.get_text("blocks")
+            page_paragraphs = []
+            page_positions = []
 
-        for i in range(0, len(paragraphs), 2):
-            segment = paragraphs[i]
-            if i + 1 < len(paragraphs):
-                delimiter = paragraphs[i + 1]
-                if segment.endswith('S.A') or segment.endswith('C.A') or segment.endswith('Ltda'):
-                    current_paragraph += segment + delimiter
-                else:
-                    current_paragraph += segment
-                    reconstructed_paragraphs.append(current_paragraph.strip())
-                    current_paragraph = ""
-            else:
-                current_paragraph += segment
+            for block in blocks:
+                if block[4].strip():  # Asegurarse de que el bloque no esté vacío
+                    rect = fitz.Rect(block[:4])
+                    page_paragraphs.append(block[4].strip())
+                    page_positions.append(rect)
 
-        if current_paragraph:  # Añadir el último párrafo si existe
-            reconstructed_paragraphs.append(current_paragraph.strip())
+            paragraphs.append(page_paragraphs)
+            paragraph_positions.append(page_positions)
 
-        return reconstructed_paragraphs
+        return paragraphs, paragraph_positions
+
+    def compare_pdfs(self):
+        if self.pdf1_path and self.pdf2_path:
+            self.pdf1_text, self.pdf1_positions = self.extract_text_and_positions(self.pdf1_path)
+            self.pdf2_text, self.pdf2_positions = self.extract_text_and_positions(self.pdf2_path)
+
+            self.total_pages = min(len(self.pdf1_text), len(self.pdf2_text))
+            self.load_page_pair(self.current_page)
+
+            self.next_button.setEnabled(True)
+            self.current_difference_index = 0
+            self.update_difference_labels()  # Actualiza las etiquetas de diferencias
+            self.highlight_current_difference()
+
+    def highlight_differences(self, doc, paragraphs1, positions1, paragraphs2, positions2, page_num):
+        differences = []
+        current_diff = []
+
+        if page_num < len(paragraphs1) and page_num < len(paragraphs2):
+            for i, (para1, pos1) in enumerate(zip(paragraphs1[page_num], positions1[page_num])):
+                if i < len(paragraphs2[page_num]):
+                    para2, pos2 = paragraphs2[page_num][i], positions2[page_num][i]
+                    if para1 != para2:  # Si los párrafos son diferentes, resáltalos
+                        differences.append((pos1, pos2))
+                        doc[page_num].add_rect_annot(pos1).set_colors({"stroke": (1, 0, 0)}).update()
+                        doc[page_num].add_rect_annot(pos2).set_colors({"stroke": (1, 0, 0)}).update()
+                else:  # Si un párrafo está en PDF1 pero no en PDF2
+                    differences.append((pos1, None))
+                    doc[page_num].add_rect_annot(pos1).set_colors({"stroke": (1, 0, 0)}).update()
+
+            if len(paragraphs2[page_num]) > len(paragraphs1[page_num]):  # Si un párrafo está en PDF2 pero no en PDF1
+                for i in range(len(paragraphs1[page_num]), len(paragraphs2[page_num])):
+                    pos2 = positions2[page_num][i]
+                    differences.append((None, pos2))
+                    doc[page_num].add_rect_annot(pos2).set_colors({"stroke": (1, 0, 0)}).update()
+
+        self.total_diffs += len(differences)
+        return doc, differences
+
+    def highlight_current_difference(self):
+        if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
+            diff1, diff2 = self.differences[self.current_difference_index]
+
+            page_num = self.current_page
+
+            if diff1:
+                doc1 = self.temp_pdf1_paths[self.current_page]
+                rect_annot1 = doc1[page_num].add_rect_annot(diff1)
+                rect_annot1.set_colors({"stroke": (1, 0, 0)})
+                rect_annot1.update()
+                self.display_pdfs(self.pdf1_layout, doc1, page_num)
+
+            if diff2:
+                doc2 = self.temp_pdf2_paths[self.current_page]
+                rect_annot2 = doc2[page_num].add_rect_annot(diff2)
+                rect_annot2.set_colors({"stroke": (1, 0, 0)})
+                rect_annot2.update()
+                self.display_pdfs(self.pdf2_layout, doc2, page_num)
+
+            combined_diff1 = ' '.join(self.pdf1_text[page_num]) if diff1 else ''
+            combined_diff2 = ' '.join(self.pdf2_text[page_num]) if diff2 else ''
+            self.pdf1_diff_edit.setText(combined_diff1)
+            self.pdf2_diff_edit.setText(combined_diff2)
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
