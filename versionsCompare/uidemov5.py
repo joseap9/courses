@@ -92,15 +92,17 @@ class PDFComparer(QMainWindow):
                 words2 = doc2[i].get_text("words")
                 page_differences = []
                 paragraphs = {}
-                for word1, word2 in zip(words1, words2):
-                    if word1[4] != word2[4]:
-                        page_differences.append((word1, word2))
-                        # Agrupamos las diferencias por párrafo
-                        para_key = (word1[0], word1[1])  # Use the top left corner as the key for the paragraph
-                        if para_key not in paragraphs:
-                            paragraphs[para_key] = [word1]
-                        else:
-                            paragraphs[para_key].append(word1)
+
+                for word1 in words1:
+                    for word2 in words2:
+                        if word1[4] != word2[4] and word1[:4] == word2[:4]:  # Matching position and different text
+                            page_differences.append(word1)
+                            para_key = (int(word1[1]) // 20) * 20  # Agrupamos por la posición Y, creando una clave para el párrafo
+                            if para_key not in paragraphs:
+                                paragraphs[para_key] = [word1]
+                            else:
+                                paragraphs[para_key].append(word1)
+                            break
 
                 if page_differences:
                     self.differences.append((i, page_differences, paragraphs))
@@ -115,32 +117,31 @@ class PDFComparer(QMainWindow):
             self.current_page = diff_page
 
             # Resalta las diferencias en ambas páginas
-            img1 = self.render_page_with_highlight(self.pdf1_path, page_differences, paragraphs, 0)
-            img2 = self.render_page_with_highlight(self.pdf2_path, page_differences, paragraphs, 1)
+            img1 = self.render_page_with_highlight(self.pdf1_path, page_differences, paragraphs)
+            img2 = self.render_page_with_highlight(self.pdf2_path, page_differences, paragraphs)
 
             self.display_image(self.pdf1_viewer, img1)
             self.display_image(self.pdf2_viewer, img2)
 
             self.update_navigation_buttons()
 
-    def render_page_with_highlight(self, pdf_path, page_differences, paragraphs, pdf_index):
+    def render_page_with_highlight(self, pdf_path, page_differences, paragraphs):
         doc = fitz.open(pdf_path)
         page = doc[self.current_page]
 
         # Resalta solo las palabras diferentes en amarillo
-        for word1, word2 in page_differences:
-            if word1[4] != word2[4]:
-                word_rect = fitz.Rect(word1[:4])
-                highlight = page.add_highlight_annot(word_rect)
-                highlight.set_colors({"fill": (1, 1, 0)})  # Amarillo
-                highlight.update()
+        for word in page_differences:
+            word_rect = fitz.Rect(word[:4])
+            highlight = page.add_highlight_annot(word_rect)
+            highlight.set_colors({"fill": (1, 1, 0)})  # Amarillo
+            highlight.update()
 
         # Añade un recuadro rojo al párrafo completo que contiene diferencias
         for para_key, para_words in paragraphs.items():
-            first_word_rect = fitz.Rect(para_words[0][:4])
+            para_rect = fitz.Rect(para_words[0][:4])
             for word in para_words[1:]:
-                first_word_rect |= fitz.Rect(word[:4])
-            rect = page.add_rect_annot(first_word_rect)
+                para_rect |= fitz.Rect(word[:4])  # Expande el rectángulo para incluir todas las palabras del párrafo
+            rect = page.add_rect_annot(para_rect)
             rect.set_colors({"stroke": (1, 0, 0)})  # Rojo
             rect.update()
 
