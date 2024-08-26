@@ -323,9 +323,11 @@ class PDFComparer(QMainWindow):
 
     def highlight_current_difference(self):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
-            # Elimina los recuadros rojos anteriores antes de resaltar la siguiente diferencia
-            self.clear_highlights()
+            # Regenerar las imágenes sin recuadros rojos anteriores
+            self.display_pdfs(self.pdf1_layout, self.temp_pdf1_paths[self.current_page], self.current_page)
+            self.display_pdfs(self.pdf2_layout, self.temp_pdf2_paths[self.current_page], self.current_page)
 
+            # Resaltar la nueva diferencia
             diff1, diff2 = self.differences[self.current_difference_index]
 
             page_num = self.current_page
@@ -371,9 +373,6 @@ class PDFComparer(QMainWindow):
                 if annot.type[0] == 1:  # Tipo 1 es rectángulo (recuadro rojo)
                     doc2[self.current_page].delete_annot(annot)
             doc2.save(self.pdf2_path)  # Usar save() en lugar de saveIncr()
-
-
-
 
     def update_navigation_buttons(self):
         self.prev_diff_button.setEnabled(self.current_difference_index > 0)
