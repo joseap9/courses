@@ -325,9 +325,22 @@ class PDFComparer(QMainWindow):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
             diff1, diff2 = self.differences[self.current_difference_index]
 
+            # Asegúrate de que diff1 y diff2 sean listas o tuplas
+            if not isinstance(diff1, list) or not all(isinstance(item, tuple) for item in diff1):
+                print("Error: diff1 no es una lista de tuplas.")
+                return
+
+            if not isinstance(diff2, list) or not all(isinstance(item, tuple) for item in diff2):
+                print("Error: diff2 no es una lista de tuplas.")
+                return
+
             # Encontrar la diferencia más cercana para resaltar en PDF2
             closest_diff2 = self.find_closest_difference(diff1, diff2)
             
+            if not isinstance(closest_diff2, list) or not all(isinstance(item, tuple) for item in closest_diff2):
+                print("Error: closest_diff2 no es una lista de tuplas.")
+                return
+
             page_num = self.current_page
 
             if diff1:
@@ -355,6 +368,7 @@ class PDFComparer(QMainWindow):
                 combined_diff2 = ' '.join([word[4] for word in closest_diff2])
                 self.pdf1_diff_edit.setText(combined_diff1)
                 self.pdf2_diff_edit.setText(combined_diff2)
+
 
     def update_navigation_buttons(self):
         self.prev_diff_button.setEnabled(self.current_difference_index > 0)
