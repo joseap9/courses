@@ -315,40 +315,31 @@ class PDFComparer(QMainWindow):
         """
         if not current_diff or not diffs:
             return diffs[0] if diffs else None
-        
-        current_pos = current_diff[0][1]  # Posición Y de la primera palabra
-        
-        # Asegúrate de que todos los elementos de diffs sean listas o tuplas antes de intentar acceder a ellos
-        valid_diffs = [diff for diff in diffs if isinstance(diff, list) and len(diff) > 0 and isinstance(diff[0], tuple)]
-        
-        if not valid_diffs:
-            print("Error: No se encontraron diferencias válidas en diffs.")
-            return None
-        
-        closest_diff = min(valid_diffs, key=lambda diff: abs(diff[0][1] - current_pos))
-        
-        return closest_diff
 
+        current_pos = current_diff[0][1]  # Posición Y de la primera palabra
+
+        closest_diff = None
+        min_distance = float('inf')
+
+        for diff in diffs:
+            try:
+                # Asegúrate de que diff tiene la estructura correcta antes de intentar acceder a los elementos
+                if isinstance(diff, list) and isinstance(diff[0], (list, tuple)):
+                    distance = abs(diff[0][1] - current_pos)
+                    if distance < min_distance:
+                        min_distance = distance
+                        closest_diff = diff
+            except (IndexError, TypeError) as e:
+                print(f"Error al procesar la diferencia: {e}")
+
+        return closest_diff
 
     def highlight_current_difference(self):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
             diff1, diff2 = self.differences[self.current_difference_index]
 
-            # Asegúrate de que diff1 y diff2 sean listas o tuplas
-            if not isinstance(diff1, list) or not all(isinstance(item, tuple) for item in diff1):
-                print("Error: diff1 no es una lista de tuplas.")
-                return
-
-            if not isinstance(diff2, list) or not all(isinstance(item, tuple) for item in diff2):
-                print("Error: diff2 no es una lista de tuplas.")
-                return
-
             # Encontrar la diferencia más cercana para resaltar en PDF2
             closest_diff2 = self.find_closest_difference(diff1, diff2)
-            
-            if not isinstance(closest_diff2, list) or not all(isinstance(item, tuple) for item in closest_diff2):
-                print("Error: closest_diff2 no es una lista de tuplas.")
-                return
 
             page_num = self.current_page
 
@@ -377,6 +368,7 @@ class PDFComparer(QMainWindow):
                 combined_diff2 = ' '.join([word[4] for word in closest_diff2])
                 self.pdf1_diff_edit.setText(combined_diff1)
                 self.pdf2_diff_edit.setText(combined_diff2)
+
 
 
     def update_navigation_buttons(self):
