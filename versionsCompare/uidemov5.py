@@ -334,10 +334,13 @@ class PDFComparer(QMainWindow):
                 combined_diff2 = ' '.join([word[4] for word in diff2])
                 self.pdf1_diff_edit.setText(combined_diff1)
                 self.pdf2_diff_edit.setText(combined_diff2)
+        else:
+            # Si no hay diferencias en la página actual, pasar a la siguiente página automáticamente
+            self.next_page()
 
     def update_navigation_buttons(self):
         self.prev_diff_button.setEnabled(self.current_difference_index > 0)
-        self.next_diff_button.setEnabled(self.current_difference_index < len(self.differences) - 1)
+        self.next_diff_button.setEnabled(self.current_difference_index < len(self.differences) - 1 or self.current_difference_index == -1)
         self.prev_button.setEnabled(self.current_page > 0)
         self.next_button.setEnabled(self.current_page < self.total_pages - 1)
         self.update_difference_labels()
@@ -355,9 +358,13 @@ class PDFComparer(QMainWindow):
 
     def next_difference(self):
         if self.current_difference_index < len(self.differences) - 1:
+            self.save_current_label()  # Guarda la etiqueta actual
             self.current_difference_index += 1
             self.update_navigation_buttons()
             self.highlight_current_difference()
+        else:
+            # Si no hay más diferencias en la página actual, pasar automáticamente a la siguiente página
+            self.next_page()
 
     def prev_difference(self):
         if self.current_difference_index > 0:
@@ -368,7 +375,6 @@ class PDFComparer(QMainWindow):
     def next_page(self):
         # Verificar si todas las diferencias han sido revisadas antes de cambiar de página
         unrevised_diffs = len(self.differences) - self.current_difference_index - 1
-        reply = None
         if unrevised_diffs > 0:
             reply = QMessageBox.question(self, 'Diferencias sin revisar',
                                          f'Hay {unrevised_diffs} diferencias que no se han visto. ¿Deseas marcarlas como "No Aplica"?',
