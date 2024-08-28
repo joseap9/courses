@@ -385,19 +385,26 @@ class PDFComparer(QMainWindow):
 
     def next_page(self):
         # Verificar si todas las diferencias han sido revisadas antes de cambiar de página
-        unrevised_diffs = len(self.differences) - self.current_difference_index - 1
-        reply = None  # Inicializar la variable reply para evitar errores
-        if unrevised_diffs > 0:
+        all_labeled = all(
+            (self.current_page, i) in self.labels and self.labels[(self.current_page, i)]['label'] != ''
+            for i in range(len(self.differences))
+        )
+        
+        if not all_labeled:
             reply = QMessageBox.question(self, 'Diferencias sin revisar',
-                                        f'Hay {unrevised_diffs} diferencias que no se han visto. ¿Deseas marcarlas como "No Aplica"?',
+                                        'Hay diferencias que no han sido etiquetadas. ¿Deseas marcarlas como "No Aplica"?',
                                         QMessageBox.Yes | QMessageBox.No)
             if reply == QMessageBox.Yes:
-                while self.current_difference_index < len(self.differences) - 1:
-                    self.current_difference_index += 1
-                    self.save_current_label()  # Marca como "No Aplica"
+                for i in range(len(self.differences)):
+                    if (self.current_page, i) not in self.labels or self.labels[(self.current_page, i)]['label'] == '':
+                        self.current_difference_index = i
+                        self.radio_no_aplica.setChecked(True)
+                        self.save_current_label()
+            else:
+                return  # Si el usuario selecciona "No", no avanzar de página
 
-        # Solo pasar a la siguiente página si todas las diferencias han sido revisadas o si el usuario acepta continuar
-        if (unrevised_diffs == 0) or (reply == QMessageBox.Yes) or (reply is None):
+        # Solo pasar a la siguiente página si todas las diferencias han sido revisadas
+        if all_labeled or reply == QMessageBox.Yes:
             if self.current_page < self.total_pages - 1:
                 self.current_page += 1
                 self.prev_button.setEnabled(True)
@@ -415,6 +422,7 @@ class PDFComparer(QMainWindow):
 
                 if self.current_page == self.total_pages - 1:
                     self.next_button.setEnabled(False)
+
 
     def prev_page(self):
         if self.current_page > 0:
@@ -454,6 +462,7 @@ class PDFComparer(QMainWindow):
                 current_labels['label'] = self.other_input.text()
             
             self.labels[(self.current_page, self.current_difference_index)] = current_labels
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
