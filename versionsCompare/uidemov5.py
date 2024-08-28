@@ -263,8 +263,8 @@ class PDFComparer(QMainWindow):
                         current_diff = []
                         non_diff_counter = 0
 
-            if current_diff:
-                differences.append(current_diff)
+                if current_diff:
+                    differences.append(current_diff)
 
         elif page_num < len(words1):  # Caso donde solo hay texto en el primer PDF
             for word1 in words1[page_num]:
@@ -292,6 +292,7 @@ class PDFComparer(QMainWindow):
             page_num = self.current_page
 
             doc1 = fitz.open(self.pdf1_path)
+            doc1, _ = self.highlight_differences(doc1, self.pdf1_words, self.pdf2_words, page_num)
             if diff1:
                 start_rect1 = fitz.Rect(diff1[0][:4])
                 for word in diff1[1:]:
@@ -304,6 +305,7 @@ class PDFComparer(QMainWindow):
 
             # Resaltar la nueva diferencia en PDF 2
             doc2 = fitz.open(self.pdf2_path)
+            doc2, _ = self.highlight_differences(doc2, self.pdf2_words, self.pdf1_words, page_num)
             if diff2:
                 start_rect2 = fitz.Rect(diff2[0][:4])
                 for word in diff2[1:]:
@@ -319,6 +321,7 @@ class PDFComparer(QMainWindow):
                 combined_diff2 = ' '.join([word[4] for word in diff2])
                 self.pdf1_diff_edit.setText(combined_diff1)
                 self.pdf2_diff_edit.setText(combined_diff2)
+
 
     def load_page_pair(self, page_num):
         doc1 = fitz.open(self.pdf1_path)
