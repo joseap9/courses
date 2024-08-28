@@ -330,13 +330,24 @@ class PDFComparer(QMainWindow):
             self.display_pdfs(self.pdf2_layout, doc2, page_num)
 
             if diff1 and diff2:
-                combined_diff1 = ' '.join([word[4] for word in diff1])
-                combined_diff2 = ' '.join([word[4] for word in diff2])
-                self.pdf1_diff_edit.setText(combined_diff1)
-                self.pdf2_diff_edit.setText(combined_diff2)
-        else:
-            # Si no hay diferencias en la página actual, pasar a la siguiente página automáticamente
-            self.next_page()
+                if (self.current_page, self.current_difference_index) in self.labels:
+                    saved_data = self.labels[(self.current_page, self.current_difference_index)]
+                    self.pdf1_diff_edit.setText(saved_data['pdf1_text'])
+                    self.pdf2_diff_edit.setText(saved_data['pdf2_text'])
+
+                    if saved_data['label'] == "No Aplica":
+                        self.radio_no_aplica.setChecked(True)
+                    elif saved_data['label'] == "Aplica":
+                        self.radio_aplica.setChecked(True)
+                    else:
+                        self.radio_otro.setChecked(True)
+                        self.other_input.setText(saved_data['label'])
+                else:
+                    combined_diff1 = ' '.join([word[4] for word in diff1])
+                    combined_diff2 = ' '.join([word[4] for word in diff2])
+                    self.pdf1_diff_edit.setText(combined_diff1)
+                    self.pdf2_diff_edit.setText(combined_diff2)
+
 
     def update_navigation_buttons(self):
         self.prev_diff_button.setEnabled(self.current_difference_index > 0)
@@ -375,17 +386,18 @@ class PDFComparer(QMainWindow):
     def next_page(self):
         # Verificar si todas las diferencias han sido revisadas antes de cambiar de página
         unrevised_diffs = len(self.differences) - self.current_difference_index - 1
+        reply = None  # Inicializar la variable reply para evitar errores
         if unrevised_diffs > 0:
             reply = QMessageBox.question(self, 'Diferencias sin revisar',
-                                         f'Hay {unrevised_diffs} diferencias que no se han visto. ¿Deseas marcarlas como "No Aplica"?',
-                                         QMessageBox.Yes | QMessageBox.No)
+                                        f'Hay {unrevised_diffs} diferencias que no se han visto. ¿Deseas marcarlas como "No Aplica"?',
+                                        QMessageBox.Yes | QMessageBox.No)
             if reply == QMessageBox.Yes:
                 while self.current_difference_index < len(self.differences) - 1:
                     self.current_difference_index += 1
                     self.save_current_label()  # Marca como "No Aplica"
 
         # Solo pasar a la siguiente página si todas las diferencias han sido revisadas o si el usuario acepta continuar
-        if (unrevised_diffs == 0) or (reply == QMessageBox.Yes):
+        if (unrevised_diffs == 0) or (reply == QMessageBox.Yes) or (reply is None):
             if self.current_page < self.total_pages - 1:
                 self.current_page += 1
                 self.prev_button.setEnabled(True)
@@ -427,12 +439,21 @@ class PDFComparer(QMainWindow):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
             diff1, diff2 = self.differences[self.current_difference_index]
             diff_text = ' '.join([word[4] for word in diff1]) if diff1 else ''
+            
+            current_labels = {
+                'pdf1_text': self.pdf1_diff_edit.toPlainText(),
+                'pdf2_text': self.pdf2_diff_edit.toPlainText(),
+                'label': ''
+            }
+            
             if self.radio_no_aplica.isChecked():
-                self.labels[(self.current_page, diff_text)] = "No Aplica"
+                current_labels['label'] = "No Aplica"
             elif self.radio_aplica.isChecked():
-                self.labels[(self.current_page, diff_text)] = "Aplica"
+                current_labels['label'] = "Aplica"
             elif self.radio_otro.isChecked():
-                self.labels[(self.current_page, diff_text)] = self.other_input.text()
+                current_labels['label'] = self.other_input.text()
+            
+            self.labels[(self.current_page, self.current_difference_index)] = current_labels
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
