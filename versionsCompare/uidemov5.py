@@ -368,6 +368,7 @@ class PDFComparer(QMainWindow):
     def next_page(self):
         # Verificar si todas las diferencias han sido revisadas antes de cambiar de página
         unrevised_diffs = len(self.differences) - self.current_difference_index - 1
+        reply = None
         if unrevised_diffs > 0:
             reply = QMessageBox.question(self, 'Diferencias sin revisar',
                                          f'Hay {unrevised_diffs} diferencias que no se han visto. ¿Deseas marcarlas como "No Aplica"?',
