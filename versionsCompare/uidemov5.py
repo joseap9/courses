@@ -284,6 +284,42 @@ class PDFComparer(QMainWindow):
         self.total_diffs += len(differences)  # Acumular diferencias totales
         return doc, differences
 
+    def highlight_current_difference(self):
+        if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
+            # Resaltar la nueva diferencia en PDF 1
+            diff1, diff2 = self.differences[self.current_difference_index]
+
+            page_num = self.current_page
+
+            doc1 = fitz.open(self.pdf1_path)
+            if diff1:
+                start_rect1 = fitz.Rect(diff1[0][:4])
+                for word in diff1[1:]:
+                    start_rect1 = start_rect1 | fitz.Rect(word[:4])
+                rect_annot1 = doc1[page_num].add_rect_annot(start_rect1)
+                rect_annot1.set_colors({"stroke": (1, 0, 0)})
+                rect_annot1.update()
+
+            self.display_pdfs(self.pdf1_layout, doc1, page_num)
+
+            # Resaltar la nueva diferencia en PDF 2
+            doc2 = fitz.open(self.pdf2_path)
+            if diff2:
+                start_rect2 = fitz.Rect(diff2[0][:4])
+                for word in diff2[1:]:
+                    start_rect2 = start_rect2 | fitz.Rect(word[:4])
+                rect_annot2 = doc2[page_num].add_rect_annot(start_rect2)
+                rect_annot2.set_colors({"stroke": (1, 0, 0)})
+                rect_annot2.update()
+
+            self.display_pdfs(self.pdf2_layout, doc2, page_num)
+
+            if diff1 and diff2:
+                combined_diff1 = ' '.join([word[4] for word in diff1])
+                combined_diff2 = ' '.join([word[4] for word in diff2])
+                self.pdf1_diff_edit.setText(combined_diff1)
+                self.pdf2_diff_edit.setText(combined_diff2)
+
     def load_page_pair(self, page_num):
         doc1 = fitz.open(self.pdf1_path)
         doc1, differences1 = self.highlight_differences(doc1, self.pdf1_words, self.pdf2_words, page_num)
@@ -291,13 +327,12 @@ class PDFComparer(QMainWindow):
         doc2 = fitz.open(self.pdf2_path)
         doc2, differences2 = self.highlight_differences(doc2, self.pdf2_words, self.pdf1_words, page_num)
 
-        self.display_pdfs(self.pdf1_layout, doc1, page_num)
-        self.display_pdfs(self.pdf2_layout, doc2, page_num)
-
+        # Guardar las diferencias y actualizar las vistas
         self.differences = list(zip(differences1, differences2))
         self.current_difference_index = 0
         self.update_navigation_buttons()
         self.update_difference_labels()  # Actualiza las etiquetas de diferencias
+        self.highlight_current_difference()
 
     def display_pdfs(self, layout, doc, page_num):
         for i in reversed(range(layout.count())):
@@ -310,41 +345,6 @@ class PDFComparer(QMainWindow):
         label.setPixmap(QPixmap.fromImage(img))
         layout.addWidget(label)
 
-    def highlight_current_difference(self):
-        if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
-            # Regenerar las imágenes sin recuadros rojos anteriores
-            self.load_page_pair(self.current_page)
-
-            # Resaltar la nueva diferencia
-            diff1, diff2 = self.differences[self.current_difference_index]
-
-            page_num = self.current_page
-
-            if diff1:
-                doc1 = fitz.open(self.pdf1_path)
-                start_rect1 = fitz.Rect(diff1[0][:4])
-                for word in diff1[1:]:
-                    start_rect1 = start_rect1 | fitz.Rect(word[:4])
-                rect_annot1 = doc1[page_num].add_rect_annot(start_rect1)
-                rect_annot1.set_colors({"stroke": (1, 0, 0)})
-                rect_annot1.update()
-                self.display_pdfs(self.pdf1_layout, doc1, page_num)
-
-            if diff2:
-                doc2 = fitz.open(self.pdf2_path)
-                start_rect2 = fitz.Rect(diff2[0][:4])
-                for word in diff2[1:]:
-                    start_rect2 = start_rect2 | fitz.Rect(word[:4])
-                rect_annot2 = doc2[page_num].add_rect_annot(start_rect2)
-                rect_annot2.set_colors({"stroke": (1, 0, 0)})
-                rect_annot2.update()
-                self.display_pdfs(self.pdf2_layout, doc2, page_num)
-
-            if diff1 and diff2:
-                combined_diff1 = ' '.join([word[4] for word in diff1])
-                combined_diff2 = ' '.join([word[4] for word in diff2])
-                self.pdf1_diff_edit.setText(combined_diff1)
-                self.pdf2_diff_edit.setText(combined_diff2)
 
     def update_navigation_buttons(self):
         self.prev_diff_button.setEnabled(self.current_difference_index > 0)
