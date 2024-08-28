@@ -369,13 +369,16 @@ class PDFComparer(QMainWindow):
 
     def next_difference(self):
         if self.current_difference_index < len(self.differences) - 1:
-            self.save_current_label()  # Guarda la etiqueta actual
+            self.save_current_label()  # Guarda la etiqueta actual antes de avanzar
             self.current_difference_index += 1
             self.update_navigation_buttons()
             self.highlight_current_difference()
         else:
+            # Guarda la última diferencia antes de pasar a la siguiente página
+            self.save_current_label()
             # Si no hay más diferencias en la página actual, pasar automáticamente a la siguiente página
             self.next_page()
+
 
     def prev_difference(self):
         if self.current_difference_index > 0:
