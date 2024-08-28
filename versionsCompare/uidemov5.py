@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QTextEdit, QButtonGroup, QRadioButton, QMessageBox, QFrame, QLineEdit
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QRadioButton, QLineEdit, QButtonGroup, QFrame, QMessageBox, QTextEdit
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap, QImage
 import fitz  # PyMuPDF
@@ -8,10 +8,14 @@ class PDFComparer(QMainWindow):
     def __init__(self):
         super().__init__()
 
+        # Configuración de la ventana principal
         self.setWindowTitle("GMF - PDF Comparer")
         self.setGeometry(100, 100, 1650, 800)
 
+        # Layout principal horizontal que contendrá las tres secciones verticales
         self.main_layout = QHBoxLayout()
+
+        # Sección para la selección de PDFs y navegación entre páginas
         self.left_layout = QVBoxLayout()
 
         self.button1 = QPushButton("Select First PDF", self)
@@ -55,60 +59,81 @@ class PDFComparer(QMainWindow):
         self.splitter.addWidget(self.pdf1_scroll)
         self.splitter.addWidget(self.pdf2_scroll)
 
+        # Añadir la sección izquierda (dos PDFs y navegación) al layout principal
         self.main_layout.addLayout(self.left_layout)
 
+        # Sección derecha (la tercera columna)
         self.right_frame = QFrame(self)
         self.right_frame.setFrameShape(QFrame.StyledPanel)
         self.right_frame.setFrameShadow(QFrame.Sunken)
-        self.right_frame.setFixedWidth(300)
+        self.right_frame.setFixedWidth(300)  # Ajusta la anchura fija de la sección derecha
 
         self.right_layout = QVBoxLayout(self.right_frame)
         self.right_layout.setContentsMargins(10, 10, 10, 10)
         self.right_layout.setSpacing(10)
 
+        # Encabezado con el total de diferencias de todo el documento
+        self.total_diff_label = QLabel(self)
+        self.total_diff_label.setWordWrap(True)
+        self.total_diff_label.setAlignment(Qt.AlignCenter)
+        self.total_diff_label.setStyleSheet("font-weight: bold; font-size: 16px;")
+        self.right_layout.addWidget(self.total_diff_label)
+
+        # Línea divisora (simula <hr/>)
+        self.divider1 = QLabel(self)
+        self.divider1.setFrameStyle(QFrame.HLine | QFrame.Sunken)
+        self.right_layout.addWidget(self.divider1)
+
+        # Encabezado para diferencias actuales de la página
         self.page_diff_label = QLabel(self)
         self.page_diff_label.setWordWrap(True)
         self.page_diff_label.setAlignment(Qt.AlignCenter)
         self.page_diff_label.setStyleSheet("font-weight: bold; font-size: 14px;")
         self.right_layout.addWidget(self.page_diff_label)
 
+        # Cuadro editable para la diferencia actual del PDF 1
         self.pdf1_label = QLabel("PDF 1", self)
         self.pdf1_label.setStyleSheet("font-weight: bold;")
         self.right_layout.addWidget(self.pdf1_label)
 
         self.pdf1_diff_edit = QTextEdit(self)
+        self.pdf1_diff_edit.setReadOnly(True)
         self.right_layout.addWidget(self.pdf1_diff_edit)
 
+        # Línea divisora (simula <hr/>)
         self.divider2 = QLabel(self)
         self.divider2.setFrameStyle(QFrame.HLine | QFrame.Sunken)
         self.right_layout.addWidget(self.divider2)
 
+        # Cuadro editable para la diferencia actual del PDF 2
         self.pdf2_label = QLabel("PDF 2", self)
         self.pdf2_label.setStyleSheet("font-weight: bold;")
         self.right_layout.addWidget(self.pdf2_label)
 
         self.pdf2_diff_edit = QTextEdit(self)
+        self.pdf2_diff_edit.setReadOnly(True)
         self.right_layout.addWidget(self.pdf2_diff_edit)
 
-        self.radio_group = QButtonGroup(self)
-        self.radio_aplica = QRadioButton("Aplica")
-        self.radio_no_aplica = QRadioButton("No Aplica")
-        self.radio_otro = QRadioButton("Otro")
-        self.radio_group.addButton(self.radio_aplica)
-        self.radio_group.addButton(self.radio_no_aplica)
-        self.radio_group.addButton(self.radio_otro)
+        self.radio_button_group = QButtonGroup(self)
 
-        self.right_layout.addWidget(self.radio_aplica)
+        self.radio_no_aplica = QRadioButton("No Aplica", self)
+        self.radio_no_aplica.setChecked(True)
+        self.radio_button_group.addButton(self.radio_no_aplica)
         self.right_layout.addWidget(self.radio_no_aplica)
+
+        self.radio_aplica = QRadioButton("Aplica", self)
+        self.radio_button_group.addButton(self.radio_aplica)
+        self.right_layout.addWidget(self.radio_aplica)
+
+        self.radio_otro = QRadioButton("Otro", self)
+        self.radio_button_group.addButton(self.radio_otro)
+        self.radio_otro.toggled.connect(self.toggle_other_input)
         self.right_layout.addWidget(self.radio_otro)
 
-        self.otro_text = QLineEdit(self)
-        self.otro_text.setPlaceholderText("Especificar otro...")
-        self.otro_text.setVisible(False)
-        self.right_layout.addWidget(self.otro_text)
-
-        self.radio_otro.toggled.connect(self.show_otro_text)
-        self.radio_no_aplica.setChecked(True)  # Seleccionar "No Aplica" por defecto
+        self.other_input = QLineEdit(self)
+        self.other_input.setPlaceholderText("Escriba el otro aquí")
+        self.other_input.setVisible(False)
+        self.right_layout.addWidget(self.other_input)
 
         self.prev_diff_button = QPushButton("Previous Difference", self)
         self.prev_diff_button.clicked.connect(self.prev_difference)
@@ -120,20 +145,18 @@ class PDFComparer(QMainWindow):
         self.next_diff_button.setEnabled(False)
         self.right_layout.addWidget(self.next_diff_button)
 
-        self.summary_button = QPushButton("Summary", self)
-        self.summary_button.clicked.connect(self.show_summary)
-        self.right_layout.addWidget(self.summary_button)
-        self.summary_button.setVisible(False)  # Ocultar el botón de resumen inicialmente
-
+        # Añadir la sección derecha al layout principal
         self.main_layout.addWidget(self.right_frame)
 
         container = QWidget()
         container.setLayout(self.main_layout)
         self.setCentralWidget(container)
 
+        # Conexiones de señales para scroll sincronizado
         self.pdf1_scroll.verticalScrollBar().valueChanged.connect(self.sync_scroll)
         self.pdf2_scroll.verticalScrollBar().valueChanged.connect(self.sync_scroll)
 
+        # Inicialización de variables
         self.pdf1_text = None
         self.pdf2_text = None
         self.pdf1_path = None
@@ -147,11 +170,7 @@ class PDFComparer(QMainWindow):
         self.differences = []
         self.current_difference_index = -1
         self.labels = {}
-        self.total_diffs = 0
-
-        self.total_aplica = 0
-        self.total_no_aplica = 0
-        self.total_otro = 0
+        self.total_diffs = 0  # Variable para almacenar el total de diferencias
 
     def sync_scroll(self, value):
         if self.sender() == self.pdf1_scroll.verticalScrollBar():
@@ -183,12 +202,7 @@ class PDFComparer(QMainWindow):
         self.next_button.setEnabled(False)
         self.pdf1_layout.update()
         self.pdf2_layout.update()
-        self.total_diffs = 0
-        self.labels.clear()
-        self.total_aplica = 0
-        self.total_no_aplica = 0
-        self.total_otro = 0
-        self.summary_button.setVisible(False)  # Ocultar el botón de resumen al reiniciar
+        self.total_diffs = 0  # Reiniciar el total de diferencias
         if self.pdf1_path and self.pdf2_path:
             self.compare_pdfs()
             self.highlight_current_difference()
@@ -216,12 +230,13 @@ class PDFComparer(QMainWindow):
 
             self.next_button.setEnabled(True)
             self.current_difference_index = 0
-            self.update_difference_labels()
+            self.update_difference_labels()  # Actualiza las etiquetas de diferencias
             self.highlight_current_difference()
 
     def highlight_differences(self, doc, words1, words2, page_num):
         differences = []
         current_diff = []
+        non_diff_counter = 0
 
         if page_num < len(words1) and page_num < len(words2):
             words1_set = set((word[4] for word in words1[page_num]))
@@ -229,83 +244,60 @@ class PDFComparer(QMainWindow):
 
             for word1 in words1[page_num]:
                 if word1[4] not in words2_set:
-                    if current_diff and (int(word1[0]) > int(current_diff[-1][2]) + 10):
-                        differences.append(current_diff)
-                        current_diff = []
+                    if non_diff_counter > 8:  # Si hay más de 8 palabras no diferentes entre diferencias, separar la diferencia actual
+                        if current_diff:
+                            differences.append(current_diff)
+                            current_diff = []
+                        non_diff_counter = 0
+
                     current_diff.append(word1)
                     highlight = fitz.Rect(word1[:4])
-                    doc[page_num].add_highlight_annot(highlight)
+                    doc[page_num].add_highlight_annot(highlight)  # Resaltado amarillo
+                    non_diff_counter = 0  # Reinicia el contador de palabras no diferentes
                 else:
                     if current_diff:
+                        non_diff_counter += 1
+
+                    if non_diff_counter > 8 and current_diff:
                         differences.append(current_diff)
                         current_diff = []
+                        non_diff_counter = 0
+
             if current_diff:
                 differences.append(current_diff)
-        else:
-            if page_num < len(words1):
-                for word1 in words1[page_num]:
-                    current_diff.append(word1)
-                    highlight = fitz.Rect(word1[:4])
-                    doc[page_num].add_highlight_annot(highlight)
-                self.pdf1_diff_edit.setText(f"Texto encontrado en PDF1 pero no en PDF2:\n{' '.join([word[4] for word in current_diff])}")
-            if page_num < len(words2):
-                for word2 in words2[page_num]:
-                    current_diff.append(word2)
-                    highlight = fitz.Rect(word2[:4])
-                    doc[page_num].add_highlight_annot(highlight)
-                self.pdf2_diff_edit.setText(f"Texto encontrado en PDF2 pero no en PDF1:\n{' '.join([word[4] for word in current_diff])}")
 
-        self.total_diffs += len(differences)
+        elif page_num < len(words1):  # Caso donde solo hay texto en el primer PDF
+            for word1 in words1[page_num]:
+                current_diff.append(word1)
+                highlight = fitz.Rect(word1[:4])
+                doc[page_num].add_highlight_annot(highlight)  # Resaltado amarillo
+            differences.append(current_diff)
+            self.pdf1_diff_edit.setText(f"Texto encontrado en PDF1 pero no en PDF2:\n{' '.join([word[4] for word in current_diff])}")
+        elif page_num < len(words2):  # Caso donde solo hay texto en el segundo PDF
+            for word2 in words2[page_num]:
+                current_diff.append(word2)
+                highlight = fitz.Rect(word2[:4])
+                doc[page_num].add_highlight_annot(highlight)  # Resaltado amarillo
+            differences.append(current_diff)
+            self.pdf2_diff_edit.setText(f"Texto encontrado en PDF2 pero no en PDF1:\n{' '.join([word[4] for word in current_diff])}")
+
+        self.total_diffs += len(differences)  # Acumular diferencias totales
         return doc, differences
 
-    def group_differences(self, differences):
-        grouped_differences = []
-        current_group = []
-
-        for i in range(len(differences)):
-            if not current_group:
-                current_group.append(differences[i])
-            else:
-                last_diff = current_group[-1][-1]
-                next_diff = differences[i][0]
-                if int(next_diff[0]) - int(last_diff[2]) <= 30:  # Agrupa si la distancia es de 3 palabras o menos
-                    current_group.extend(differences[i])
-                else:
-                    grouped_differences.append(current_group)
-                    current_group = differences[i]
-
-        if current_group:
-            grouped_differences.append(current_group)
-
-        return grouped_differences
-
     def load_page_pair(self, page_num):
-        doc1 = self.temp_pdf1_paths[self.current_page] if len(self.temp_pdf1_paths) > self.current_page else fitz.open(self.pdf1_path)
+        doc1 = fitz.open(self.pdf1_path)
         doc1, differences1 = self.highlight_differences(doc1, self.pdf1_words, self.pdf2_words, page_num)
 
-        doc2 = self.temp_pdf2_paths[self.current_page] if len(self.temp_pdf2_paths) > self.current_page else fitz.open(self.pdf2_path)
+        doc2 = fitz.open(self.pdf2_path)
         doc2, differences2 = self.highlight_differences(doc2, self.pdf2_words, self.pdf1_words, page_num)
 
         self.display_pdfs(self.pdf1_layout, doc1, page_num)
         self.display_pdfs(self.pdf2_layout, doc2, page_num)
 
-        grouped_differences1 = self.group_differences(differences1)
-        grouped_differences2 = self.group_differences(differences2)
-        
-        self.differences = list(zip(grouped_differences1, grouped_differences2))
+        self.differences = list(zip(differences1, differences2))
         self.current_difference_index = 0
         self.update_navigation_buttons()
-        self.update_difference_labels()
-
-        if len(self.temp_pdf1_paths) <= self.current_page:
-            self.temp_pdf1_paths.append(doc1)
-        else:
-            self.temp_pdf1_paths[self.current_page] = doc1
-
-        if len(self.temp_pdf2_paths) <= self.current_page:
-            self.temp_pdf2_paths.append(doc2)
-        else:
-            self.temp_pdf2_paths[self.current_page] = doc2
+        self.update_difference_labels()  # Actualiza las etiquetas de diferencias
 
     def display_pdfs(self, layout, doc, page_num):
         for i in reversed(range(layout.count())):
@@ -320,26 +312,30 @@ class PDFComparer(QMainWindow):
 
     def highlight_current_difference(self):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
+            # Regenerar las imágenes sin recuadros rojos anteriores
+            self.load_page_pair(self.current_page)
+
+            # Resaltar la nueva diferencia
             diff1, diff2 = self.differences[self.current_difference_index]
 
             page_num = self.current_page
 
             if diff1:
-                doc1 = self.temp_pdf1_paths[self.current_page]
-                conjunto_rect1 = fitz.Rect(diff1[0][:4])
+                doc1 = fitz.open(self.pdf1_path)
+                start_rect1 = fitz.Rect(diff1[0][:4])
                 for word in diff1[1:]:
-                    conjunto_rect1 = conjunto_rect1 | fitz.Rect(word[:4])
-                rect_annot1 = doc1[page_num].add_rect_annot(conjunto_rect1)
+                    start_rect1 = start_rect1 | fitz.Rect(word[:4])
+                rect_annot1 = doc1[page_num].add_rect_annot(start_rect1)
                 rect_annot1.set_colors({"stroke": (1, 0, 0)})
                 rect_annot1.update()
                 self.display_pdfs(self.pdf1_layout, doc1, page_num)
 
             if diff2:
-                doc2 = self.temp_pdf2_paths[self.current_page]
-                conjunto_rect2 = fitz.Rect(diff2[0][:4])
+                doc2 = fitz.open(self.pdf2_path)
+                start_rect2 = fitz.Rect(diff2[0][:4])
                 for word in diff2[1:]:
-                    conjunto_rect2 = conjunto_rect2 | fitz.Rect(word[:4])
-                rect_annot2 = doc2[page_num].add_rect_annot(conjunto_rect2)
+                    start_rect2 = start_rect2 | fitz.Rect(word[:4])
+                rect_annot2 = doc2[page_num].add_rect_annot(start_rect2)
                 rect_annot2.set_colors({"stroke": (1, 0, 0)})
                 rect_annot2.update()
                 self.display_pdfs(self.pdf2_layout, doc2, page_num)
@@ -359,75 +355,59 @@ class PDFComparer(QMainWindow):
 
     def update_difference_labels(self):
         total_page_diffs = len(self.differences)
+
+        self.total_diff_label.setText(f"Diferencias totales en el documento: {self.total_diffs}")
         self.page_diff_label.setText(f"Página {self.current_page + 1} - Diferencia {self.current_difference_index + 1} de {total_page_diffs}")
 
-        if self.current_page == self.total_pages - 1:
-            self.summary_button.setVisible(True)
+    def toggle_other_input(self):
+        if self.radio_otro.isChecked():
+            self.other_input.setVisible(True)
+        else:
+            self.other_input.setVisible(False)
+            self.other_input.clear()
 
     def next_difference(self):
         if self.current_difference_index < len(self.differences) - 1:
-            self.save_current_label()
             self.current_difference_index += 1
             self.update_navigation_buttons()
             self.highlight_current_difference()
-            self.load_current_label()
 
     def prev_difference(self):
         if self.current_difference_index > 0:
-            self.save_current_label()
             self.current_difference_index -= 1
             self.update_navigation_buttons()
             self.highlight_current_difference()
-            self.load_current_label()
 
     def next_page(self):
-        try:
-            unrevised_diffs = len(self.differences) - self.current_difference_index - 1
-            if unrevised_diffs > 0:
-                reply = QMessageBox.question(self, 'Diferencias sin revisar',
-                                            f'Hay {unrevised_diffs} diferencias que no se han visto. ¿Deseas marcarlas como "No Aplica"?',
-                                            QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-                if reply == QMessageBox.Yes:
-                    while self.current_difference_index < len(self.differences) - 1:
-                        self.current_difference_index += 1
-                        self.radio_no_aplica.setChecked(True)
-                        self.save_current_label()
+        # Verificar si todas las diferencias han sido revisadas antes de cambiar de página
+        unrevised_diffs = len(self.differences) - self.current_difference_index - 1
+        if unrevised_diffs > 0:
+            reply = QMessageBox.question(self, 'Diferencias sin revisar',
+                                         f'Hay {unrevised_diffs} diferencias que no se han visto. ¿Deseas marcarlas como "No Aplica"?',
+                                         QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            if reply == QMessageBox.Yes:
+                while self.current_difference_index < len(self.differences) - 1:
+                    self.current_difference_index += 1
+                    self.save_current_label()  # Marca como "No Aplica"
 
-            if self.current_page < self.total_pages - 1:
-                self.current_page += 1
-                self.prev_button.setEnabled(True)
+        # Solo pasar a la siguiente página si se presiona "Sí"
+        if reply == QMessageBox.Yes and self.current_page < self.total_pages - 1:
+            self.current_page += 1
+            self.prev_button.setEnabled(True)
 
-                if self.current_page >= len(self.temp_pdf1_paths):
-                    self.load_page_pair(self.current_page)
-                else:
-                    self.display_pdfs(self.pdf1_layout, self.temp_pdf1_paths[self.current_page], self.current_page)
-                    self.display_pdfs(self.pdf2_layout, self.temp_pdf2_paths[self.current_page], self.current_page)
+            if self.current_page >= len(self.temp_pdf1_paths):
+                self.load_page_pair(self.current_page)
+            else:
+                self.display_pdfs(self.pdf1_layout, fitz.open(self.pdf1_path), self.current_page)
+                self.display_pdfs(self.pdf2_layout, fitz.open(self.pdf2_path), self.current_page)
 
-                self.current_difference_index = 0
-                self.highlight_current_difference()
-                self.update_difference_labels()
+            # Resaltar la primera diferencia automáticamente en la nueva página
+            self.current_difference_index = 0
+            self.highlight_current_difference()
+            self.update_difference_labels()
 
-                if self.current_page == self.total_pages - 1:
-                    self.next_button.setEnabled(False)
-                    self.summary_button.setVisible(True)  # Mostrar el botón de Summary en la última página
-        except UnboundLocalError:
-            if self.current_page < self.total_pages - 1:
-                self.current_page += 1
-                self.prev_button.setEnabled(True)
-
-                if self.current_page >= len(self.temp_pdf1_paths):
-                    self.load_page_pair(self.current_page)
-                else:
-                    self.display_pdfs(self.pdf1_layout, self.temp_pdf1_paths[self.current_page], self.current_page)
-                    self.display_pdfs(self.pdf2_layout, self.temp_pdf2_paths[self.current_page], self.current_page)
-
-                self.current_difference_index = 0
-                self.highlight_current_difference()
-                self.update_difference_labels()
-
-                if self.current_page == self.total_pages - 1:
-                    self.next_button.setEnabled(False)
-                    self.summary_button.setVisible(True)  # Mostrar el botón de Summary en la última página
+            if self.current_page == self.total_pages - 1:
+                self.next_button.setEnabled(False)
 
     def prev_page(self):
         if self.current_page > 0:
@@ -437,9 +417,10 @@ class PDFComparer(QMainWindow):
             if self.current_page >= len(self.temp_pdf1_paths):
                 self.load_page_pair(self.current_page)
             else:
-                self.display_pdfs(self.pdf1_layout, self.temp_pdf1_paths[self.current_page], self.current_page)
-                self.display_pdfs(self.pdf2_layout, self.temp_pdf2_paths[self.current_page], self.current_page)
+                self.display_pdfs(self.pdf1_layout, fitz.open(self.pdf1_path), self.current_page)
+                self.display_pdfs(self.pdf2_layout, fitz.open(self.pdf2_path), self.current_page)
 
+            # Resaltar la primera diferencia automáticamente en la nueva página
             self.current_difference_index = 0
             self.highlight_current_difference()
             self.update_difference_labels()
@@ -451,69 +432,12 @@ class PDFComparer(QMainWindow):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
             diff1, diff2 = self.differences[self.current_difference_index]
             diff_text = ' '.join([word[4] for word in diff1]) if diff1 else ''
-            
-            if (self.current_page, diff_text) in self.labels:
-                prev_label = self.labels[(self.current_page, diff_text)]
-                if prev_label == "Aplica":
-                    self.total_aplica -= 1
-                elif prev_label == "No Aplica":
-                    self.total_no_aplica -= 1
-                elif "Otro" in prev_label:
-                    self.total_otro -= 1
-            
-            if self.radio_aplica.isChecked():
-                self.labels[(self.current_page, diff_text)] = "Aplica"
-                self.total_aplica += 1
-            elif self.radio_no_aplica.isChecked():
+            if self.radio_no_aplica.isChecked():
                 self.labels[(self.current_page, diff_text)] = "No Aplica"
-                self.total_no_aplica += 1
+            elif self.radio_aplica.isChecked():
+                self.labels[(self.current_page, diff_text)] = "Aplica"
             elif self.radio_otro.isChecked():
-                self.labels[(self.current_page, diff_text)] = f"Otro: {self.otro_text.text()}"
-                self.total_otro += 1
-
-    def load_current_label(self):
-        if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
-            diff1, diff2 = self.differences[self.current_difference_index]
-            diff_text = ' '.join([word[4] for word in diff1]) if diff1 else ''
-            
-            if (self.current_page, diff_text) in self.labels:
-                saved_label = self.labels[(self.current_page, diff_text)]
-                if saved_label == "Aplica":
-                    self.radio_aplica.setChecked(True)
-                elif saved_label == "No Aplica":
-                    self.radio_no_aplica.setChecked(True)
-                elif "Otro" in saved_label:
-                    self.radio_otro.setChecked(True)
-                    self.otro_text.setText(saved_label.split(": ")[1])
-
-    def show_otro_text(self):
-        self.otro_text.setVisible(self.radio_otro.isChecked())
-
-    def show_summary_button(self):
-        if not self.summary_button:
-            self.summary_button = QPushButton("Summary", self)
-            self.summary_button.clicked.connect(self.show_summary)
-            self.right_layout.addWidget(self.summary_button)
-            self.summary_button.setVisible(False)
-
-    def show_summary(self):
-        total_aplica = sum(1 for label in self.labels.values() if label == "Aplica")
-        total_no_aplica = sum(1 for label in self.labels.values() if label == "No Aplica")
-        total_otro = sum(1 for label in self.labels.values() if "Otro" in label)
-
-        total_differences = total_aplica + total_no_aplica + total_otro
-        total_diffs_excl_no_aplica = total_aplica + total_otro
-
-        summary_message = QMessageBox()
-        summary_message.setWindowTitle("Resumen de Diferencias")
-        summary_message.setText(
-            f"Total de diferencias en el documento: {total_differences}\n"
-            f"Diferencias 'Aplica': {total_aplica}\n"
-            f"Diferencias 'No Aplica': {total_no_aplica}\n"
-            f"Diferencias 'Otro': {total_otro}\n"
-            f"Total de diferencias excluyendo 'No Aplica': {total_diffs_excl_no_aplica}"
-        )
-        summary_message.exec_()
+                self.labels[(self.current_page, diff_text)] = self.other_input.text()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
