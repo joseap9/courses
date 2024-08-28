@@ -72,18 +72,6 @@ class PDFComparer(QMainWindow):
         self.right_layout.setContentsMargins(10, 10, 10, 10)
         self.right_layout.setSpacing(10)
 
-        # Encabezado con el total de diferencias de todo el documento
-        self.total_diff_label = QLabel(self)
-        self.total_diff_label.setWordWrap(True)
-        self.total_diff_label.setAlignment(Qt.AlignCenter)
-        self.total_diff_label.setStyleSheet("font-weight: bold; font-size: 16px;")
-        self.right_layout.addWidget(self.total_diff_label)
-
-        # Línea divisora (simula <hr/>)
-        self.divider1 = QLabel(self)
-        self.divider1.setFrameStyle(QFrame.HLine | QFrame.Sunken)
-        self.right_layout.addWidget(self.divider1)
-
         # Encabezado para diferencias actuales de la página
         self.page_diff_label = QLabel(self)
         self.page_diff_label.setWordWrap(True)
@@ -170,7 +158,6 @@ class PDFComparer(QMainWindow):
         self.differences = []
         self.current_difference_index = -1
         self.labels = {}
-        self.total_diffs = 0  # Variable para almacenar el total de diferencias
 
     def sync_scroll(self, value):
         if self.sender() == self.pdf1_scroll.verticalScrollBar():
@@ -202,7 +189,7 @@ class PDFComparer(QMainWindow):
         self.next_button.setEnabled(False)
         self.pdf1_layout.update()
         self.pdf2_layout.update()
-        self.total_diffs = 0  # Reiniciar el total de diferencias
+        self.labels = {}  # Reiniciar las etiquetas
         if self.pdf1_path and self.pdf2_path:
             self.compare_pdfs()
             self.highlight_current_difference()
@@ -252,7 +239,7 @@ class PDFComparer(QMainWindow):
 
                     current_diff.append(word1)
                     highlight = fitz.Rect(word1[:4])
-                    doc[page_num].add_highlight_annot(highlight)  # Resaltado amarillo estático
+                    doc[page_num].add_highlight_annot(highlight)  # Resaltado amarillo
                     non_diff_counter = 0  # Reinicia el contador de palabras no diferentes
                 else:
                     if current_diff:
@@ -270,28 +257,56 @@ class PDFComparer(QMainWindow):
             for word1 in words1[page_num]:
                 current_diff.append(word1)
                 highlight = fitz.Rect(word1[:4])
-                doc[page_num].add_highlight_annot(highlight)  # Resaltado amarillo estático
+                doc[page_num].add_highlight_annot(highlight)  # Resaltado amarillo
             differences.append(current_diff)
             self.pdf1_diff_edit.setText(f"Texto encontrado en PDF1 pero no en PDF2:\n{' '.join([word[4] for word in current_diff])}")
         elif page_num < len(words2):  # Caso donde solo hay texto en el segundo PDF
             for word2 in words2[page_num]:
                 current_diff.append(word2)
                 highlight = fitz.Rect(word2[:4])
-                doc[page_num].add_highlight_annot(highlight)  # Resaltado amarillo estático
+                doc[page_num].add_highlight_annot(highlight)  # Resaltado amarillo
             differences.append(current_diff)
             self.pdf2_diff_edit.setText(f"Texto encontrado en PDF2 pero no en PDF1:\n{' '.join([word[4] for word in current_diff])}")
 
-        self.total_diffs += len(differences)  # Acumular diferencias totales
         return doc, differences
+
+    def load_page_pair(self, page_num):
+        doc1 = fitz.open(self.pdf1_path)
+        doc1, differences1 = self.highlight_differences(doc1, self.pdf1_words, self.pdf2_words, page_num)
+
+        doc2 = fitz.open(self.pdf2_path)
+        doc2, differences2 = self.highlight_differences(doc2, self.pdf2_words, self.pdf1_words, page_num)
+
+        self.display_pdfs(self.pdf1_layout, doc1, page_num)
+        self.display_pdfs(self.pdf2_layout, doc2, page_num)
+
+        self.differences = list(zip(differences1, differences2))
+        self.current_difference_index = 0
+        self.update_navigation_buttons()
+        self.update_difference_labels()  # Actualiza las etiquetas de diferencias
+
+    def display_pdfs(self, layout, doc, page_num):
+        for i in reversed(range(layout.count())):
+            layout.itemAt(i).widget().deleteLater()
+
+        page = doc.load_page(page_num)
+        pix = page.get_pixmap()
+        img = QImage(pix.samples, pix.width, pix.height, pix.stride, QImage.Format_RGB888)
+        label = QLabel(self)
+        label.setPixmap(QPixmap.fromImage(img))
+        layout.addWidget(label)
 
     def highlight_current_difference(self):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
-            # Regenerar las imágenes pero sin modificar los resaltados amarillos
+            # Regenerar las imágenes manteniendo los resaltados amarillos
             doc1 = fitz.open(self.pdf1_path)
+            doc1, _ = self.highlight_differences(doc1, self.pdf1_words, self.pdf2_words, self.current_page)
             doc2 = fitz.open(self.pdf2_path)
+            doc2, _ = self.highlight_differences(doc2, self.pdf2_words, self.pdf1_words, self.current_page)
 
-            # Resaltar solo la nueva diferencia con el recuadro rojo
+            # Resaltar la nueva diferencia en rojo
             diff1, diff2 = self.differences[self.current_difference_index]
+
             page_num = self.current_page
 
             if diff1:
@@ -310,6 +325,7 @@ class PDFComparer(QMainWindow):
                 rect_annot2.set_colors({"stroke": (1, 0, 0)})
                 rect_annot2.update()
 
+            # Mostrar los PDF actualizados
             self.display_pdfs(self.pdf1_layout, doc1, page_num)
             self.display_pdfs(self.pdf2_layout, doc2, page_num)
 
@@ -318,8 +334,6 @@ class PDFComparer(QMainWindow):
                 combined_diff2 = ' '.join([word[4] for word in diff2])
                 self.pdf1_diff_edit.setText(combined_diff1)
                 self.pdf2_diff_edit.setText(combined_diff2)
-
-
 
     def update_navigation_buttons(self):
         self.prev_diff_button.setEnabled(self.current_difference_index > 0)
@@ -330,8 +344,6 @@ class PDFComparer(QMainWindow):
 
     def update_difference_labels(self):
         total_page_diffs = len(self.differences)
-
-        self.total_diff_label.setText(f"Diferencias totales en el documento: {self.total_diffs}")
         self.page_diff_label.setText(f"Página {self.current_page + 1} - Diferencia {self.current_difference_index + 1} de {total_page_diffs}")
 
     def toggle_other_input(self):
@@ -359,30 +371,31 @@ class PDFComparer(QMainWindow):
         if unrevised_diffs > 0:
             reply = QMessageBox.question(self, 'Diferencias sin revisar',
                                          f'Hay {unrevised_diffs} diferencias que no se han visto. ¿Deseas marcarlas como "No Aplica"?',
-                                         QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+                                         QMessageBox.Yes | QMessageBox.No)
             if reply == QMessageBox.Yes:
                 while self.current_difference_index < len(self.differences) - 1:
                     self.current_difference_index += 1
                     self.save_current_label()  # Marca como "No Aplica"
 
-        # Solo pasar a la siguiente página si se presiona "Sí"
-        if reply == QMessageBox.Yes and self.current_page < self.total_pages - 1:
-            self.current_page += 1
-            self.prev_button.setEnabled(True)
+        # Solo pasar a la siguiente página si todas las diferencias han sido revisadas o si el usuario acepta continuar
+        if (unrevised_diffs == 0) or (reply == QMessageBox.Yes):
+            if self.current_page < self.total_pages - 1:
+                self.current_page += 1
+                self.prev_button.setEnabled(True)
 
-            if self.current_page >= len(self.temp_pdf1_paths):
-                self.load_page_pair(self.current_page)
-            else:
-                self.display_pdfs(self.pdf1_layout, fitz.open(self.pdf1_path), self.current_page)
-                self.display_pdfs(self.pdf2_layout, fitz.open(self.pdf2_path), self.current_page)
+                if self.current_page >= len(self.temp_pdf1_paths):
+                    self.load_page_pair(self.current_page)
+                else:
+                    self.display_pdfs(self.pdf1_layout, fitz.open(self.pdf1_path), self.current_page)
+                    self.display_pdfs(self.pdf2_layout, fitz.open(self.pdf2_path), self.current_page)
 
-            # Resaltar la primera diferencia automáticamente en la nueva página
-            self.current_difference_index = 0
-            self.highlight_current_difference()
-            self.update_difference_labels()
+                # Resaltar la primera diferencia automáticamente en la nueva página
+                self.current_difference_index = 0
+                self.highlight_current_difference()
+                self.update_difference_labels()
 
-            if self.current_page == self.total_pages - 1:
-                self.next_button.setEnabled(False)
+                if self.current_page == self.total_pages - 1:
+                    self.next_button.setEnabled(False)
 
     def prev_page(self):
         if self.current_page > 0:
