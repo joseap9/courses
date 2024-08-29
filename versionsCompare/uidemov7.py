@@ -133,13 +133,6 @@ class PDFComparer(QMainWindow):
         self.next_diff_button.setEnabled(False)
         self.right_layout.addWidget(self.next_diff_button)
 
-        # Crear el botón de resumen
-        self.summary_button = QPushButton("Summary", self)
-        self.summary_button.clicked.connect(self.show_summary)
-        self.summary_button.setEnabled(False)  # Iniciar deshabilitado
-        self.right_layout.addWidget(self.summary_button)
-
-
         # Añadir la sección derecha al layout principal
         self.main_layout.addWidget(self.right_frame)
 
@@ -369,14 +362,18 @@ class PDFComparer(QMainWindow):
 
     def update_navigation_buttons(self):
         self.prev_diff_button.setEnabled(self.current_difference_index > 0)
-        self.next_diff_button.setEnabled(self.current_difference_index < len(self.differences) - 1 or self.current_difference_index == -1)
+
+        if self.current_page == self.total_pages - 1 and self.current_difference_index == len(self.differences) - 1:
+            # Cambiar el texto del botón "Next Difference" a "Go to Summary" cuando se esté en la última diferencia
+            self.next_diff_button.setText("Go to Summary")
+        else:
+            self.next_diff_button.setText("Next Difference")
+        
+        self.next_diff_button.setEnabled(True)  # Siempre habilitar para la última diferencia
+
         self.prev_button.setEnabled(self.current_page > 0)
         self.next_button.setEnabled(self.current_page < self.total_pages - 1)
         self.update_difference_labels()
-
-        # Verificar si todas las diferencias en todas las páginas han sido etiquetadas
-        if self.all_differences_labeled():
-            self.summary_button.setEnabled(True)  # Habilitar el botón de resumen
 
     def update_difference_labels(self):
         total_page_diffs = len(self.differences)
@@ -395,12 +392,15 @@ class PDFComparer(QMainWindow):
             self.current_difference_index += 1
             self.update_navigation_buttons()
             self.highlight_current_difference()
-        else:
+        elif self.current_page < self.total_pages - 1:
             # Guarda la última diferencia antes de pasar a la siguiente página
             self.save_current_label()
             # Si no hay más diferencias en la página actual, pasar automáticamente a la siguiente página
             self.next_page()
-
+        else:
+            # Cambiar el botón a "Go to Summary" cuando se esté en la última diferencia de la última página
+            self.save_current_label()
+            self.show_summary()
 
     def prev_difference(self):
         if self.current_difference_index > 0:
