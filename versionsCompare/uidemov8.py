@@ -491,22 +491,23 @@ class PDFComparer(QMainWindow):
             self.labels[(self.current_page, self.current_difference_index)] = current_labels
 
     def show_summary(self):
-        total_diffs = len(self.labels)  # Total de diferencias
-        total_applies = sum(1 for label in self.labels.values() if label['label'] != "No Aplica")  # Total que aplican
-        count_applies = sum(1 for label in self.labels.values() if label['label'] == "Aplica")
+        total_applies = sum(1 for label in self.labels.values() if label['label'] == "Aplica")  # Solo las que aplican
+        count_applies = total_applies
         count_no_applies = sum(1 for label in self.labels.values() if label['label'] == "No Aplica")
         count_others = sum(1 for label in self.labels.values() if label['label'] and label['label'] != "Aplica" and label['label'] != "No Aplica")
+        total_diffs = count_applies + count_no_applies + count_others  # Total de diferencias
 
         summary_text = (
-            f"<b><span style='font-size:14pt;'>Total de diferencias que aplican:</span></b> {total_applies}<br><br>"
-            f"<b><span style='font-size:12pt;'>Detalle</span></b><br>"
-            f"<b><span style='font-size:10pt;'>  - Aplica:</span></b> {count_applies}<br>"
-            f"<b><span style='font-size:10pt;'>  - No Aplica:</span></b> {count_no_applies}<br>"
-            f"<b><span style='font-size:10pt;'>  - Otro:</span></b> {count_others}<br><br>"
-            f"<b><span style='font-size:12pt;'>Total:</span></b> {total_diffs}"
+            f"<b><span style='font-size:14pt;'>Total de diferencias que aplican:</span></b> <span style='font-size:14pt;'>{total_applies}</span><br><br>"
+            f"<b><span style='font-size:12pt;'>Detalle</span></b><br><br>"
+            f"<b><span style='font-size:10pt;'>  - Aplica:</span></b> <span style='font-size:10pt;'>{count_applies}</span><br>"
+            f"<b><span style='font-size:10pt;'>  - No Aplica:</span></b> <span style='font-size:10pt;'>{count_no_applies}</span><br>"
+            f"<b><span style='font-size:10pt;'>  - Otro:</span></b> <span style='font-size:10pt;'>{count_others}</span><br><br>"
+            f"<b><span style='font-size:12pt;'>Total:</span></b> <span style='font-size:12pt;'>{total_diffs}</span>"
         )
 
         QMessageBox.information(self, "Resumen de Diferencias", summary_text)
+
 
 
     def reset_all(self):
