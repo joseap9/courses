@@ -451,10 +451,6 @@ class PDFComparer(QMainWindow):
                 if self.current_page == self.total_pages - 1:
                     self.next_button.setEnabled(False)
 
-            # Verificar si todas las diferencias en todas las páginas han sido etiquetadas
-            if self.all_differences_labeled():
-                self.summary_button.setEnabled(True)  # Habilitar el botón de resumen
-
     def all_differences_labeled(self):
         return all(
             (page_num, i) in self.labels and self.labels[(page_num, i)]['label'] != ''
