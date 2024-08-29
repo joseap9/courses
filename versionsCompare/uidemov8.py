@@ -498,15 +498,16 @@ class PDFComparer(QMainWindow):
         count_others = sum(1 for label in self.labels.values() if label['label'] and label['label'] != "Aplica" and label['label'] != "No Aplica")
 
         summary_text = (
-            f"<b><span style='font-size:14pt;'>Total de diferencias que aplican</span></b>\n"
-            f"  - Aplica: {count_applies}\n"
-            f"  - No Aplica: {count_no_applies}\n"
-            f"  - Otro: {count_others}\n\n"
-            f"<b><span style='font-size:12pt;'>Detalle</span></b>\n"
-            f"Total de todas las diferencias: {total_diffs}"
+            f"<b><span style='font-size:14pt;'>Total de diferencias que aplican:</span></b> {total_applies}<br><br>"
+            f"<b><span style='font-size:12pt;'>Detalle</span></b><br>"
+            f"<b><span style='font-size:10pt;'>  - Aplica:</span></b> {count_applies}<br>"
+            f"<b><span style='font-size:10pt;'>  - No Aplica:</span></b> {count_no_applies}<br>"
+            f"<b><span style='font-size:10pt;'>  - Otro:</span></b> {count_others}<br><br>"
+            f"<b><span style='font-size:12pt;'>Total:</span></b> {total_diffs}"
         )
 
         QMessageBox.information(self, "Resumen de Diferencias", summary_text)
+
 
     def reset_all(self):
         self.pdf1_path = None
