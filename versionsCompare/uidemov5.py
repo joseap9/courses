@@ -166,20 +166,28 @@ class PDFComparer(QMainWindow):
             self.pdf1_scroll.verticalScrollBar().setValue(value)
 
     def load_first_pdf(self):
+        if self.pdf1_path and self.pdf2_path:
+            self.reset_all()  # Reiniciar si ya hay dos PDFs cargados
+
         options = QFileDialog.Options()
         fileName, _ = QFileDialog.getOpenFileName(self, "Select First PDF", "", "PDF Files (*.pdf);;All Files (*)", options=options)
         if fileName:
             self.button1.setText(fileName.split('/')[-1])
             self.pdf1_path = fileName
-            self.reset_comparison()
+            self.reset_comparison()  # Reiniciar la comparación al cargar un nuevo PDF
+
 
     def load_second_pdf(self):
+        if self.pdf1_path and self.pdf2_path:
+            self.reset_all()  # Reiniciar si ya hay dos PDFs cargados
+
         options = QFileDialog.Options()
         fileName, _ = QFileDialog.getOpenFileName(self, "Select Second PDF", "", "PDF Files (*.pdf);;All Files (*)", options=options)
         if fileName:
             self.button2.setText(fileName.split('/')[-1])
             self.pdf2_path = fileName
-            self.reset_comparison()
+            self.reset_comparison()  # Reiniciar la comparación al cargar un nuevo PDF
+
 
     def reset_comparison(self):
         self.current_page = 0
@@ -473,6 +481,34 @@ class PDFComparer(QMainWindow):
                 current_labels['label'] = self.other_input.text()
             
             self.labels[(self.current_page, self.current_difference_index)] = current_labels
+
+    def reset_all(self):
+        self.pdf1_path = None
+        self.pdf2_path = None
+        self.pdf1_text = None
+        self.pdf2_text = None
+        self.temp_pdf1_paths = []
+        self.temp_pdf2_paths = []
+        self.differences = []
+        self.labels = {}
+        self.current_page = 0
+        self.current_difference_index = -1
+        self.total_pages = 0
+        
+        # Limpiar la interfaz de usuario
+        self.pdf1_layout.update()
+        self.pdf2_layout.update()
+        self.pdf1_diff_edit.clear()
+        self.pdf2_diff_edit.clear()
+        self.radio_no_aplica.setChecked(True)
+        self.other_input.clear()
+        self.other_input.setVisible(False)
+        self.page_diff_label.clear()
+        self.prev_button.setEnabled(False)
+        self.next_button.setEnabled(False)
+        self.prev_diff_button.setEnabled(False)
+        self.next_diff_button.setEnabled(False)
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
