@@ -348,6 +348,11 @@ class PDFComparer(QMainWindow):
                     self.pdf1_diff_edit.setText(combined_diff1)
                     self.pdf2_diff_edit.setText(combined_diff2)
 
+            # Hacer los QTextEdit editables
+            self.pdf1_diff_edit.setReadOnly(False)
+            self.pdf2_diff_edit.setReadOnly(False)
+
+
 
     def update_navigation_buttons(self):
         self.prev_diff_button.setEnabled(self.current_difference_index > 0)
@@ -387,7 +392,10 @@ class PDFComparer(QMainWindow):
             self.highlight_current_difference()
 
     def next_page(self):
-        # Verificar si todas las diferencias han sido revisadas antes de cambiar de página
+        # Guardar la última diferencia antes de cambiar de página
+        self.save_current_label()
+
+        # Verificar si todas las diferencias han sido etiquetadas antes de cambiar de página
         all_labeled = all(
             (self.current_page, i) in self.labels and self.labels[(self.current_page, i)]['label'] != ''
             for i in range(len(self.differences))
@@ -465,7 +473,6 @@ class PDFComparer(QMainWindow):
                 current_labels['label'] = self.other_input.text()
             
             self.labels[(self.current_page, self.current_difference_index)] = current_labels
-
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
