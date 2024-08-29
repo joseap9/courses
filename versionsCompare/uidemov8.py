@@ -119,7 +119,7 @@ class PDFComparer(QMainWindow):
         self.right_layout.addWidget(self.radio_otro)
 
         self.other_input = QLineEdit(self)
-        self.other_input.setPlaceholderText("Escriba el otro aquí")
+        self.other_input.setPlaceholderText("Por favor, especifique para guardar etiqueta")
         self.other_input.setVisible(False)
         self.right_layout.addWidget(self.other_input)
 
@@ -495,15 +495,15 @@ class PDFComparer(QMainWindow):
         total_applies = sum(1 for label in self.labels.values() if label['label'] != "No Aplica")  # Total que aplican
         count_applies = sum(1 for label in self.labels.values() if label['label'] == "Aplica")
         count_no_applies = sum(1 for label in self.labels.values() if label['label'] == "No Aplica")
-        count_others = sum(1 for label in self.labels.values() if label['label'] == "Otro")
+        count_others = sum(1 for label in self.labels.values() if label['label'] and label['label'] != "Aplica" and label['label'] != "No Aplica")
 
         summary_text = (
-            f"Total de diferencias: {total_diffs}\n"
-            f"Total de diferencias que aplican: {total_applies}\n"
-            f"Desglose:\n"
+            f"<b><span style='font-size:14pt;'>Total de diferencias que aplican</span></b>\n"
             f"  - Aplica: {count_applies}\n"
             f"  - No Aplica: {count_no_applies}\n"
-            f"  - Otro: {count_others}"
+            f"  - Otro: {count_others}\n\n"
+            f"<b><span style='font-size:12pt;'>Detalle</span></b>\n"
+            f"Total de todas las diferencias: {total_diffs}"
         )
 
         QMessageBox.information(self, "Resumen de Diferencias", summary_text)
