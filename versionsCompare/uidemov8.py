@@ -420,7 +420,7 @@ class PDFComparer(QMainWindow):
         
         if not all_labeled:
             reply = QMessageBox.question(self, 'Diferencias sin revisar',
-                                            'Hay diferencias que no han sido etiquetadas. ¿Deseas marcarlas como "No Aplica"?',
+                                            'Existen diferencias que no han sido etiquetadas. ¿Deseas marcarlas como "No Aplica"?',
                                             QMessageBox.Yes | QMessageBox.No)
             if reply == QMessageBox.Yes:
                 for i in range(len(self.differences)):
@@ -498,12 +498,12 @@ class PDFComparer(QMainWindow):
         total_diffs = count_applies + count_no_applies + count_others  # Total de diferencias
 
         summary_text = (
-            f"<b><span style='font-size:14pt;'>Total de diferencias que aplican:</span></b> <span style='font-size:14pt;'>{total_applies}</span><br><br>"
-            f"<b><span style='font-size:12pt;'>Detalle</span></b><br><br>"
-            f"<b><span style='font-size:10pt;'>  - Aplica:</span></b> <span style='font-size:10pt;'>{count_applies}</span><br>"
-            f"<b><span style='font-size:10pt;'>  - No Aplica:</span></b> <span style='font-size:10pt;'>{count_no_applies}</span><br>"
-            f"<b><span style='font-size:10pt;'>  - Otro:</span></b> <span style='font-size:10pt;'>{count_others}</span><br><br>"
-            f"<b><span style='font-size:12pt;'>Total:</span></b> <span style='font-size:12pt;'>{total_diffs}</span>"
+            f"<b><span style='font-size:14pt;'>Total de diferencias que aplican: </span><span style='font-size:14pt;'>{total_applies}</span></b><br><br>"
+            f"<b><span style='font-size:12pt;'>Detalle</span></b></<br><br>"
+            f"<b><span style='font-size:10pt;'>  - Aplica: </span><span style='font-size:10pt;'>{count_applies}</span></b><br>"
+            f"<b><span style='font-size:10pt;'>  - No Aplica: </span><span style='font-size:10pt;'>{count_no_applies}</span></b><br>"
+            f"<b><span style='font-size:10pt;'>  - Otro: </span><span style='font-size:10pt;'>{count_others}</span></b><br><br>"
+            f"<b><span style='font-size:12pt;'>Total: </span><span style='font-size:12pt;'>{total_diffs}</span></b>"
         )
 
         QMessageBox.information(self, "Resumen de Diferencias", summary_text)
