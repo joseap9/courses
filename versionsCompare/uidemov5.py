@@ -18,8 +18,10 @@ class PDFComparer(QMainWindow):
 
         # Sección para la selección de PDFs y navegación
         left_layout = QVBoxLayout()
-        left_layout.addWidget(self.create_button("Select First PDF", self.load_first_pdf))
-        left_layout.addWidget(self.create_button("Select Second PDF", self.load_second_pdf))
+        self.button1 = self.create_button("Select First PDF", self.load_first_pdf)
+        self.button2 = self.create_button("Select Second PDF", self.load_second_pdf)
+        left_layout.addWidget(self.button1)
+        left_layout.addWidget(self.button2)
 
         navigation_layout = QHBoxLayout()
         self.prev_button = self.create_button("Previous Page", self.prev_page, enabled=False)
@@ -365,7 +367,7 @@ class PDFComparer(QMainWindow):
         self.prev_diff_button.setEnabled(False)
         self.next_diff_button.setEnabled(False)
 
-if __name__ == "__main__":
+if __name__=="__main__":
     app = QApplication(sys.argv)
     comparer = PDFComparer()
     comparer.show()
