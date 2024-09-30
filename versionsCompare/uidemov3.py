@@ -553,11 +553,8 @@ class PDFComparer(QMainWindow):
         # Crear un DataFrame con los datos
         df = pd.DataFrame(data)
 
-        # Crear un DataFrame para el responsable y concatenarlo
-        df_responsible = pd.DataFrame([[f"Responsable: {responsible_name}"]], columns=[df.columns[0]])
-
-        # Concatenar la fila del responsable con los datos de la tabla
-        df_final = pd.concat([df_responsible, pd.DataFrame([df.columns.tolist()], columns=df.columns), df])
+        # Incluir el nombre del responsable como encabezado
+        df = pd.concat([pd.DataFrame([[f"Responsable: {responsible_name}"]]), df])
 
         # Solicitar ubicación para guardar el archivo Excel
         options = QFileDialog.Options()
@@ -565,9 +562,9 @@ class PDFComparer(QMainWindow):
         if fileName:
             if not fileName.endswith(".xlsx"):
                 fileName += ".xlsx"
-            df_final.to_excel(fileName, index=False, header=False)
+            df.to_excel(fileName, index=False)
 
-            QMessageBox.information(self, 'Descarga Completa', f'El archivo Excel ha sido guardado correctamente como {fileName}.')
+        QMessageBox.information(self, 'Descarga Completa', f'El archivo Excel ha sido guardado correctamente como {fileName}.')
 
     def reset_all(self):
         self.pdf1_path = None
