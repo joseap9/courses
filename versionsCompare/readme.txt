@@ -1,34 +1,40 @@
-Propósito
-Este manual de uso está destinado para los miembros del equipo que utilizarán la herramienta de comparación de PDFs. Aquí se describen los pasos para iniciar y usar la herramienta, así como las principales funcionalidades que ofrece.
+Sección de Etiquetado
+La sección de etiquetado se encuentra en la parte derecha de la herramienta y permite trabajar con las diferencias identificadas entre los documentos.
 
-Empezando con la Herramienta
-Para comenzar a utilizar la herramienta, sigue estos pasos:
+En esta sección puedes:
 
-Dirígete a la ubicación S:/c/xxx/xxx en la red compartida.
+Ver la diferencia actual: Aparece el contenido de la diferencia encontrada en ambos documentos.
+Editar el texto de las diferencias: Si es necesario, puedes modificar el texto mostrado.
+Etiquetar la diferencia: Para cada diferencia, puedes asignar una de las siguientes etiquetas:
+Aplica: Marca que la diferencia es relevante.
 
-Copia la carpeta llamada "build" y pégala en tu máquina local.
+No Aplica: Marca que la diferencia no es relevante.
 
-Importante: No edites el contenido del interior de la carpeta, ya que podrías dañar la funcionalidad de la herramienta.
+Otro: Si seleccionas esta opción, aparecerá un campo para que especifiques un motivo personalizado.
 
-Una vez copiada la carpeta en tu computadora, localiza el archivo de aplicación llamado "main" dentro de la carpeta.
+Captura de pantalla - Sección de etiquetado:
 
-Haz doble clic sobre el archivo "main" para ejecutar la aplicación. Espera unos segundos mientras se carga (la primera vez puede tardar un poco más).
+Resumen
+Al finalizar el etiquetado de todas las diferencias, aparecerá un botón "Go to Summary" en la interfaz. Este botón te llevará a una vista donde podrás revisar un resumen de las diferencias etiquetadas.
 
-Captura de la aplicación:
-Consideraciones sobre los documentos:
-La herramienta solo admite archivos con formato PDF. Asegúrate de que los documentos a comparar estén en este formato.
-Verifica que el contenido de ambos documentos coincida página por página. El comparador analiza el contenido exacto de cada página, por lo que si hay desajustes en la estructura del documento, esto puede afectar el resultado de la comparación.
-Cómo Usar la Herramienta
-Insertar Documentos:
-Para cargar los documentos en la herramienta:
+En esta sección podrás:
 
-Utiliza los botones en la parte superior de la interfaz para seleccionar el primer y segundo PDF.
+Ver el resumen: Se mostrará un conteo del total de diferencias y cuántas de ellas han sido etiquetadas como Aplica, No Aplica o Otro.
 
-Botones para seleccionar PDFs:
+Ingresar el nombre del responsable: Antes de poder generar el archivo de resumen, deberás ingresar el nombre del analista o responsable que realizó la revisión.
 
+Descargar el resumen en Excel: Podrás descargar un archivo en formato Excel con el consolidado de las diferencias etiquetadas. Este archivo es útil para tener un respaldo de la revisión y para su posterior análisis o auditoría.
 
-Al hacer clic en el botón de selección, se abrirá el explorador de archivos de tu ordenador para que puedas buscar los documentos en formato PDF.
+Captura de pantalla - Resumen y descarga:
+Este resumen final facilita la revisión y permite tener un registro detallado de las diferencias encontradas entre los PDFs, asegurando que todas las diferencias han sido revisadas y etiquetadas adecuadamente.
 
-Los documentos se cargarán en la aplicación y las diferencias entre los archivos aparecerán resaltadas. Puedes navegar entre las diferencias utilizando los botones para avanzar o retroceder entre diferencias o páginas.
+Navegación entre Diferencias y Páginas:
+Navegar entre diferencias:
 
-Navegación entre diferencias y páginas:
+La herramienta resalta las diferencias entre los dos PDFs comparados. Una vez que los documentos se cargan, puedes navegar entre las diferencias utilizando los botones de "Previous Difference" (Diferencia Anterior) y "Next Difference" (Siguiente Diferencia).
+Cada vez que presionas uno de estos botones, la herramienta te llevará automáticamente a la siguiente diferencia encontrada entre los documentos, destacando el texto correspondiente en ambos PDFs.
+Navegar entre páginas:
+
+Además de las diferencias individuales, también puedes moverte entre las páginas de los PDFs.
+Los botones "Previous Page" (Página Anterior) y "Next Page" (Página Siguiente) te permiten moverte por las páginas de los documentos.
+Es importante que el contenido en ambas páginas coincida (página por página) para que la comparación sea precisa.
