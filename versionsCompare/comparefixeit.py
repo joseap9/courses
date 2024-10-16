@@ -1,5 +1,4 @@
 import sys
-import os
 from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QRadioButton, QLineEdit, QButtonGroup, QFrame, QMessageBox, QTextEdit, QInputDialog
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap, QImage
@@ -561,24 +560,12 @@ class PDFComparer(QMainWindow):
         # Incluir el nombre del responsable como encabezado
         df = pd.concat([pd.DataFrame([[f"Responsable: {responsible_name}"]]), df])
 
-        # Solicitar al usuario seleccionar la carpeta donde se guardará el archivo
-        folder = QFileDialog.getExistingDirectory(self, "Seleccionar Carpeta para Guardar")
-        if not folder:
-            QMessageBox.warning(self, 'Advertencia', 'Debe seleccionar una carpeta para guardar el archivo.')
-            return
-
-        # Crear el nombre completo del archivo con la ruta seleccionada
-        file_name = os.path.join(folder, "Diferencias_PDF.xlsx")
-
         try:
-            # Guardar el archivo Excel en la carpeta seleccionada
-            df.to_excel(file_name, index=False)
-            QMessageBox.information(self, 'Descarga Completa', f'El archivo Excel ha sido guardado correctamente en: {file_name}')
-            
-            # Abrir el archivo Excel automáticamente
-            os.startfile(file_name)
+            # Copiar el contenido del DataFrame al portapapeles
+            df.to_clipboard(index=False, excel=True)
+            QMessageBox.information(self, 'Copiado al Portapapeles', 'Los datos se han copiado al portapapeles. Ahora puedes pegarlos en Excel.')
         except Exception as e:
-            QMessageBox.critical(self, 'Error', f'No se pudo guardar o abrir el archivo: {str(e)}')
+            QMessageBox.critical(self, 'Error', f'No se pudo copiar los datos al portapapeles: {str(e)}')
 
     def reset_all(self):
         self.pdf1_path = None
