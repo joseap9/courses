@@ -537,10 +537,12 @@ class PDFComparer(QMainWindow):
 
     def download_excel(self):
         # Solicitar el nombre del responsable
-        responsible_name, ok = QInputDialog.getText(self, 'Nombre del Responsable', 'Por favor, ingrese el nombre del responsable:')
+        responsible_name, ok = QInputDialog.getText(
+            self, 'Nombre del Responsable', 'Por favor, ingrese el nombre del responsable:'
+        )
         if not ok or not responsible_name:
             QMessageBox.warning(self, 'Advertencia', 'El nombre del responsable es obligatorio para continuar.')
-            return  # Si no se ingresa un nombre, no se procede a la descarga
+            return
 
         # Crear lista de diccionarios con los datos de las diferencias
         data = []
@@ -558,16 +560,24 @@ class PDFComparer(QMainWindow):
         # Incluir el nombre del responsable como encabezado
         df = pd.concat([pd.DataFrame([[f"Responsable: {responsible_name}"]]), df])
 
-        # Obtener la ruta de Descargas del usuario
-        downloads_folder = os.path.join(os.path.expanduser("~"), "Downloads")
-        file_name = os.path.join(downloads_folder, "Diferencias_PDF.xlsx")
+        # Solicitar al usuario seleccionar la carpeta donde se guardará el archivo
+        folder = QFileDialog.getExistingDirectory(self, "Seleccionar Carpeta para Guardar")
+        if not folder:
+            QMessageBox.warning(self, 'Advertencia', 'Debe seleccionar una carpeta para guardar el archivo.')
+            return
 
-        # Guardar el archivo Excel en la carpeta Descargas
+        # Crear el nombre completo del archivo con la ruta seleccionada
+        file_name = os.path.join(folder, "Diferencias_PDF.xlsx")
+
         try:
+            # Guardar el archivo Excel en la carpeta seleccionada
             df.to_excel(file_name, index=False)
             QMessageBox.information(self, 'Descarga Completa', f'El archivo Excel ha sido guardado correctamente en: {file_name}')
-        except PermissionError:
-            QMessageBox.critical(self, 'Error', 'No se pudo guardar el archivo. Verifique los permisos de la carpeta Descargas.')
+            
+            # Abrir el archivo Excel automáticamente
+            os.startfile(file_name)
+        except Exception as e:
+            QMessageBox.critical(self, 'Error', f'No se pudo guardar o abrir el archivo: {str(e)}')
 
     def reset_all(self):
         self.pdf1_path = None
