@@ -1,58 +1,33 @@
-from distutils.core import setup
-import py2exe
 import sys
 import os
-import shutil
+from cx_Freeze import setup, Executable
 
-sys.argv.append('py2exe')
+build_exe_options = {
+    "packages": ["os", "sys", "PyQt5", "tempfile", "fitz", "traceback", "pandas", "openpyxl"],
+    "includes": ["PyQt5.QtWidgets", "PyQt5.QtCore", "PyQt5.QtGui", "lief", "setuptools", "wheel", "pkg_resources"],
+    "excludes": ["tkinter"],
+    "include_files": ["app.log", "admin_manifest.xml"],
+    "path": sys.path + [os.path.join('venv', 'Lib', 'site-packages')],
+}
 
-# Ruta del entorno virtual
-venv_path = r'C:\Users\fxb8co\Documents\Versions Compare\Python Scripts\Version Compare V1 Py2exe\venv'
-site_packages_path = os.path.join(venv_path, 'Lib', 'site-packages')
+base = None
+if sys.platform == "win32":
+    base = "Win32GUI"
 
-# Función para copiar todos los archivos de un directorio a otro
-def copy_all_files(src_dir, dst_dir):
-    if not os.path.exists(dst_dir):
-        os.makedirs(dst_dir)
-    for root, dirs, files in os.walk(src_dir):
-        for file in files:
-            src_file = os.path.join(root, file)
-            rel_path = os.path.relpath(src_file, src_dir)
-            dst_file = os.path.join(dst_dir, rel_path)
-            dst_file_dir = os.path.dirname(dst_file)
-            if not os.path.exists(dst_file_dir):
-                os.makedirs(dst_file_dir)
-            shutil.copy(src_file, dst_file)
-
-# Copiar todos los archivos de site-packages al directorio de distribución
-dist_site_packages_path = os.path.join('dist', 'site-packages')
-copy_all_files(site_packages_path, dist_site_packages_path)
+executables = [
+    Executable(
+        script="main.py",
+        base=base,
+        targetName="PDFComparer.exe",
+        icon=None,
+        manifest="admin_manifest.xml"  # Incluye el manifiesto aquí
+    )
+]
 
 setup(
-    options={
-        'py2exe': {
-            'includes': ['fitz', 'PyQt5', 'sip', 'PyQt5.QtCore', 'PyQt5.QtGui', 'PyQt5.QtWidgets', 'tempfile'],
-            'dll_excludes': ['MSVCP90.dll'],  # Excluir MSVC DLLs si es necesario
-            'excludes': ['tkinter'],  # Excluir tkinter si no se usa
-            'bundle_files': 1,
-            'compressed': True,
-        }
-    },
-    windows=[{
-        'script': 'main.py',  # Asegúrate de que 'main.py' esté en el directorio correcto
-    }],
-    zipfile=None,
+    name="PDFComparer",
+    version="1.0",
+    description="A simple PDF comparison tool",
+    options={"build_exe": build_exe_options},
+    executables=executables
 )
-
-# Copiar las DLLs necesarias de PyQt5 manualmente
-qt_bin_path = os.path.join(site_packages_path, 'PyQt5', 'Qt5', 'bin')
-dll_path = os.path.join('dist', 'PyQt5', 'Qt5', 'bin')
-
-if os.path.exists(qt_bin_path):
-    if not os.path.exists(dll_path):
-        os.makedirs(dll_path)
-
-    for dll in os.listdir(qt_bin_path):
-        shutil.copy(os.path.join(qt_bin_path, dll), dll_path)
-else:
-    print(f"Path {qt_bin_path} does not exist. Please check the path and try again.")
