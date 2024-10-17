@@ -37,3 +37,6 @@ if(
         )
     )
 )
+
+
+=IF(A2<>"no", A2, IFERROR(LOOKUP(2, 1/(A$1:A1<>"no"), A$1:A1), ""))
