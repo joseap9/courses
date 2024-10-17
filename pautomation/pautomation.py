@@ -39,5 +39,6 @@ if(
 )
 
 
-=IFERROR(VLOOKUP(A2, Sheet1!A:B, 2, 0), LOOKUP(2, 1/(Sheet1!A$1:A2<>""), Sheet1!B$1:B2))
+=IFERROR(VLOOKUP(A2, Sheet1!A:B, 2, 0), IF(ROW()=2, "", B1))
+
 
