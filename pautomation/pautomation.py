@@ -39,4 +39,5 @@ if(
 )
 
 
-=IF(A2<>"no", A2, IFERROR(LOOKUP(2, 1/(A$1:A1<>"no"), A$1:A1), ""))
+=IFERROR(VLOOKUP(A2, Sheet1!A:B, 2, 0), LOOKUP(2, 1/(Sheet1!A$1:A2<>""), Sheet1!B$1:B2))
+
