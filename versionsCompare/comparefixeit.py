@@ -199,8 +199,8 @@ class PDFComparer(QMainWindow):
             page_text = page.get_text()
             word_list = page.get_text("words")
 
-            # Excluir palabras específicas
-            filtered_words = [w for w in word_list if w[4].lower() not in [";"]]
+            # Excluir palabras que contienen el símbolo ";"
+            filtered_words = [w for w in word_list if ";" not in w[4]]
             text.append(page_text)
             words.append(filtered_words)
 
@@ -530,13 +530,11 @@ class PDFComparer(QMainWindow):
         summary_box.setText(summary_text)
 
         # Añadir botón de descarga
-        download_button = QPushButton("Download Excel", self)
+        download_button = QPushButton("Copiar Resumen", self)
         download_button.clicked.connect(self.download_excel)
         summary_box.addButton(download_button, QMessageBox.ActionRole)
 
         summary_box.exec_()
-    
-    import os
 
     def download_excel(self):
         # Solicitar el nombre del responsable
@@ -560,8 +558,11 @@ class PDFComparer(QMainWindow):
         # Crear un DataFrame con los datos
         df = pd.DataFrame(data)
 
-        # Incluir el nombre del responsable como encabezado
-        df = pd.concat([pd.DataFrame([[f"Responsable: {responsible_name}"]]), df])
+        # Incluir el nombre del responsable como encabezado con la etiqueta "Analista"
+        header_df = pd.DataFrame([["Analista", responsible_name]], columns=["Rol", "Nombre"])
+        
+        # Concatenar el encabezado con los datos
+        df = pd.concat([header_df, df], ignore_index=True)
 
         try:
             # Copiar el contenido del DataFrame al portapapeles
@@ -569,6 +570,7 @@ class PDFComparer(QMainWindow):
             QMessageBox.information(self, 'Copiado al Portapapeles', 'Los datos se han copiado al portapapeles. Ahora puedes pegarlos en Excel.')
         except Exception as e:
             QMessageBox.critical(self, 'Error', f'No se pudo copiar los datos al portapapeles: {str(e)}')
+
 
     def reset_all(self):
         self.pdf1_path = None
