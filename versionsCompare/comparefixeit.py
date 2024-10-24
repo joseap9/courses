@@ -1,4 +1,5 @@
 import sys
+import os
 from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QRadioButton, QLineEdit, QButtonGroup, QFrame, QMessageBox, QTextEdit, QInputDialog
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap, QImage
@@ -192,14 +193,17 @@ class PDFComparer(QMainWindow):
 
     def extract_text_and_positions(self, file_path):
         document = fitz.open(file_path)
-        text = []
-        words = []
+        text, words = [], []
 
         for page_num in range(document.page_count):
             page = document.load_page(page_num)
-            text.append(page.get_text())
+            page_text = page.get_text()
             word_list = page.get_text("words")
-            words.append(word_list)
+
+            # Excluir palabras específicas
+            filtered_words = [w for w in word_list if w[4].lower() not in ["financieros", "ley"]]
+            text.append(page_text)
+            words.append(filtered_words)
 
         return text, words
 
@@ -506,66 +510,57 @@ class PDFComparer(QMainWindow):
             self.labels[(self.current_page, self.current_difference_index)] = current_labels
 
     def show_summary(self):
-        total_applies = sum(1 for label in self.labels.values() if label['label'] == "Aplica")  # Solo las que aplican
-        count_applies = total_applies
-        count_no_applies = sum(1 for label in self.labels.values() if label['label'] == "No Aplica")
-        count_others = sum(1 for label in self.labels.values() if label['label'] and label['label'] != "Aplica" and label['label'] != "No Aplica")
-        total_diffs = count_applies + count_no_applies + count_others  # Total de diferencias
+        total_applies = sum(1 for label in self.labels.values() if label['label'] == "Aplica")
+        total_no_applies = sum(1 for label in self.labels.values() if label['label'] == "No Aplica")
+        total_others = sum(1 for label in self.labels.values() if label['label'] not in ["Aplica", "No Aplica"])
 
         summary_text = (
-            f"<b><span style='font-size:14pt;'>Total de diferencias que aplican: </span><span style='font-size:14pt;'>{total_applies}</span></b><br><br>"
-            f"<b><span style='font-size:12pt;'>Detalle</span></b></<br><br>"
-            f"<b><span style='font-size:10pt;'>  - Aplica: </span><span style='font-size:10pt;'>{count_applies}</span></b><br>"
-            f"<b><span style='font-size:10pt;'>  - No Aplica: </span><span style='font-size:10pt;'>{count_no_applies}</span></b><br>"
-            f"<b><span style='font-size:10pt;'>  - Otro: </span><span style='font-size:10pt;'>{count_others}</span></b><br><br>"
-            f"<b><span style='font-size:12pt;'>Total: </span><span style='font-size:12pt;'>{total_diffs}</span></b>"
+            f"<b>Total Aplica: {total_applies}</b><br>"
+            f"Total No Aplica: {total_no_applies}<br>"
+            f"Total Otros: {total_others}<br>"
+            f"Total: {total_applies + total_no_applies + total_others}"
         )
 
-        # Crear un QMessageBox para mostrar el resumen
         summary_box = QMessageBox(self)
         summary_box.setWindowTitle("Resumen de Diferencias")
         summary_box.setText(summary_text)
 
-        # Añadir botón de descarga
-        download_button = QPushButton("Download Excel", self)
-        download_button.clicked.connect(self.download_excel)
+        download_button = QPushButton("Copiar Resumen", self)
+        download_button.clicked.connect(self.copy_table)
         summary_box.addButton(download_button, QMessageBox.ActionRole)
 
         summary_box.exec_()
-    
-    import os
 
-    def download_excel(self):
-        # Solicitar el nombre del responsable
+    def copy_table(self):
+        # Pedir el nombre del responsable
         responsible_name, ok = QInputDialog.getText(
             self, 'Nombre del Responsable', 'Por favor, ingrese el nombre del responsable:'
         )
         if not ok or not responsible_name:
-            QMessageBox.warning(self, 'Advertencia', 'El nombre del responsable es obligatorio para continuar.')
+            QMessageBox.warning(self, 'Advertencia', 'El nombre del responsable es obligatorio.')
             return
 
-        # Crear lista de diccionarios con los datos de las diferencias
-        data = []
-        for (page, diff_idx), label_data in self.labels.items():
-            data.append({
-                f"PDF 1 ({self.button1.text()})": label_data['pdf1_text'],
-                f"PDF 2 ({self.button2.text()})": label_data['pdf2_text'],
-                'Tag': label_data['label'],
-                'Page': page + 1
-            })
+        # Crear el DataFrame con los datos
+        data = [{
+            f"PDF 1 ({self.button1.text()})": label['pdf1_text'],
+            f"PDF 2 ({self.button2.text()})": label['pdf2_text'],
+            'Tag': label['label'],
+            'Page': page + 1
+        } for (page, _), label in self.labels.items()]
 
-        # Crear un DataFrame con los datos
         df = pd.DataFrame(data)
 
-        # Incluir el nombre del responsable como encabezado
-        df = pd.concat([pd.DataFrame([[f"Responsable: {responsible_name}"]]), df])
+        # Mostrar el nombre del responsable antes de la tabla
+        header = f"Responsable: {responsible_name}"
+        df_with_header = pd.concat([pd.DataFrame([[header]]), df], ignore_index=True)
 
         try:
-            # Copiar el contenido del DataFrame al portapapeles
-            df.to_clipboard(index=False, excel=True)
-            QMessageBox.information(self, 'Copiado al Portapapeles', 'Los datos se han copiado al portapapeles. Ahora puedes pegarlos en Excel.')
+            # Copiar al portapapeles
+            df_with_header.to_clipboard(index=False, excel=True)
+            QMessageBox.information(self, 'Copiado al Portapapeles', 'Los datos se copiaron al portapapeles.')
         except Exception as e:
-            QMessageBox.critical(self, 'Error', f'No se pudo copiar los datos al portapapeles: {str(e)}')
+            QMessageBox.critical(self, 'Error', f'No se pudo copiar los datos: {str(e)}')
+
 
     def reset_all(self):
         self.pdf1_path = None
