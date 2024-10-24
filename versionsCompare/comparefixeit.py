@@ -1,5 +1,4 @@
 import sys
-import os
 from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QRadioButton, QLineEdit, QButtonGroup, QFrame, QMessageBox, QTextEdit, QInputDialog
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap, QImage
@@ -193,17 +192,14 @@ class PDFComparer(QMainWindow):
 
     def extract_text_and_positions(self, file_path):
         document = fitz.open(file_path)
-        text, words = [], []
+        text = []
+        words = []
 
         for page_num in range(document.page_count):
             page = document.load_page(page_num)
-            page_text = page.get_text()
+            text.append(page.get_text())
             word_list = page.get_text("words")
-
-            # Excluir palabras específicas
-            filtered_words = [w for w in word_list if w[4].lower() not in ["financieros", "ley"]]
-            text.append(page_text)
-            words.append(filtered_words)
+            words.append(word_list)
 
         return text, words
 
@@ -221,6 +217,7 @@ class PDFComparer(QMainWindow):
             self.highlight_current_difference()
 
     def highlight_differences(self, doc, words1, words2, page_num):
+        ignored_words = {"FINANCIEROS", "ley"}  #estas palabras generan confunsión en el algoritmo por ende se descartan
         differences = []
         current_diff = []
         non_diff_counter = 0
@@ -229,7 +226,6 @@ class PDFComparer(QMainWindow):
             page = doc.load_page(page_num)
             page_height = page.rect.height  # Obtener la altura de la página
 
-            # Definir el umbral de exclusión (10% desde el final de la página y 10% desde el inicio)
             lower_exclusion_threshold = page_height * 0.9
             upper_exclusion_threshold = page_height * 0.1
 
@@ -239,12 +235,16 @@ class PDFComparer(QMainWindow):
             for word1 in words1[page_num]:
                 word_rect = fitz.Rect(word1[:4])
 
-                # Saltar las palabras que están en el 10% superior o 10% inferior de la página
+                # Saltar si la palabra está en la lista de palabras ignoradas
+                if word1[4] in ignored_words:
+                    continue
+
+                # Saltar las palabras que están en el 10% superior o inferior de la página
                 if word_rect.y1 > lower_exclusion_threshold or word_rect.y1 < upper_exclusion_threshold:
                     continue
 
                 if word1[4] not in words2_set:
-                    if non_diff_counter > 8:  # Si hay más de 8 palabras no diferentes entre diferencias, separar la diferencia actual
+                    if non_diff_counter > 8:  # Separar diferencias si hay más de 8 palabras iguales
                         if current_diff:
                             differences.append(current_diff)
                             current_diff = []
@@ -253,7 +253,7 @@ class PDFComparer(QMainWindow):
                     current_diff.append(word1)
                     highlight = fitz.Rect(word1[:4])
                     doc[page_num].add_highlight_annot(highlight)  # Resaltado amarillo
-                    non_diff_counter = 0  # Reinicia el contador de palabras no diferentes
+                    non_diff_counter = 0  # Reiniciar contador
                 else:
                     if current_diff:
                         non_diff_counter += 1
@@ -270,32 +270,35 @@ class PDFComparer(QMainWindow):
             for word1 in words1[page_num]:
                 word_rect = fitz.Rect(word1[:4])
 
-                # Saltar las palabras que están en el 10% superior o 10% inferior de la página
+                if word1[4] in ignored_words:
+                    continue  # Saltar palabras ignoradas
+
                 if word_rect.y1 > lower_exclusion_threshold or word_rect.y1 < upper_exclusion_threshold:
                     continue
-                    
+
                 current_diff.append(word1)
                 highlight = fitz.Rect(word1[:4])
-                doc[page_num].add_highlight_annot(highlight)  # Resaltado amarillo
+                doc[page_num].add_highlight_annot(highlight)
             differences.append(current_diff)
             self.pdf1_diff_edit.setText(f"Texto encontrado en PDF1 pero no en PDF2:\n{' '.join([word[4] for word in current_diff])}")
+
         elif page_num < len(words2):  # Caso donde solo hay texto en el segundo PDF
             for word2 in words2[page_num]:
                 word_rect = fitz.Rect(word2[:4])
 
-                # Saltar las palabras que están en el 10% superior o 10% inferior de la página
+                if word2[4] in ignored_words:
+                    continue  # Saltar palabras ignoradas
+
                 if word_rect.y1 > lower_exclusion_threshold or word_rect.y1 < upper_exclusion_threshold:
                     continue
-                    
+
                 current_diff.append(word2)
                 highlight = fitz.Rect(word2[:4])
-                doc[page_num].add_highlight_annot(highlight)  # Resaltado amarillo
+                doc[page_num].add_highlight_annot(highlight)
             differences.append(current_diff)
             self.pdf2_diff_edit.setText(f"Texto encontrado en PDF2 pero no en PDF1:\n{' '.join([word[4] for word in current_diff])}")
 
         return doc, differences
-
-
 
     def load_page_pair(self, page_num):
         doc1 = fitz.open(self.pdf1_path)
@@ -510,57 +513,66 @@ class PDFComparer(QMainWindow):
             self.labels[(self.current_page, self.current_difference_index)] = current_labels
 
     def show_summary(self):
-        total_applies = sum(1 for label in self.labels.values() if label['label'] == "Aplica")
-        total_no_applies = sum(1 for label in self.labels.values() if label['label'] == "No Aplica")
-        total_others = sum(1 for label in self.labels.values() if label['label'] not in ["Aplica", "No Aplica"])
+        total_applies = sum(1 for label in self.labels.values() if label['label'] == "Aplica")  # Solo las que aplican
+        count_applies = total_applies
+        count_no_applies = sum(1 for label in self.labels.values() if label['label'] == "No Aplica")
+        count_others = sum(1 for label in self.labels.values() if label['label'] and label['label'] != "Aplica" and label['label'] != "No Aplica")
+        total_diffs = count_applies + count_no_applies + count_others  # Total de diferencias
 
         summary_text = (
-            f"<b>Total Aplica: {total_applies}</b><br>"
-            f"Total No Aplica: {total_no_applies}<br>"
-            f"Total Otros: {total_others}<br>"
-            f"Total: {total_applies + total_no_applies + total_others}"
+            f"<b><span style='font-size:14pt;'>Total de diferencias que aplican: </span><span style='font-size:14pt;'>{total_applies}</span></b><br><br>"
+            f"<b><span style='font-size:12pt;'>Detalle</span></b></<br><br>"
+            f"<b><span style='font-size:10pt;'>  - Aplica: </span><span style='font-size:10pt;'>{count_applies}</span></b><br>"
+            f"<b><span style='font-size:10pt;'>  - No Aplica: </span><span style='font-size:10pt;'>{count_no_applies}</span></b><br>"
+            f"<b><span style='font-size:10pt;'>  - Otro: </span><span style='font-size:10pt;'>{count_others}</span></b><br><br>"
+            f"<b><span style='font-size:12pt;'>Total: </span><span style='font-size:12pt;'>{total_diffs}</span></b>"
         )
 
+        # Crear un QMessageBox para mostrar el resumen
         summary_box = QMessageBox(self)
         summary_box.setWindowTitle("Resumen de Diferencias")
         summary_box.setText(summary_text)
 
-        download_button = QPushButton("Copiar Resumen", self)
-        download_button.clicked.connect(self.copy_table)
+        # Añadir botón de descarga
+        download_button = QPushButton("Download Excel", self)
+        download_button.clicked.connect(self.download_excel)
         summary_box.addButton(download_button, QMessageBox.ActionRole)
 
         summary_box.exec_()
+    
+    import os
 
-    def copy_table(self):
-        # Pedir el nombre del responsable
+    def download_excel(self):
+        # Solicitar el nombre del responsable
         responsible_name, ok = QInputDialog.getText(
             self, 'Nombre del Responsable', 'Por favor, ingrese el nombre del responsable:'
         )
         if not ok or not responsible_name:
-            QMessageBox.warning(self, 'Advertencia', 'El nombre del responsable es obligatorio.')
+            QMessageBox.warning(self, 'Advertencia', 'El nombre del responsable es obligatorio para continuar.')
             return
 
-        # Crear el DataFrame con los datos
-        data = [{
-            f"PDF 1 ({self.button1.text()})": label['pdf1_text'],
-            f"PDF 2 ({self.button2.text()})": label['pdf2_text'],
-            'Tag': label['label'],
-            'Page': page + 1
-        } for (page, _), label in self.labels.items()]
+        # Crear lista de diccionarios con los datos de las diferencias
+        data = []
+        for (page, diff_idx), label_data in self.labels.items():
+            data.append({
+                f"PDF 1 ({self.button1.text()})": label_data['pdf1_text'],
+                f"PDF 2 ({self.button2.text()})": label_data['pdf2_text'],
+                'Tag': label_data['label'],
+                'Page': page + 1
+            })
 
+        # Crear un DataFrame con los datos
         df = pd.DataFrame(data)
 
-        # Mostrar el nombre del responsable antes de la tabla
-        header = f"Responsable: {responsible_name}"
-        df_with_header = pd.concat([pd.DataFrame([[header]]), df], ignore_index=True)
+        # Incluir el nombre del responsable como encabezado
+        df = pd.concat([pd.DataFrame([[f"Responsable: {responsible_name}"]]), df])
 
         try:
-            # Copiar al portapapeles
-            df_with_header.to_clipboard(index=False, excel=True)
-            QMessageBox.information(self, 'Copiado al Portapapeles', 'Los datos se copiaron al portapapeles.')
+            # Copiar el contenido del DataFrame al portapapeles
+            df.to_clipboard(index=False, excel=True)
+            QMessageBox.information(self, 'Copiado al Portapapeles', 'Los datos se han copiado al portapapeles. Ahora puedes pegarlos en Excel.')
         except Exception as e:
-            QMessageBox.critical(self, 'Error', f'No se pudo copiar los datos: {str(e)}')
-
+            QMessageBox.critical(self, 'Error', f'No se pudo copiar los datos al portapapeles: {str(e)}')
 
     def reset_all(self):
         self.pdf1_path = None
