@@ -435,14 +435,15 @@ class PDFComparer(QMainWindow):
         
         if not all_labeled:
             reply = QMessageBox.question(self, 'Diferencias sin revisar',
-                                            'Existen diferencias que no han sido etiquetadas. ¿Deseas marcarlas como "No Aplica"?',
-                                            QMessageBox.Yes | QMessageBox.No)
+                                        'Existen diferencias que no han sido etiquetadas. ¿Deseas marcarlas como "No Aplica"?',
+                                        QMessageBox.Yes | QMessageBox.No)
             if reply == QMessageBox.Yes:
                 for i in range(len(self.differences)):
                     if (self.current_page, i) not in self.labels or self.labels[(self.current_page, i)]['label'] == '':
+                        # Guardar cada diferencia individualmente como "No Aplica"
                         self.current_difference_index = i
                         self.radio_no_aplica.setChecked(True)
-                        self.save_current_label()
+                        self.save_current_label()  # Asegurar guardado inmediato
             else:
                 return  # Si el usuario selecciona "No", no avanzar de página
 
@@ -513,7 +514,7 @@ class PDFComparer(QMainWindow):
         total_diffs = count_applies + count_no_applies + count_others  # Total de diferencias
 
         summary_text = (
-            f"<b><span style='font-size:14pt;'>Total de diferencias que aplican: </span><span style='font-size:14pt;'>{total_applies}</span></b><br><br>"
+            f"<b><span style='font-size:14pt;'>Diferencias Aplicables: </span><span style='font-size:14pt;'>{total_applies}</span></b><br><br>"
             f"<b><span style='font-size:12pt;'>Detalle</span></b></<br><br>"
             f"<b><span style='font-size:10pt;'>  - Aplica: </span><span style='font-size:10pt;'>{count_applies}</span></b><br>"
             f"<b><span style='font-size:10pt;'>  - No Aplica: </span><span style='font-size:10pt;'>{count_no_applies}</span></b><br>"
@@ -527,7 +528,7 @@ class PDFComparer(QMainWindow):
         summary_box.setText(summary_text)
 
         # Añadir botón de descarga
-        download_button = QPushButton("Download Excel", self)
+        download_button = QPushButton("Copiar Resumen", self)
         download_button.clicked.connect(self.download_excel)
         summary_box.addButton(download_button, QMessageBox.ActionRole)
 
