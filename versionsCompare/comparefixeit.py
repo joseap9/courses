@@ -533,8 +533,6 @@ class PDFComparer(QMainWindow):
         summary_box.addButton(download_button, QMessageBox.ActionRole)
 
         summary_box.exec_()
-    
-    import os
 
     def download_excel(self):
         # Solicitar el nombre del responsable
