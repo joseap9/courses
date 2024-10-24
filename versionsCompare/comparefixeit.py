@@ -192,14 +192,17 @@ class PDFComparer(QMainWindow):
 
     def extract_text_and_positions(self, file_path):
         document = fitz.open(file_path)
-        text = []
-        words = []
+        text, words = [], []
 
         for page_num in range(document.page_count):
             page = document.load_page(page_num)
-            text.append(page.get_text())
+            page_text = page.get_text()
             word_list = page.get_text("words")
-            words.append(word_list)
+
+            # Excluir palabras específicas
+            filtered_words = [w for w in word_list if w[4].lower() not in [";"]]
+            text.append(page_text)
+            words.append(filtered_words)
 
         return text, words
 
@@ -217,7 +220,6 @@ class PDFComparer(QMainWindow):
             self.highlight_current_difference()
 
     def highlight_differences(self, doc, words1, words2, page_num):
-        ignored_words = {"FINANCIEROS", "ley"}  #estas palabras generan confunsión en el algoritmo por ende se descartan
         differences = []
         current_diff = []
         non_diff_counter = 0
@@ -226,6 +228,7 @@ class PDFComparer(QMainWindow):
             page = doc.load_page(page_num)
             page_height = page.rect.height  # Obtener la altura de la página
 
+            # Definir el umbral de exclusión (10% desde el final de la página y 10% desde el inicio)
             lower_exclusion_threshold = page_height * 0.9
             upper_exclusion_threshold = page_height * 0.1
 
@@ -235,16 +238,12 @@ class PDFComparer(QMainWindow):
             for word1 in words1[page_num]:
                 word_rect = fitz.Rect(word1[:4])
 
-                # Saltar si la palabra está en la lista de palabras ignoradas
-                if word1[4] in ignored_words:
-                    continue
-
-                # Saltar las palabras que están en el 10% superior o inferior de la página
+                # Saltar las palabras que están en el 10% superior o 10% inferior de la página
                 if word_rect.y1 > lower_exclusion_threshold or word_rect.y1 < upper_exclusion_threshold:
                     continue
 
                 if word1[4] not in words2_set:
-                    if non_diff_counter > 8:  # Separar diferencias si hay más de 8 palabras iguales
+                    if non_diff_counter > 8:  # Si hay más de 8 palabras no diferentes entre diferencias, separar la diferencia actual
                         if current_diff:
                             differences.append(current_diff)
                             current_diff = []
@@ -253,7 +252,7 @@ class PDFComparer(QMainWindow):
                     current_diff.append(word1)
                     highlight = fitz.Rect(word1[:4])
                     doc[page_num].add_highlight_annot(highlight)  # Resaltado amarillo
-                    non_diff_counter = 0  # Reiniciar contador
+                    non_diff_counter = 0  # Reinicia el contador de palabras no diferentes
                 else:
                     if current_diff:
                         non_diff_counter += 1
@@ -270,35 +269,32 @@ class PDFComparer(QMainWindow):
             for word1 in words1[page_num]:
                 word_rect = fitz.Rect(word1[:4])
 
-                if word1[4] in ignored_words:
-                    continue  # Saltar palabras ignoradas
-
+                # Saltar las palabras que están en el 10% superior o 10% inferior de la página
                 if word_rect.y1 > lower_exclusion_threshold or word_rect.y1 < upper_exclusion_threshold:
                     continue
-
+                    
                 current_diff.append(word1)
                 highlight = fitz.Rect(word1[:4])
-                doc[page_num].add_highlight_annot(highlight)
+                doc[page_num].add_highlight_annot(highlight)  # Resaltado amarillo
             differences.append(current_diff)
             self.pdf1_diff_edit.setText(f"Texto encontrado en PDF1 pero no en PDF2:\n{' '.join([word[4] for word in current_diff])}")
-
         elif page_num < len(words2):  # Caso donde solo hay texto en el segundo PDF
             for word2 in words2[page_num]:
                 word_rect = fitz.Rect(word2[:4])
 
-                if word2[4] in ignored_words:
-                    continue  # Saltar palabras ignoradas
-
+                # Saltar las palabras que están en el 10% superior o 10% inferior de la página
                 if word_rect.y1 > lower_exclusion_threshold or word_rect.y1 < upper_exclusion_threshold:
                     continue
-
+                    
                 current_diff.append(word2)
                 highlight = fitz.Rect(word2[:4])
-                doc[page_num].add_highlight_annot(highlight)
+                doc[page_num].add_highlight_annot(highlight)  # Resaltado amarillo
             differences.append(current_diff)
             self.pdf2_diff_edit.setText(f"Texto encontrado en PDF2 pero no en PDF1:\n{' '.join([word[4] for word in current_diff])}")
 
         return doc, differences
+
+
 
     def load_page_pair(self, page_num):
         doc1 = fitz.open(self.pdf1_path)
