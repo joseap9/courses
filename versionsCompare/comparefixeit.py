@@ -558,9 +558,9 @@ class PDFComparer(QMainWindow):
         # Crear un DataFrame con los datos
         df = pd.DataFrame(data)
 
-        # Incluir el nombre del responsable como encabezado con la etiqueta "Analista"
-        header_df = pd.DataFrame([["Analista", responsible_name]], columns=["Rol", "Nombre"])
-        
+        # Crear encabezado con "Analista" y el nombre del responsable en una sola columna
+        header_df = pd.DataFrame([["Analista"], [responsible_name]], columns=[""])
+
         # Concatenar el encabezado con los datos
         df = pd.concat([header_df, df], ignore_index=True)
 
