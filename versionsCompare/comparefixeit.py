@@ -192,17 +192,14 @@ class PDFComparer(QMainWindow):
 
     def extract_text_and_positions(self, file_path):
         document = fitz.open(file_path)
-        text, words = [], []
+        text = []
+        words = []
 
         for page_num in range(document.page_count):
             page = document.load_page(page_num)
-            page_text = page.get_text()
+            text.append(page.get_text())
             word_list = page.get_text("words")
-
-            # Excluir palabras que contienen el símbolo ";"
-            filtered_words = [w for w in word_list if ";" not in w[4]]
-            text.append(page_text)
-            words.append(filtered_words)
+            words.append(word_list)
 
         return text, words
 
@@ -530,11 +527,13 @@ class PDFComparer(QMainWindow):
         summary_box.setText(summary_text)
 
         # Añadir botón de descarga
-        download_button = QPushButton("Copiar Resumen", self)
+        download_button = QPushButton("Download Excel", self)
         download_button.clicked.connect(self.download_excel)
         summary_box.addButton(download_button, QMessageBox.ActionRole)
 
         summary_box.exec_()
+    
+    import os
 
     def download_excel(self):
         # Solicitar el nombre del responsable
@@ -558,11 +557,8 @@ class PDFComparer(QMainWindow):
         # Crear un DataFrame con los datos
         df = pd.DataFrame(data)
 
-        # Crear encabezado con "Analista" y el nombre del responsable en una sola columna
-        header_df = pd.DataFrame([["Analista"], [responsible_name]], columns=[""])
-
-        # Concatenar el encabezado con los datos
-        df = pd.concat([header_df, df], ignore_index=True)
+        # Incluir el nombre del responsable como encabezado
+        df = pd.concat([pd.DataFrame([[f"Responsable: {responsible_name}"]]), df])
 
         try:
             # Copiar el contenido del DataFrame al portapapeles
@@ -570,7 +566,6 @@ class PDFComparer(QMainWindow):
             QMessageBox.information(self, 'Copiado al Portapapeles', 'Los datos se han copiado al portapapeles. Ahora puedes pegarlos en Excel.')
         except Exception as e:
             QMessageBox.critical(self, 'Error', f'No se pudo copiar los datos al portapapeles: {str(e)}')
-
 
     def reset_all(self):
         self.pdf1_path = None
