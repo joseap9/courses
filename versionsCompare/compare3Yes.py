@@ -505,8 +505,9 @@ class PDFComparer(QMainWindow):
             return
 
         # Crear y mostrar la ventana de resumen
-        self.summary_window = SummaryWindow(self.labels, self.button1.text(), self.button2.text(), responsible_name)
-        self.summary_window.setWindowTitle("Go to Summary")
+        self.summary_window = self.SummaryWindow(self.labels, self.button1.text(), self.button2.text(), responsible_name)
+        self.summary_window.setWindowTitle("Summary")
+        self.summary_window.setGeometry(100, 100, 1650, 800)
         self.summary_window.show()
 
     def reset_all(self):
@@ -536,78 +537,89 @@ class PDFComparer(QMainWindow):
         self.prev_diff_button.setEnabled(False)
         self.next_diff_button.setEnabled(False)
 
+    class SummaryWindow(QWidget):
+        def __init__(self, labels, button1_text, button2_text, responsible_name):
+            super().__init__()
+            self.labels = labels
+            self.button1_text = button1_text
+            self.button2_text = button2_text
+            self.responsible_name = responsible_name
+            self.page = 0
+            self.rows_per_page = 10
+
+            # Calcular el número total de páginas
+            self.total_pages = (len(self.labels) + self.rows_per_page - 1) // self.rows_per_page
+            self.init_ui()
+
+        def init_ui(self):
+            layout = QVBoxLayout()
+            
+            # Mostrar el nombre del responsable y el contador de página
+            self.responsible_label = QLabel(f"<b>Responsable: {self.responsible_name} - Página {self.page + 1}/{self.total_pages}</b>")
+            layout.addWidget(self.responsible_label)
+            
+            # Crear la tabla de etiquetas
+            self.table_widget = QTableWidget()
+            layout.addWidget(self.table_widget)
+            
+            # Configurar el estilo de la tabla
+            self.table_widget.setColumnCount(4)
+            self.table_widget.setHorizontalHeaderLabels(["PDF 1", "PDF 2", "Tag", "Page"])
+            self.table_widget.horizontalHeader().setStyleSheet("QHeaderView::section { background-color: blue; color: white; }")
+            self.table_widget.horizontalHeader().setStretchLastSection(True)
+            self.table_widget.horizontalHeader().setSectionResizeMode(QTableWidget.Stretch)
+            
+            # Botones de navegación
+            prev_button = QPushButton("Anterior")
+            prev_button.clicked.connect(self.show_previous_page)
+            layout.addWidget(prev_button)
+            
+            next_button = QPushButton("Siguiente")
+            next_button.clicked.connect(self.show_next_page)
+            layout.addWidget(next_button)
+
+            self.setLayout(layout)
+            
+            # Mostrar la primera página de datos
+            self.show_data()
+
+        def show_data(self):
+            # Filtrar y ordenar los datos por etiquetas
+            data = sorted(
+                [{"PDF 1": lbl['pdf1_text'], "PDF 2": lbl['pdf2_text'], "Tag": lbl['label'], "Page": page + 1}
+                 for (page, diff_idx), lbl in self.labels.items()],
+                key=lambda x: ("Aplica", "Otro", "No Aplica").index(x["Tag"]) if x["Tag"] in ["Aplica", "Otro", "No Aplica"] else 2
+            )
+            
+            start = self.page * self.rows_per_page
+            end = start + self.rows_per_page
+            page_data = data[start:end]
+            
+            # Configurar la tabla
+            self.table_widget.setRowCount(len(page_data))
+            
+            # Llenar la tabla con los datos de la página actual
+            for row, item in enumerate(page_data):
+                self.table_widget.setItem(row, 0, QTableWidgetItem(item["PDF 1"]))
+                self.table_widget.setItem(row, 1, QTableWidgetItem(item["PDF 2"]))
+                self.table_widget.setItem(row, 2, QTableWidgetItem(item["Tag"]))
+                self.table_widget.setItem(row, 3, QTableWidgetItem(str(item["Page"])))
+
+            # Actualizar el contador de página en la etiqueta de responsable
+            self.responsible_label.setText(f"<b>Responsable: {self.responsible_name} - Página {self.page + 1}/{self.total_pages}</b>")
+
+        def show_next_page(self):
+            if self.page < self.total_pages - 1:
+                self.page += 1
+                self.show_data()
+
+        def show_previous_page(self):
+            if self.page > 0:
+                self.page -= 1
+                self.show_data()
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     comparer = PDFComparer()
     comparer.show()
     sys.exit(app.exec_())
-
-class SummaryWindow(QWidget):
-
-    def __init__(self, labels, button1_text, button2_text, responsible_name):
-        super().__init__()
-        self.labels = labels
-        self.button1_text = button1_text
-        self.button2_text = button2_text
-        self.responsible_name = responsible_name
-        self.page = 0
-        self.rows_per_page = 20
-
-        self.init_ui()
-
-    def init_ui(self):
-        layout = QVBoxLayout()
-        
-        # Mostrar el nombre del responsable en la parte superior
-        layout.addWidget(QLabel(f"<b>Responsable: {self.responsible_name}</b>"))
-        
-        # Crear la tabla de etiquetas
-        self.table_widget = QTableWidget()
-        layout.addWidget(self.table_widget)
-        
-        # Botones de navegación
-        prev_button = QPushButton("Anterior")
-        prev_button.clicked.connect(self.show_previous_page)
-        layout.addWidget(prev_button)
-        
-        next_button = QPushButton("Siguiente")
-        next_button.clicked.connect(self.show_next_page)
-        layout.addWidget(next_button)
-
-        self.setLayout(layout)
-        
-        # Mostrar la primera página de datos
-        self.show_data()
-
-    def show_data(self):
-        # Filtrar y ordenar los datos por etiquetas
-        data = sorted(
-            [{"PDF 1": lbl['pdf1_text'], "PDF 2": lbl['pdf2_text'], "Tag": lbl['label'], "Page": page + 1}
-             for (page, diff_idx), lbl in self.labels.items()],
-            key=lambda x: ("Aplica", "Otro", "No Aplica").index(x["Tag"]) if x["Tag"] in ["Aplica", "Otro", "No Aplica"] else 2
-        )
-        
-        start = self.page * self.rows_per_page
-        end = start + self.rows_per_page
-        page_data = data[start:end]
-        
-        # Configurar la tabla
-        self.table_widget.setRowCount(len(page_data))
-        self.table_widget.setColumnCount(4)
-        self.table_widget.setHorizontalHeaderLabels(["PDF 1", "PDF 2", "Tag", "Page"])
-        
-        # Llenar la tabla con los datos de la página actual
-        for row, item in enumerate(page_data):
-            self.table_widget.setItem(row, 0, QTableWidgetItem(item["PDF 1"]))
-            self.table_widget.setItem(row, 1, QTableWidgetItem(item["PDF 2"]))
-            self.table_widget.setItem(row, 2, QTableWidgetItem(item["Tag"]))
-            self.table_widget.setItem(row, 3, QTableWidgetItem(str(item["Page"])))
-
-    def show_next_page(self):
-        self.page += 1
-        self.show_data()
-
-    def show_previous_page(self):
-        if self.page > 0:
-            self.page -= 1
-            self.show_data()
