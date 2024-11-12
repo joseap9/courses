@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QRadioButton, QLineEdit, QButtonGroup, QFrame, QMessageBox, QTextEdit, QInputDialog
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QRadioButton, QLineEdit, QButtonGroup, QFrame, QMessageBox, QTextEdit, QInputDialog, QTableWidget, QTableWidgetItem
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap, QImage
 import fitz  # PyMuPDF
@@ -497,35 +497,6 @@ class PDFComparer(QMainWindow):
             self.labels[(self.current_page, self.current_difference_index)] = current_labels
 
     def show_summary(self):
-        total_applies = sum(1 for label in self.labels.values() if label['label'] == "Aplica")  # Solo las que aplican
-        count_applies = total_applies
-        count_no_applies = sum(1 for label in self.labels.values() if label['label'] == "No Aplica")
-        count_others = sum(1 for label in self.labels.values() if label['label'] and label['label'] != "Aplica" and label['label'] != "No Aplica")
-        total_diffs = count_applies + count_no_applies + count_others  # Total de diferencias
-
-        summary_text = (
-            f"<b><span style='font-size:14pt;'>Diferencias Aplicables: </span><span style='font-size:14pt;'>{total_applies}</span></b><br><br>"
-            f"<b><span style='font-size:12pt;'>Detalle</span></b></<br><br>"
-            f"<b><span style='font-size:10pt;'>  - Aplica: </span><span style='font-size:10pt;'>{count_applies}</span></b><br>"
-            f"<b><span style='font-size:10pt;'>  - No Aplica: </span><span style='font-size:10pt;'>{count_no_applies}</span></b><br>"
-            f"<b><span style='font-size:10pt;'>  - Otro: </span><span style='font-size:10pt;'>{count_others}</span></b><br><br>"
-            f"<b><span style='font-size:12pt;'>Total: </span><span style='font-size:12pt;'>{total_diffs}</span></b>"
-        )
-
-        # Crear un QMessageBox para mostrar el resumen
-        summary_box = QMessageBox(self)
-        summary_box.setWindowTitle("Resumen de Diferencias")
-        summary_box.setText(summary_text)
-
-        # Añadir botón de descarga
-        download_button = QPushButton("Copiar Resumen", self)
-        download_button.clicked.connect(self.download_excel)
-        summary_box.addButton(download_button, QMessageBox.ActionRole)
-
-        summary_box.exec_()
-
-    def download_excel(self):
-        # Solicitar el nombre del responsable
         responsible_name, ok = QInputDialog.getText(
             self, 'Nombre del Responsable', 'Por favor, ingrese el nombre del responsable:'
         )
@@ -533,28 +504,10 @@ class PDFComparer(QMainWindow):
             QMessageBox.warning(self, 'Advertencia', 'El nombre del responsable es obligatorio para continuar.')
             return
 
-        # Crear lista de diccionarios con los datos de las diferencias
-        data = []
-        for (page, diff_idx), label_data in self.labels.items():
-            data.append({
-                f"PDF 1 ({self.button1.text()})": label_data['pdf1_text'],
-                f"PDF 2 ({self.button2.text()})": label_data['pdf2_text'],
-                'Tag': label_data['label'],
-                'Page': page + 1
-            })
-
-        # Crear un DataFrame con los datos
-        df = pd.DataFrame(data)
-
-        # Incluir el nombre del responsable como encabezado
-        df = pd.concat([pd.DataFrame([[f"Responsable: {responsible_name}"]]), df])
-
-        try:
-            # Copiar el contenido del DataFrame al portapapeles
-            df.to_clipboard(index=False, excel=True)
-            QMessageBox.information(self, 'Copiado al Portapapeles', 'Los datos se han copiado al portapapeles. Ahora puedes pegarlos en Excel.')
-        except Exception as e:
-            QMessageBox.critical(self, 'Error', f'No se pudo copiar los datos al portapapeles: {str(e)}')
+        # Crear y mostrar la ventana de resumen
+        self.summary_window = SummaryWindow(self.labels, self.button1.text(), self.button2.text(), responsible_name)
+        self.summary_window.setWindowTitle("Go to Summary")
+        self.summary_window.show()
 
     def reset_all(self):
         self.pdf1_path = None
@@ -588,3 +541,73 @@ if __name__ == "__main__":
     comparer = PDFComparer()
     comparer.show()
     sys.exit(app.exec_())
+
+class SummaryWindow(QWidget):
+
+    def __init__(self, labels, button1_text, button2_text, responsible_name):
+        super().__init__()
+        self.labels = labels
+        self.button1_text = button1_text
+        self.button2_text = button2_text
+        self.responsible_name = responsible_name
+        self.page = 0
+        self.rows_per_page = 20
+
+        self.init_ui()
+
+    def init_ui(self):
+        layout = QVBoxLayout()
+        
+        # Mostrar el nombre del responsable en la parte superior
+        layout.addWidget(QLabel(f"<b>Responsable: {self.responsible_name}</b>"))
+        
+        # Crear la tabla de etiquetas
+        self.table_widget = QTableWidget()
+        layout.addWidget(self.table_widget)
+        
+        # Botones de navegación
+        prev_button = QPushButton("Anterior")
+        prev_button.clicked.connect(self.show_previous_page)
+        layout.addWidget(prev_button)
+        
+        next_button = QPushButton("Siguiente")
+        next_button.clicked.connect(self.show_next_page)
+        layout.addWidget(next_button)
+
+        self.setLayout(layout)
+        
+        # Mostrar la primera página de datos
+        self.show_data()
+
+    def show_data(self):
+        # Filtrar y ordenar los datos por etiquetas
+        data = sorted(
+            [{"PDF 1": lbl['pdf1_text'], "PDF 2": lbl['pdf2_text'], "Tag": lbl['label'], "Page": page + 1}
+             for (page, diff_idx), lbl in self.labels.items()],
+            key=lambda x: ("Aplica", "Otro", "No Aplica").index(x["Tag"]) if x["Tag"] in ["Aplica", "Otro", "No Aplica"] else 2
+        )
+        
+        start = self.page * self.rows_per_page
+        end = start + self.rows_per_page
+        page_data = data[start:end]
+        
+        # Configurar la tabla
+        self.table_widget.setRowCount(len(page_data))
+        self.table_widget.setColumnCount(4)
+        self.table_widget.setHorizontalHeaderLabels(["PDF 1", "PDF 2", "Tag", "Page"])
+        
+        # Llenar la tabla con los datos de la página actual
+        for row, item in enumerate(page_data):
+            self.table_widget.setItem(row, 0, QTableWidgetItem(item["PDF 1"]))
+            self.table_widget.setItem(row, 1, QTableWidgetItem(item["PDF 2"]))
+            self.table_widget.setItem(row, 2, QTableWidgetItem(item["Tag"]))
+            self.table_widget.setItem(row, 3, QTableWidgetItem(str(item["Page"])))
+
+    def show_next_page(self):
+        self.page += 1
+        self.show_data()
+
+    def show_previous_page(self):
+        if self.page > 0:
+            self.page -= 1
+            self.show_data()
