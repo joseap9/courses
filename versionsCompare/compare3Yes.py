@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QRadioButton, QLineEdit, QButtonGroup, QFrame, QMessageBox, QTextEdit, QInputDialog, QTableWidget, QTableWidgetItem
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QRadioButton, QLineEdit, QButtonGroup, QFrame, QMessageBox, QTextEdit, QInputDialog, QTableWidget, QTableWidgetItem, QHeaderView
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap, QImage
 import fitz  # PyMuPDF
@@ -567,7 +567,7 @@ class PDFComparer(QMainWindow):
             self.table_widget.setHorizontalHeaderLabels(["PDF 1", "PDF 2", "Tag", "Page"])
             self.table_widget.horizontalHeader().setStyleSheet("QHeaderView::section { background-color: blue; color: white; }")
             self.table_widget.horizontalHeader().setStretchLastSection(True)
-            self.table_widget.horizontalHeader().setSectionResizeMode(QTableWidget.Stretch)
+            self.table_widget.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
             
             # Botones de navegación
             prev_button = QPushButton("Anterior")
