@@ -3,7 +3,6 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog,
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap, QImage
 import fitz  # PyMuPDF
-import pandas as pd
 
 class PDFComparer(QMainWindow):
     def __init__(self):
@@ -587,7 +586,7 @@ class PDFComparer(QMainWindow):
             # Filtrar y ordenar los datos por etiquetas
             data = sorted(
                 [{"PDF 1": lbl['pdf1_text'], "PDF 2": lbl['pdf2_text'], "Tag": lbl['label'], "Page": page + 1}
-                 for (page, diff_idx), lbl in self.labels.items()],
+                for (page, diff_idx), lbl in self.labels.items()],
                 key=lambda x: ("Aplica", "Otro", "No Aplica").index(x["Tag"]) if x["Tag"] in ["Aplica", "Otro", "No Aplica"] else 2
             )
             
@@ -604,6 +603,11 @@ class PDFComparer(QMainWindow):
                 self.table_widget.setItem(row, 1, QTableWidgetItem(item["PDF 2"]))
                 self.table_widget.setItem(row, 2, QTableWidgetItem(item["Tag"]))
                 self.table_widget.setItem(row, 3, QTableWidgetItem(str(item["Page"])))
+
+            # Actualizar los nombres de las columnas con los nombres de los documentos
+            doc1_name = self.button1_text if self.button1_text else "PDF 1"
+            doc2_name = self.button2_text if self.button2_text else "PDF 2"
+            self.table_widget.setHorizontalHeaderLabels([doc1_name, doc2_name, "Tag", "Page"])
 
             # Actualizar el contador de página en la etiqueta de responsable
             self.responsible_label.setText(f"<b>Responsable: {self.responsible_name} - Página {self.page + 1}/{self.total_pages}</b>")
