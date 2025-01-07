@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog,
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap, QImage
 from docx import Document
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 import fitz  # PyMuPDF
 
 class PDFComparer(QMainWindow):
@@ -396,60 +396,110 @@ class PDFComparer(QMainWindow):
 
     def highlight_current_difference(self):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
-            # Regenerar las imágenes manteniendo los resaltados amarillos
-            doc1 = fitz.open(self.pdf1_path)
-            doc1, _ = self.highlight_differences(doc1, self.pdf1_words, self.pdf2_words, self.current_page)
-            doc2 = fitz.open(self.pdf2_path)
-            doc2, _ = self.highlight_differences(doc2, self.pdf2_words, self.pdf1_words, self.current_page)
-
-            # Resaltar la nueva diferencia en rojo
-            diff1, diff2 = self.differences[self.current_difference_index]
-
             page_num = self.current_page
 
-            if diff1:
+            # Procesar el PDF
+            if self.pdf1_path.endswith('.pdf'):
+                doc1 = fitz.open(self.pdf1_path)
+                doc1, _ = self.highlight_differences(doc1, self.pdf1_words, self.pdf2_words, page_num)
+            else:
+                doc1 = None
+
+            if self.pdf2_path.endswith('.pdf'):
+                doc2 = fitz.open(self.pdf2_path)
+                doc2, _ = self.highlight_differences(doc2, self.pdf2_words, self.pdf1_words, page_num)
+            else:
+                doc2 = None
+
+            # Resaltar diferencias
+            diff1, diff2 = self.differences[self.current_difference_index]
+
+            # Resaltar diferencias en el PDF 1
+            if self.pdf1_path.endswith('.pdf') and diff1:
                 start_rect1 = fitz.Rect(diff1[0][:4])
                 for word in diff1[1:]:
                     start_rect1 = start_rect1 | fitz.Rect(word[:4])
                 rect_annot1 = doc1[page_num].add_rect_annot(start_rect1)
                 rect_annot1.set_colors({"stroke": (1, 0, 0)})
                 rect_annot1.update()
+            elif self.pdf1_path.endswith('.docx') and diff1:
+                self.highlight_word_differences(self.pdf1_layout, self.pdf1_text[page_num], diff1, page_num, 'red')
 
-            if diff2:
+            # Resaltar diferencias en el PDF 2
+            if self.pdf2_path.endswith('.pdf') and diff2:
                 start_rect2 = fitz.Rect(diff2[0][:4])
                 for word in diff2[1:]:
                     start_rect2 = start_rect2 | fitz.Rect(word[:4])
                 rect_annot2 = doc2[page_num].add_rect_annot(start_rect2)
                 rect_annot2.set_colors({"stroke": (1, 0, 0)})
                 rect_annot2.update()
+            elif self.pdf2_path.endswith('.docx') and diff2:
+                self.highlight_word_differences(self.pdf2_layout, self.pdf2_text[page_num], diff2, page_num, 'red')
 
-            # Mostrar los PDF actualizados
-            self.display_pdfs(self.pdf1_layout, doc1, page_num)
-            self.display_pdfs(self.pdf2_layout, doc2, page_num)
+            # Mostrar los documentos
+            if self.pdf1_path.endswith('.pdf'):
+                self.display_pdfs(self.pdf1_layout, doc1, page_num)
+            else:
+                self.display_image(self.pdf1_layout, f"word_page_{page_num}_highlighted.png")
 
+            if self.pdf2_path.endswith('.pdf'):
+                self.display_pdfs(self.pdf2_layout, doc2, page_num)
+            else:
+                self.display_image(self.pdf2_layout, f"word_page_{page_num}_highlighted.png")
+
+            # Actualizar diferencias en QTextEdit
             if diff1 and diff2:
-                if (self.current_page, self.current_difference_index) in self.labels:
-                    saved_data = self.labels[(self.current_page, self.current_difference_index)]
-                    self.pdf1_diff_edit.setText(saved_data['pdf1_text'])
-                    self.pdf2_diff_edit.setText(saved_data['pdf2_text'])
-
-                    if saved_data['label'] == "No Aplica":
-                        self.radio_no_aplica.setChecked(True)
-                    elif saved_data['label'] == "Aplica":
-                        self.radio_aplica.setChecked(True)
-                    else:
-                        self.radio_otro.setChecked(True)
-                        self.other_input.setText(saved_data['label'])
-                else:
-                    combined_diff1 = ' '.join([word[4] for word in diff1])
-                    combined_diff2 = ' '.join([word[4] for word in diff2])
-                    self.pdf1_diff_edit.setText(combined_diff1)
-                    self.pdf2_diff_edit.setText(combined_diff2)
+                combined_diff1 = ' '.join([word[4] for word in diff1])
+                combined_diff2 = ' '.join([word[4] for word in diff2])
+                self.pdf1_diff_edit.setText(combined_diff1)
+                self.pdf2_diff_edit.setText(combined_diff2)
 
             # Hacer los QTextEdit editables
             self.pdf1_diff_edit.setReadOnly(False)
             self.pdf2_diff_edit.setReadOnly(False)
 
+    def highlight_word_differences(self, layout, text, diff, page_num, color):
+        # Crear imagen para la página del documento Word
+        img = Image.new('RGB', (800, 1000), color='white')  # Tamaño ajustable
+        draw = ImageDraw.Draw(img)
+        font = ImageFont.load_default()  # Puedes cargar una fuente personalizada si lo deseas
+
+        # Dividir el texto en líneas y palabras
+        line_height = 20  # Altura de línea (ajustable)
+        x_offset, y_offset = 10, 10
+        word_positions = []  # Almacenar posiciones de las palabras
+
+        for line in text.splitlines():
+            words = line.split()
+            for word in words:
+                word_width, word_height = draw.textsize(word, font=font)
+                word_rect = (x_offset, y_offset, x_offset + word_width, y_offset + line_height)
+                word_positions.append((word, word_rect))
+                draw.text((x_offset, y_offset), word, fill='black', font=font)
+                x_offset += word_width + 10  # Espaciado entre palabras
+
+            x_offset = 10
+            y_offset += line_height
+
+        # Dibujar rectángulos en las palabras diferentes
+        for diff_word in diff:
+            for word, rect in word_positions:
+                if word == diff_word[4]:  # Comparar texto de las palabras
+                    draw.rectangle(rect, outline=color, width=2)
+
+        # Guardar la imagen con resaltados
+        highlighted_path = f"word_page_{page_num}_highlighted.png"
+        img.save(highlighted_path)
+
+    def display_image(self, layout, img_path):
+        for i in reversed(range(layout.count())):
+            layout.itemAt(i).widget().deleteLater()
+
+        pixmap = QPixmap(img_path)
+        label = QLabel(self)
+        label.setPixmap(pixmap)
+        layout.addWidget(label)
+    
     def update_navigation_buttons(self):
         # Verificar si estamos en la primera diferencia o en la última diferencia/página
         self.prev_diff_button.setEnabled(self.current_difference_index > 0)
