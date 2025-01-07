@@ -1,11 +1,11 @@
 import sys
-import os
+import fitz  # PyMuPDF
 from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog, QVBoxLayout, QWidget, QHBoxLayout, QLabel, QScrollArea, QSplitter, QRadioButton, QLineEdit, QButtonGroup, QFrame, QMessageBox, QTextEdit, QInputDialog, QTableWidget, QTableWidgetItem, QHeaderView
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap, QImage
-import fitz  # PyMuPDF
-import pypandoc  # Para convertir Word a PDF
-
+from io import BytesIO
+from docx import Document
+from reportlab.pdfgen import canvas
 
 class PDFComparer(QMainWindow):
     def __init__(self):
@@ -34,14 +34,37 @@ class PDFComparer(QMainWindow):
         # Inicialización de variables
         self.reset_all()
 
+    def word_to_pdf_in_memory(docx_path):
+        # Leer el documento Word
+        document = Document(docx_path)
+
+        # Crear un buffer en memoria para el PDF
+        pdf_buffer = BytesIO()
+        pdf = canvas.Canvas(pdf_buffer)
+        pdf.setFont("Helvetica", 12)
+
+        y = 800  # Posición inicial en el PDF
+        for paragraph in document.paragraphs:
+            text = paragraph.text
+            if text.strip():
+                pdf.drawString(50, y, text)
+                y -= 20  # Espaciado entre líneas
+                if y < 50:  # Salto de página si llegamos al final
+                    pdf.showPage()
+                    y = 800
+
+        pdf.save()
+        pdf_buffer.seek(0)  # Reinicia el buffer para lectura
+        return pdf_buffer
+
     def init_left_section(self):
         self.left_layout = QVBoxLayout()
 
-        self.button1 = QPushButton("Select First PDF/Word", self)
+        self.button1 = QPushButton("Select First PDF", self)
         self.button1.clicked.connect(self.load_first_pdf)
         self.left_layout.addWidget(self.button1)
 
-        self.button2 = QPushButton("Select Second PDF/Word", self)
+        self.button2 = QPushButton("Select Second PDF", self)
         self.button2.clicked.connect(self.load_second_pdf)
         self.left_layout.addWidget(self.button2)
 
@@ -151,48 +174,50 @@ class PDFComparer(QMainWindow):
         # Añadir la sección derecha al layout principal
         self.main_layout.addWidget(self.right_frame)
 
-    def convert_word_to_pdf(self, word_path):
-        """Convierte un archivo Word (.docx) a PDF."""
-        output_pdf = os.path.splitext(word_path)[0] + "_converted.pdf"
-        try:
-            pypandoc.convert_file(word_path, "pdf", outputfile=output_pdf)
-            return output_pdf
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Error converting Word to PDF: {e}")
-            return None
-
-    def load_first_pdf(self):
-        options = QFileDialog.Options()
-        fileName, _ = QFileDialog.getOpenFileName(self, "Select First Document", "", "Documents (*.pdf *.docx);;All Files (*)", options=options)
-
-        if fileName:
-            if fileName.endswith(".docx"):
-                fileName = self.convert_word_to_pdf(fileName)
-                if not fileName:
-                    return
-            self.button1.setText(os.path.basename(fileName))
-            self.pdf1_path = fileName
-            self.reset_comparison()
-
-    def load_second_pdf(self):
-        options = QFileDialog.Options()
-        fileName, _ = QFileDialog.getOpenFileName(self, "Select Second Document", "", "Documents (*.pdf *.docx);;All Files (*)", options=options)
-
-        if fileName:
-            if fileName.endswith(".docx"):
-                fileName = self.convert_word_to_pdf(fileName)
-                if not fileName:
-                    return
-            self.button2.setText(os.path.basename(fileName))
-            self.pdf2_path = fileName
-            self.reset_comparison()
-
     def sync_scroll(self, value):
         if self.sender() == self.pdf1_scroll.verticalScrollBar():
             self.pdf2_scroll.verticalScrollBar().setValue(value)
         elif self.sender() == self.pdf2_scroll.verticalScrollBar():
             self.pdf1_scroll.verticalScrollBar().setValue(value)
-            
+
+    def load_first_pdf(self):
+        if self.pdf1_path and self.pdf2_path:
+            self.reset_all()  # Reiniciar si ya hay dos PDFs cargados
+
+        options = QFileDialog.Options()
+        fileName, _ = QFileDialog.getOpenFileName(self, "Select First Document", "", "PDF or Word Files (*.pdf *.docx);;All Files (*)", options=options)
+        if fileName:
+            self.button1.setText(fileName.split('/')[-1])
+            if fileName.endswith(".docx"):  # Si es un Word, conviértelo a PDF en memoria
+                try:
+                    pdf_buffer = word_to_pdf_in_memory(fileName)
+                    self.pdf1_path = fitz.open("pdf", pdf_buffer.read())  # Carga directamente el PDF en memoria
+                except Exception as e:
+                    QMessageBox.critical(self, "Error", f"Error converting Word to PDF: {e}")
+                    return
+            else:
+                self.pdf1_path = fileName
+            self.reset_comparison()  # Reiniciar la comparación al cargar un nuevo PDF
+
+    def load_second_pdf(self):
+        if self.pdf1_path and self.pdf2_path:
+            self.reset_all()  # Reiniciar si ya hay dos PDFs cargados
+
+        options = QFileDialog.Options()
+        fileName, _ = QFileDialog.getOpenFileName(self, "Select Second Document", "", "PDF or Word Files (*.pdf *.docx);;All Files (*)", options=options)
+        if fileName:
+            self.button2.setText(fileName.split('/')[-1])
+            if fileName.endswith(".docx"):  # Si es un Word, conviértelo a PDF en memoria
+                try:
+                    pdf_buffer = word_to_pdf_in_memory(fileName)
+                    self.pdf2_path = fitz.open("pdf", pdf_buffer.read())  # Carga directamente el PDF en memoria
+                except Exception as e:
+                    QMessageBox.critical(self, "Error", f"Error converting Word to PDF: {e}")
+                    return
+            else:
+                self.pdf2_path = fileName
+            self.reset_comparison()  # Reiniciar la comparación al cargar un nuevo PDF
+
     def reset_comparison(self):
         self.current_page = 0
         self.temp_pdf1_paths = []
