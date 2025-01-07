@@ -34,7 +34,7 @@ class PDFComparer(QMainWindow):
 
         # Inicialización de variables
         self.reset_all()
-    
+    @staticmethod
     def word_to_pdf_in_memory(docx_path):
         # Leer el documento Word
         document = Document(docx_path)
@@ -191,7 +191,7 @@ class PDFComparer(QMainWindow):
             self.button1.setText(fileName.split('/')[-1])
             if fileName.endswith(".docx"):  # Si es un Word, conviértelo a PDF en memoria
                 try:
-                    pdf_buffer = self.word_to_pdf_in_memory(fileName)
+                    pdf_buffer = word_to_pdf_in_memory(fileName)
                     self.pdf1_path = fitz.open("pdf", pdf_buffer.read())  # Carga directamente el PDF en memoria
                 except Exception as e:
                     QMessageBox.critical(self, "Error", f"Error converting Word to PDF: {e}")
@@ -210,7 +210,7 @@ class PDFComparer(QMainWindow):
             self.button2.setText(fileName.split('/')[-1])
             if fileName.endswith(".docx"):  # Si es un Word, conviértelo a PDF en memoria
                 try:
-                    pdf_buffer = self.word_to_pdf_in_memory(fileName)
+                    pdf_buffer = word_to_pdf_in_memory(fileName)
                     self.pdf2_path = fitz.open("pdf", pdf_buffer.read())  # Carga directamente el PDF en memoria
                 except Exception as e:
                     QMessageBox.critical(self, "Error", f"Error converting Word to PDF: {e}")
