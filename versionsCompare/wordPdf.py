@@ -341,29 +341,30 @@ class PDFComparer(QMainWindow):
         else:
             raise ValueError("Unsupported file format.")
 
-    
     def load_page_pair(self, page_num):
+        # Procesar PDF o Word para el primer documento
         if self.pdf1_path.endswith('.pdf'):
             doc1 = fitz.open(self.pdf1_path)
             doc1, differences1 = self.highlight_differences(doc1, self.pdf1_words, self.pdf2_words, page_num)
             self.display_pdfs(self.pdf1_layout, doc1, page_num)
         else:
-            differences1 = [self.pdf1_words[page_num]]
+            differences1 = [self.pdf1_words[page_num]] if page_num < len(self.pdf1_words) else []
             self.display_text(self.pdf1_layout, self.pdf1_text[page_num], page_num)
 
+        # Procesar PDF o Word para el segundo documento
         if self.pdf2_path.endswith('.pdf'):
             doc2 = fitz.open(self.pdf2_path)
             doc2, differences2 = self.highlight_differences(doc2, self.pdf2_words, self.pdf1_words, page_num)
             self.display_pdfs(self.pdf2_layout, doc2, page_num)
         else:
-            differences2 = [self.pdf2_words[page_num]]
+            differences2 = [self.pdf2_words[page_num]] if page_num < len(self.pdf2_words) else []
             self.display_text(self.pdf2_layout, self.pdf2_text[page_num], page_num)
 
+        # Almacenar las diferencias
         self.differences = list(zip(differences1, differences2))
         self.current_difference_index = 0
         self.update_navigation_buttons()
         self.update_difference_labels()
-
 
     def display_pdfs(self, layout, doc, page_num):
         for i in reversed(range(layout.count())):
@@ -398,7 +399,7 @@ class PDFComparer(QMainWindow):
         if self.current_difference_index >= 0 and self.current_difference_index < len(self.differences):
             page_num = self.current_page
 
-            # Procesar el PDF
+            # Procesar PDFs
             if self.pdf1_path.endswith('.pdf'):
                 doc1 = fitz.open(self.pdf1_path)
                 doc1, _ = self.highlight_differences(doc1, self.pdf1_words, self.pdf2_words, page_num)
@@ -414,7 +415,7 @@ class PDFComparer(QMainWindow):
             # Resaltar diferencias
             diff1, diff2 = self.differences[self.current_difference_index]
 
-            # Resaltar diferencias en el PDF 1
+            # Resaltar y mostrar en PDF o Word
             if self.pdf1_path.endswith('.pdf') and diff1:
                 start_rect1 = fitz.Rect(diff1[0][:4])
                 for word in diff1[1:]:
@@ -425,7 +426,6 @@ class PDFComparer(QMainWindow):
             elif self.pdf1_path.endswith('.docx') and diff1:
                 self.highlight_word_differences(self.pdf1_layout, self.pdf1_text[page_num], diff1, page_num, 'red')
 
-            # Resaltar diferencias en el PDF 2
             if self.pdf2_path.endswith('.pdf') and diff2:
                 start_rect2 = fitz.Rect(diff2[0][:4])
                 for word in diff2[1:]:
@@ -436,7 +436,7 @@ class PDFComparer(QMainWindow):
             elif self.pdf2_path.endswith('.docx') and diff2:
                 self.highlight_word_differences(self.pdf2_layout, self.pdf2_text[page_num], diff2, page_num, 'red')
 
-            # Mostrar los documentos
+            # Mostrar los documentos en la interfaz
             if self.pdf1_path.endswith('.pdf'):
                 self.display_pdfs(self.pdf1_layout, doc1, page_num)
             else:
@@ -447,14 +447,13 @@ class PDFComparer(QMainWindow):
             else:
                 self.display_image(self.pdf2_layout, f"word_page_{page_num}_highlighted.png")
 
-            # Actualizar diferencias en QTextEdit
+            # Actualizar los QTextEdit
             if diff1 and diff2:
                 combined_diff1 = ' '.join([word[4] for word in diff1])
                 combined_diff2 = ' '.join([word[4] for word in diff2])
                 self.pdf1_diff_edit.setText(combined_diff1)
                 self.pdf2_diff_edit.setText(combined_diff2)
 
-            # Hacer los QTextEdit editables
             self.pdf1_diff_edit.setReadOnly(False)
             self.pdf2_diff_edit.setReadOnly(False)
 
