@@ -3,6 +3,7 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QFileDialog,
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap, QImage
 import fitz  # PyMuPDF
+import docx
 
 class PDFComparer(QMainWindow):
     def __init__(self):
@@ -34,11 +35,11 @@ class PDFComparer(QMainWindow):
     def init_left_section(self):
         self.left_layout = QVBoxLayout()
 
-        self.button1 = QPushButton("Select First PDF", self)
+        self.button1 = QPushButton("Select First Document", self)
         self.button1.clicked.connect(self.load_first_pdf)
         self.left_layout.addWidget(self.button1)
 
-        self.button2 = QPushButton("Select Second PDF", self)
+        self.button2 = QPushButton("Select Second Document", self)
         self.button2.clicked.connect(self.load_second_pdf)
         self.left_layout.addWidget(self.button2)
 
@@ -154,28 +155,22 @@ class PDFComparer(QMainWindow):
         elif self.sender() == self.pdf2_scroll.verticalScrollBar():
             self.pdf1_scroll.verticalScrollBar().setValue(value)
 
-    def load_first_pdf(self):
-        if self.pdf1_path and self.pdf2_path:
-            self.reset_all()  # Reiniciar si ya hay dos PDFs cargados
-
+    def load_first_document(self):
         options = QFileDialog.Options()
-        fileName, _ = QFileDialog.getOpenFileName(self, "Select First PDF", "", "PDF Files (*.pdf);;All Files (*)", options=options)
+        fileName, _ = QFileDialog.getOpenFileName(self, "Select First Document", "", "Documents (*.pdf *.docx);;All Files (*)", options=options)
         if fileName:
             self.button1.setText(fileName.split('/')[-1])
             self.pdf1_path = fileName
-            self.reset_comparison()  # Reiniciar la comparación al cargar un nuevo PDF
+            self.reset_comparison()
 
-    def load_second_pdf(self):
-        if self.pdf1_path and self.pdf2_path:
-            self.reset_all()  # Reiniciar si ya hay dos PDFs cargados
-
+    def load_second_document(self):
         options = QFileDialog.Options()
-        fileName, _ = QFileDialog.getOpenFileName(self, "Select Second PDF", "", "PDF Files (*.pdf);;All Files (*)", options=options)
+        fileName, _ = QFileDialog.getOpenFileName(self, "Select Second Document", "", "Documents (*.pdf *.docx);;All Files (*)", options=options)
         if fileName:
             self.button2.setText(fileName.split('/')[-1])
             self.pdf2_path = fileName
-            self.reset_comparison()  # Reiniciar la comparación al cargar un nuevo PDF
-
+            self.reset_comparison()
+    
     def reset_comparison(self):
         self.current_page = 0
         self.temp_pdf1_paths = []
@@ -190,17 +185,17 @@ class PDFComparer(QMainWindow):
             self.highlight_current_difference()
 
     def extract_text_and_positions(self, file_path):
-        document = fitz.open(file_path)
-        text = []
-        words = []
+        if file_path.lower().endswith('.pdf'):
+            document = fitz.open(file_path)
+            text = [page.get_text() for page in document]
+            return text, []
+        elif file_path.lower().endswith('.docx'):
+            return self.extract_text_from_docx(file_path), []
+        return [], []
 
-        for page_num in range(document.page_count):
-            page = document.load_page(page_num)
-            text.append(page.get_text())
-            word_list = page.get_text("words")
-            words.append(word_list)
-
-        return text, words
+    def extract_text_from_docx(self, file_path):
+        doc = docx.Document(file_path)
+        return [p.text for p in doc.paragraphs if p.text.strip()]
 
     def compare_pdfs(self):
         if self.pdf1_path and self.pdf2_path:
