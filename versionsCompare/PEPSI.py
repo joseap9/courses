@@ -1,15 +1,13 @@
-import csv
+import pandas as pd
 
-# Cambia esta ruta por la tuya
-ruta_archivo = r'xxxxx'
+ruta_archivo = r'xxx'
 
-# Abrimos el archivo y leemos las líneas
-with open(ruta_archivo, 'r', encoding='utf-8') as archivo:
+# Leer archivo
+with open(ruta_archivo, 'r', encoding='latin-1') as archivo:
     lineas = archivo.readlines()
 
 registros = []
 
-# Recorremos cada bloque de 4 líneas
 for i in range(0, len(lineas), 4):
     try:
         l1 = lineas[i].strip()
@@ -17,7 +15,6 @@ for i in range(0, len(lineas), 4):
         l3 = lineas[i+2].strip()
         l4 = lineas[i+3].strip()
 
-        # Extraer RUT (primeros 20 caracteres de la primera línea)
         rut = l1[:20]
         apellido1 = l1[20:]
 
@@ -26,11 +23,13 @@ for i in range(0, len(lineas), 4):
         print(f"Bloque incompleto comenzando en la línea {i+1}")
         continue
 
-# Escribimos el resultado en CSV (si lo necesitas)
-ruta_salida = r'C:\Users\fxb8co\Documents\Otros\PEP SINACOFT\salida.csv'
-with open(ruta_salida, 'w', newline='', encoding='utf-8') as salida:
-    writer = csv.writer(salida)
-    writer.writerow(['RUT', 'Apellido 1', 'Apellido 2', 'Nombres', 'Apellido Final'])
-    writer.writerows(registros)
+# Convertimos a DataFrame
+df = pd.DataFrame(registros, columns=['RUT', 'Apellido 1', 'Apellido 2', 'Nombres', 'Apellido Final'])
 
-print("Conversión finalizada correctamente.")
+# Ruta de salida
+ruta_salida = r'C:\Users\fxb8co\Documents\salida_final.csv'
+
+# Exportamos directamente usando pandas (sin with open)
+df.to_csv(ruta_salida, index=False, encoding='utf-8')
+
+print("Archivo CSV guardado con éxito en:", ruta_salida)
