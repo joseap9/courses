@@ -1,7 +1,7 @@
 import csv
 
 # Cambia esta ruta por la tuya
-ruta_archivo = r'C:\Users\fxb8co\Documents\Otros\PEP SINACOFT\PTGENST2025010603.txt'
+ruta_archivo = r'xxxxx'
 
 # Abrimos el archivo y leemos las líneas
 with open(ruta_archivo, 'r', encoding='utf-8') as archivo:
