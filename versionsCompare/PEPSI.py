@@ -3,7 +3,7 @@ import re
 
 ruta_archivo = r'C:\Users\fxb8co\Documents\Otros\PEP SINACOFT\PTGENST2025010603.txt'
 
-# Leer archivo
+# Leer el archivo
 with open(ruta_archivo, 'r', encoding='latin-1') as archivo:
     lineas = archivo.readlines()
 
@@ -12,7 +12,7 @@ registros = []
 for linea in lineas:
     linea = linea.strip()
 
-    # Separar RUT numérico inicial
+    # 1. Extraer RUT numérico del inicio
     rut_match = re.match(r'^(\d+)', linea)
     if not rut_match:
         print(f"❌ RUT no encontrado: {linea}")
@@ -21,41 +21,40 @@ for linea in lineas:
     rut_numerico = rut_match.group(1)
     rut_con_formato = rut_numerico[:-1] + '-' + rut_numerico[-1]
 
-    # El resto de la línea
+    # 2. Resto de la línea (sin el RUT)
     resto = linea[len(rut_numerico):].strip()
 
-    # Separar por 2 o más espacios
+    # 3. Separar el resto por 2 o más espacios
     partes = re.split(r'\s{2,}', resto)
 
-    # Verificación mínima de 9 partes
-    if len(partes) < 9:
-        print(f"⚠️ Línea con menos de 9 partes, se rellenará: {linea}")
-        while len(partes) < 9:
-            partes.append('')
-
-    # Asignar campos según posición
-    apellido_paterno = partes[0]
-    apellido_materno = partes[1]
-    nombres1 = partes[2]
-    apellido_paterno_2 = partes[3]
-    apellido_materno_2 = partes[4]
-    nombres2 = partes[5]
-    institucion = partes[6]
-    cargo = partes[7]
-
-    # Fecha y tipo movimiento
+    # 4. Intentar extraer fecha y tipo de movimiento del final
     fecha = ''
     tipo_movimiento = ''
-    if len(partes) >= 9:
-        fecha_tipo = partes[8]
-        if re.match(r'\d{4}/\d{2}/\d{2}\d{2}', fecha_tipo):
-            fecha = fecha_tipo[:-2]
-            tipo_movimiento = fecha_tipo[-2:]
+    if partes:
+        posible_fecha = partes[-1]
+        if re.match(r'\d{4}/\d{2}/\d{2}\d{2}', posible_fecha):
+            fecha = posible_fecha[:-2]
+            tipo_movimiento = posible_fecha[-2:]
+            partes = partes[:-1]  # eliminar fecha+tipo del arreglo
         else:
-            print(f"⚠️ Fecha y tipo mal formateado: {fecha_tipo}")
+            print(f"⚠️ Fecha/tipo movimiento mal formado o ausente: {posible_fecha}")
 
-    # Columna 12: concatenación de apellido paterno + materno
-    apellidos_combinados = f"{apellido_paterno} {apellido_materno}"
+    # 5. Rellenar campos faltantes
+    while len(partes) < 8:
+        partes.append('')
+
+    # Asignar valores con protección
+    apellido_paterno       = partes[0]
+    apellido_materno       = partes[1]  # puede estar vacío
+    nombres1               = partes[2]
+    apellido_paterno_2     = partes[3]
+    apellido_materno_2     = partes[4]  # puede estar vacío
+    nombres2               = partes[5]
+    institucion            = partes[6]
+    cargo                  = partes[7]
+
+    # 6. Apellidos combinados (columna 12)
+    apellidos_combinados = f"{apellido_paterno} {apellido_materno}".strip()
 
     registros.append([
         rut_con_formato,
@@ -72,15 +71,15 @@ for linea in lineas:
         apellidos_combinados
     ])
 
-# Crear DataFrame
+# 7. Crear DataFrame
 df = pd.DataFrame(registros, columns=[
     'RUT', 'Apellido Paterno', 'Apellido Materno', 'Nombres',
     'Nombres (2)', 'Apellido Paterno (2)', 'Apellido Materno (2)',
     'Institución', 'Cargo', 'Fecha', 'Tipo Movimiento', 'Apellidos'
 ])
 
-# Exportar CSV
+# 8. Exportar CSV
 ruta_salida = r'C:\Users\fxb8co\Documents\salida_final.csv'
 df.to_csv(ruta_salida, index=False, encoding='utf-8-sig')
 
-print("✅ Archivo exportado correctamente a:", ruta_salida)
+print("✅ Exportación completada. Total de registros:", len(df))
