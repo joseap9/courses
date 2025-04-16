@@ -3,62 +3,84 @@ import re
 
 ruta_archivo = r'C:\Users\fxb8co\Documents\Otros\PEP SINACOFT\PTGENST2025010603.txt'
 
-# Leer líneas
+# Leer archivo
 with open(ruta_archivo, 'r', encoding='latin-1') as archivo:
     lineas = archivo.readlines()
 
 registros = []
 
 for linea in lineas:
+    linea = linea.strip()
+
+    # Separar RUT numérico inicial
+    rut_match = re.match(r'^(\d+)', linea)
+    if not rut_match:
+        print(f"❌ RUT no encontrado: {linea}")
+        continue
+
+    rut_numerico = rut_match.group(1)
+    rut_con_formato = rut_numerico[:-1] + '-' + rut_numerico[-1]
+
+    # El resto de la línea
+    resto = linea[len(rut_numerico):].strip()
+
     # Separar por 2 o más espacios
-    partes = re.split(r'\s{2,}', linea.strip())
-    if len(partes) < 12:
-        print(f"Línea con datos insuficientes: {linea}")
-        continue
+    partes = re.split(r'\s{2,}', resto)
 
-    # Procesar RUT
-    rut_num = partes[0]
-    if not rut_num.isdigit() or len(rut_num) < 2:
-        print(f"RUT inválido: {rut_num}")
-        continue
-    rut = rut_num[:-1] + '-' + rut_num[-1]
+    # Verificación mínima de 9 partes
+    if len(partes) < 9:
+        print(f"⚠️ Línea con menos de 9 partes, se rellenará: {linea}")
+        while len(partes) < 9:
+            partes.append('')
 
-    # Extraer fecha + tipo movimiento (último campo)
-    fecha_tipo = partes[-1]
-    if re.match(r'\d{4}/\d{2}/\d{2}\d{2}', fecha_tipo):
-        fecha = fecha_tipo[:-2]
-        tipo_mov = fecha_tipo[-2:]
-    else:
-        print(f"Fecha+tipo inválidos: {fecha_tipo}")
-        fecha = ""
-        tipo_mov = ""
+    # Asignar campos según posición
+    apellido_paterno = partes[0]
+    apellido_materno = partes[1]
+    nombres1 = partes[2]
+    apellido_paterno_2 = partes[3]
+    apellido_materno_2 = partes[4]
+    nombres2 = partes[5]
+    institucion = partes[6]
+    cargo = partes[7]
 
-    # Armar fila
-    fila = [
-        rut,                      # 1. RUT formateado
-        partes[1],                # 2. Apellido paterno
-        partes[2],                # 3. Apellido materno
-        f"{partes[1]} {partes[2]}",  # 4. Apellidos
-        partes[3],                # 5. Nombres
-        partes[4],                # 6. Apellido paterno (2)
-        partes[5],                # 7. Apellido materno (2)
-        partes[6],                # 8. Nombres (2)
-        partes[7],                # 9. Institución
-        partes[8],                # 10. Cargo
-        fecha,                    # 11. Fecha
-        tipo_mov                  # 12. Tipo Movimiento
-    ]
-    registros.append(fila)
+    # Fecha y tipo movimiento
+    fecha = ''
+    tipo_movimiento = ''
+    if len(partes) >= 9:
+        fecha_tipo = partes[8]
+        if re.match(r'\d{4}/\d{2}/\d{2}\d{2}', fecha_tipo):
+            fecha = fecha_tipo[:-2]
+            tipo_movimiento = fecha_tipo[-2:]
+        else:
+            print(f"⚠️ Fecha y tipo mal formateado: {fecha_tipo}")
+
+    # Columna 12: concatenación de apellido paterno + materno
+    apellidos_combinados = f"{apellido_paterno} {apellido_materno}"
+
+    registros.append([
+        rut_con_formato,
+        apellido_paterno,
+        apellido_materno,
+        nombres1,
+        nombres2,
+        apellido_paterno_2,
+        apellido_materno_2,
+        institucion,
+        cargo,
+        fecha,
+        tipo_movimiento,
+        apellidos_combinados
+    ])
 
 # Crear DataFrame
 df = pd.DataFrame(registros, columns=[
-    'RUT', 'Apellido Paterno', 'Apellido Materno', 'Apellidos',
-    'Nombres', 'Apellido Paterno (2)', 'Apellido Materno (2)', 'Nombres (2)',
-    'Institución', 'Cargo', 'Fecha', 'Tipo Movimiento'
+    'RUT', 'Apellido Paterno', 'Apellido Materno', 'Nombres',
+    'Nombres (2)', 'Apellido Paterno (2)', 'Apellido Materno (2)',
+    'Institución', 'Cargo', 'Fecha', 'Tipo Movimiento', 'Apellidos'
 ])
 
-# Guardar CSV
+# Exportar CSV
 ruta_salida = r'C:\Users\fxb8co\Documents\salida_final.csv'
 df.to_csv(ruta_salida, index=False, encoding='utf-8-sig')
 
-print("✅ Archivo CSV generado correctamente en:", ruta_salida)
+print("✅ Archivo exportado correctamente a:", ruta_salida)
