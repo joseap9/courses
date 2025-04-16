@@ -1,31 +1,36 @@
 import csv
 
-# Abrimos el archivo original
-with open('PTGENST2025010603.txt', 'r', encoding='utf-8') as file:
-    lines = file.readlines()
+# Cambia esta ruta por la tuya
+ruta_archivo = r'C:\Users\fxb8co\Documents\Otros\PEP SINACOFT\PTGENST2025010603.txt'
 
-# Agrupamos cada 4 líneas como un registro
-records = []
-for i in range(0, len(lines), 4):
+# Abrimos el archivo y leemos las líneas
+with open(ruta_archivo, 'r', encoding='utf-8') as archivo:
+    lineas = archivo.readlines()
+
+registros = []
+
+# Recorremos cada bloque de 4 líneas
+for i in range(0, len(lineas), 4):
     try:
-        linea1 = lines[i].strip()
-        linea2 = lines[i+1].strip()
-        linea3 = lines[i+2].strip()
-        linea4 = lines[i+3].strip()
+        l1 = lineas[i].strip()
+        l2 = lineas[i+1].strip()
+        l3 = lineas[i+2].strip()
+        l4 = lineas[i+3].strip()
 
-        # Extraemos los primeros 20 dígitos como ID/RUT
-        rut = linea1[:20]
-        apellido1 = linea1[20:]  # El resto es el primer apellido
+        # Extraer RUT (primeros 20 caracteres de la primera línea)
+        rut = l1[:20]
+        apellido1 = l1[20:]
 
-        records.append([rut, apellido1, linea2, linea3, linea4])
+        registros.append([rut, apellido1, l2, l3, l4])
     except IndexError:
-        print(f"Línea incompleta en el bloque que comienza en línea {i}")
+        print(f"Bloque incompleto comenzando en la línea {i+1}")
         continue
 
-# Escribimos los datos en un archivo CSV
-with open('salida.csv', 'w', newline='', encoding='utf-8') as csvfile:
-    writer = csv.writer(csvfile)
+# Escribimos el resultado en CSV (si lo necesitas)
+ruta_salida = r'C:\Users\fxb8co\Documents\Otros\PEP SINACOFT\salida.csv'
+with open(ruta_salida, 'w', newline='', encoding='utf-8') as salida:
+    writer = csv.writer(salida)
     writer.writerow(['RUT', 'Apellido 1', 'Apellido 2', 'Nombres', 'Apellido Final'])
-    writer.writerows(records)
+    writer.writerows(registros)
 
-print("Archivo CSV generado con éxito.")
+print("Conversión finalizada correctamente.")
