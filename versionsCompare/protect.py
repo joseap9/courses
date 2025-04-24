@@ -1,14 +1,13 @@
-import pikepdf
+import fitz  # PyMuPDF
 
-def remove_pdf_restrictions(input_pdf, output_pdf):
+def remove_restrictions_with_fitz(input_pdf, output_pdf):
     try:
-        # Abrir el PDF ignorando las restricciones de propietario
-        pdf = pikepdf.open(input_pdf)
-        pdf.save(output_pdf)
-        pdf.close()
-        print(f"Restrictions removed. Unlocked PDF saved to: {output_pdf}")
+        doc = fitz.open(input_pdf)  # open the PDF even if restricted
+        doc.save(output_pdf)        # just saving it removes restrictions like copy/edit
+        doc.close()
+        print(f"✅ PDF saved without restrictions at: {output_pdf}")
     except Exception as e:
-        print("Failed to remove restrictions:", e)
+        print(f"❌ Error: {e}")
 
 # Ejemplo de uso
-remove_pdf_restrictions("protegido.pdf", "liberado.pdf")
+remove_restrictions_with_fitz("protegido.pdf", "libre.pdf")
