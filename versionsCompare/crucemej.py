@@ -23,11 +23,9 @@ df_cruce['validado'] = df_cruce['Coupon Amount'] == df_cruce['Coupon Amount_corr
 # ========== HOJA 1: Validación Base ==========
 df_val_base = df_val.copy()
 monto_real = df_cruce.groupby('SRS Contract Number')['Coupon Amount'].first().reset_index()
+monto_real = monto_real.rename(columns={'Coupon Amount': 'Coupon Amount (Archivo Principal)'})
 df_val_base = df_val_base.merge(monto_real, on='SRS Contract Number', how='left')
-df_val_base['validado'] = df_val_base['Coupon Amount'] == df_val_base['Coupon Amount_y']
-df_val_base = df_val_base.rename(columns={
-    'Coupon Amount_y': 'Coupon Amount (Archivo Principal)'
-})
+df_val_base['validado'] = df_val_base['Coupon Amount'] == df_val_base['Coupon Amount (Archivo Principal)']
 
 # ========== HOJA 3: Resumen Contratos ==========
 resumen = df_cruce.groupby('SRS Contract Number').agg(
