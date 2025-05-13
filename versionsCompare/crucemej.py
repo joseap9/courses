@@ -15,29 +15,31 @@ df_grande = pd.concat(archivo_grande.values(), ignore_index=True)
 df_grande['SRS Contract Number'] = df_grande['SRS Contract Number'].astype(str)
 df_grande['Coupon Amount'] = pd.to_numeric(df_grande['Coupon Amount'], errors='coerce')
 
-# ========== FILTRAR COINCIDENCIAS ==========
+# ========== HOJA 2: CRUCE DETALLADO ==========
 df_cruce = df_grande[df_grande['SRS Contract Number'].isin(df_val['SRS Contract Number'])].copy()
 df_cruce = df_cruce.merge(df_val, on='SRS Contract Number', suffixes=('', '_correcto'))
 df_cruce['validado'] = df_cruce['Coupon Amount'] == df_cruce['Coupon Amount_correcto']
 
-# ========== HOJA 1: Validación Base ==========
+# ========== HOJA 1: VALIDACIÓN BASE ==========
 df_val_base = df_val.copy()
+# Obtener el primer monto encontrado en el archivo principal para cada contrato
 monto_real = df_cruce.groupby('SRS Contract Number')['Coupon Amount'].first().reset_index()
 monto_real = monto_real.rename(columns={'Coupon Amount': 'Coupon Amount (Archivo Principal)'})
+# Merge y validación
 df_val_base = df_val_base.merge(monto_real, on='SRS Contract Number', how='left')
 df_val_base['validado'] = df_val_base['Coupon Amount'] == df_val_base['Coupon Amount (Archivo Principal)']
 
-# ========== HOJA 3: Resumen Contratos ==========
+# ========== HOJA 3: RESUMEN CONTRATOS ==========
 resumen = df_cruce.groupby('SRS Contract Number').agg(
     total_filas=('validado', 'count'),
     correctos=('validado', 'sum'),
     incorrectos=('validado', lambda x: (~x).sum())
 ).reset_index()
 
-# ========== EXPORTAR RESULTADO ==========
+# ========== EXPORTAR RESULTADO A EXCEL ==========
 with pd.ExcelWriter('resultado_validacion_final.xlsx') as writer:
-    df_val_base.to_excel(writer, sheet_name='Validación Base', index=False)
-    df_cruce.to_excel(writer, sheet_name='Cruce Detallado', index=False)
-    resumen.to_excel(writer, sheet_name='Resumen Contratos', index=False)
+    df_val_base.to_excel(writer, sheet_name='Validación Base', index=False)     # Hoja 1
+    df_cruce.to_excel(writer, sheet_name='Cruce Detallado', index=False)        # Hoja 2
+    resumen.to_excel(writer, sheet_name='Resumen Contratos', index=False)       # Hoja 3
 
 print("✅ Proceso finalizado. Archivo generado: resultado_validacion_final.xlsx")
