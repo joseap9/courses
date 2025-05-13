@@ -21,12 +21,25 @@ df_cruce = df_cruce.merge(df_val, on='SRS Contract Number', suffixes=('', '_corr
 df_cruce['validado'] = df_cruce['Coupon Amount'] == df_cruce['Coupon Amount_correcto']
 
 # ========== HOJA 1: VALIDACIÓN BASE ==========
+# Contar cuántas veces aparece cada contrato en el archivo principal
+conteo_contratos = df_grande['SRS Contract Number'].value_counts().reset_index()
+conteo_contratos.columns = ['SRS Contract Number', 'coincidencias contrato']
+
+# Buscar coincidencias exactas de contrato + monto
+cruces_exactos = df_grande.merge(df_val, on=['SRS Contract Number', 'Coupon Amount'], how='inner')
+primer_monto = cruces_exactos.groupby('SRS Contract Number')['Coupon Amount'].first().reset_index()
+primer_monto = primer_monto.rename(columns={'Coupon Amount': 'Coupon Amount (Archivo Principal)'})
+
+# Unir todo al archivo base
 df_val_base = df_val.copy()
-# Obtener el primer monto encontrado en el archivo principal para cada contrato
-monto_real = df_cruce.groupby('SRS Contract Number')['Coupon Amount'].first().reset_index()
-monto_real = monto_real.rename(columns={'Coupon Amount': 'Coupon Amount (Archivo Principal)'})
-# Merge y validación
-df_val_base = df_val_base.merge(monto_real, on='SRS Contract Number', how='left')
+df_val_base = df_val_base.merge(primer_monto, on='SRS Contract Number', how='left')
+df_val_base = df_val_base.merge(conteo_contratos, on='SRS Contract Number', how='left')
+
+# Reemplazar NaN por "NO ENCONTRADO" y 0
+df_val_base['Coupon Amount (Archivo Principal)'] = df_val_base['Coupon Amount (Archivo Principal)'].fillna('NO ENCONTRADO')
+df_val_base['coincidencias contrato'] = df_val_base['coincidencias contrato'].fillna(0).astype(int)
+
+# Calcular validación final
 df_val_base['validado'] = df_val_base['Coupon Amount'] == df_val_base['Coupon Amount (Archivo Principal)']
 
 # ========== HOJA 3: RESUMEN CONTRATOS ==========
