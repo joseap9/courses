@@ -29,25 +29,40 @@ df_cruce = df_cruce.merge(df_val, on='SRS Contract Number', suffixes=('', '_vali
 
 df_cruce['validado_monto'] = df_cruce['Coupon Amount'] == df_cruce['Coupon Amount_validacion']
 df_cruce['validado_fecha'] = df_cruce['Payment Date (Expiration Date)'] == df_cruce['Payment Date (Expiration Date)_validacion']
-df_cruce['validado_total'] = df_cruce['validado_monto'] & df_cruce['validado_fecha']
+df_cruce['Monto y Fecha coincide en la misma fila'] = df_cruce['validado_monto'] & df_cruce['validado_fecha']
 
-# ========== VALIDACIÓN BASE CON CONDICIONES SEPARADAS ==========
+# ========== VALIDACIÓN BASE ==========
 df_val_base = df_val.copy()
 
-# Validar coincidencia de monto por contrato
+# Validar si existe coincidencia de contrato + monto
 val_monto = df_grande[['SRS Contract Number', 'Coupon Amount']].drop_duplicates()
 val_monto['validado_monto'] = True
 df_val_base = df_val_base.merge(val_monto, on=['SRS Contract Number', 'Coupon Amount'], how='left')
 
-# Validar coincidencia de fecha por contrato
+# Validar si existe coincidencia de contrato + fecha
 val_fecha = df_grande[['SRS Contract Number', 'Payment Date (Expiration Date)']].drop_duplicates()
 val_fecha['validado_fecha'] = True
 df_val_base = df_val_base.merge(val_fecha, on=['SRS Contract Number', 'Payment Date (Expiration Date)'], how='left')
 
-# Llenar valores faltantes
-df_val_base['validado_monto'] = df_val_base['validado_monto'].fillna(False)
-df_val_base['validado_fecha'] = df_val_base['validado_fecha'].fillna(False)
-df_val_base['validado_total'] = df_val_base['validado_monto'] & df_val_base['validado_fecha']
+# Buscar coincidencia exacta contrato + monto + fecha
+triple_match = df_grande.merge(
+    df_val,
+    on=['SRS Contract Number', 'Coupon Amount', 'Payment Date (Expiration Date)'],
+    how='inner'
+)
+match_data = triple_match.groupby('SRS Contract Number').first().reset_index()
+match_data = match_data[['SRS Contract Number', 'Coupon Amount', 'Payment Date (Expiration Date)']]
+match_data = match_data.rename(columns={
+    'Coupon Amount': 'Monto en Archivo Principal',
+    'Payment Date (Expiration Date)': 'Fecha en Archivo Principal'
+})
+
+df_val_base = df_val_base.merge(match_data, on='SRS Contract Number', how='left')
+
+# Validaciones
+df_val_base['validado_monto'] = df_val_base['validado_monto'].fillna(False).astype(bool)
+df_val_base['validado_fecha'] = df_val_base['validado_fecha'].fillna(False).astype(bool)
+df_val_base['Monto y Fecha coincide en la misma fila'] = ~df_val_base['Monto en Archivo Principal'].isna()
 
 # Conteo de coincidencias por contrato
 conteo_contratos = df_grande['SRS Contract Number'].value_counts().reset_index()
@@ -56,7 +71,7 @@ df_val_base = df_val_base.merge(conteo_contratos, on='SRS Contract Number', how=
 df_val_base['coincidencias contrato'] = df_val_base['coincidencias contrato'].fillna(0).astype(int)
 
 # ========== EXPORTAR A EXCEL ==========
-with pd.ExcelWriter('resultado_validacion_final_ajusta.xlsx') as writer:
+with pd.ExcelWriter('VALIDACION FINAL OK.xlsx') as writer:
     df_val_base.to_excel(writer, sheet_name='Validación Base', index=False)
     df_cruce.to_excel(writer, sheet_name='Cruce Detallado', index=False)
 
