@@ -23,3 +23,23 @@ doc.close()
 
 # Imprimir como JSON para que PAD lo pueda interpretar
 print(json.dumps(form_fields))
+
+
+
+========
+# -*- coding: utf-8 -*-
+pdf_path = r"C:\ruta\del\archivo.pdf"
+
+with open(pdf_path, "rb") as f:
+    content = f.read()
+
+# Convertimos a texto (intentando decodificar como latin-1 para evitar errores con caracteres especiales)
+text = content.decode("latin-1")
+
+# Buscar campos del formulario (simplificado)
+import re
+campos = re.findall(r"/T\s*\((.*?)\)\s*/V\s*\((.*?)\)", text)
+
+# Mostrar resultados como diccionario
+form_fields = {k: v for k, v in campos}
+print(form_fields)
