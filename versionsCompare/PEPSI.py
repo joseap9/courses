@@ -1,6 +1,15 @@
 import pandas as pd
 import re
+import unicodedata
 
+def limpiar_texto(texto):
+    if not isinstance(texto, str):
+        return texto
+    # Eliminar caracteres no imprimibles y de control
+    texto = ''.join(c for c in texto if c.isprintable())
+    # Normalizar caracteres raros a UTF-8 estándar
+    texto = unicodedata.normalize('NFKC', texto)
+    return texto
 # --- ARCHIVO 1: Titulares ---
 
 ruta_titulares = r'C:\Users\fxb8co\Documents\Otros\PEP SINACOFT\PTGENST2025010603.txt'
@@ -138,6 +147,9 @@ df_parentesco = pd.DataFrame(registros_parentesco, columns=[
     'Nombres', 'Nombres (2)', 'Apellido Paterno (2)', 'Apellido Materno (2)',
     'Tipo Parentesco', 'Fecha Movimiento', 'Alta', 'Apellidos'
 ])
+
+df_titulares = df_titulares.applymap(limpiar_texto)
+df_parentesco = df_parentesco.applymap(limpiar_texto)
 
 # --- Exportar a Excel con 2 hojas ---
 ruta_salida_excel = r'C:\Users\fxb8co\Documents\salida_final.xlsx'
