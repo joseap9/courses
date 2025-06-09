@@ -22,7 +22,18 @@ def formatear_rut(rut):
         return rut
     return rut[:-1] + '-' + rut[-1]
 
-# --- ARCHIVO 1: Titulares ---
+def extraer_ruts_concatenados(cadena):
+    cadena = cadena.lstrip('0')
+    for i in range(2, len(cadena)-1):
+        rut1_raw = cadena[:i]
+        rut2_raw = cadena[i:]
+        if len(rut1_raw) >= 2 and len(rut2_raw) >= 2:
+            rut1 = formatear_rut(rut1_raw)
+            rut2 = formatear_rut(rut2_raw)
+            return rut1, rut2
+    return None, None
+
+# --- TITULARES ---
 with open(ruta_titulares, 'r', encoding='latin-1') as archivo:
     lineas = archivo.readlines()
 
@@ -54,16 +65,15 @@ for linea in lineas:
     while len(partes) < 8:
         partes.append('')
 
-    apellido_paterno       = partes[0]
-    apellido_materno       = partes[1]
-    nombres1               = partes[2]
-    apellido_paterno_2     = partes[3]
-    apellido_materno_2     = partes[4]
-    nombres2               = partes[5]
-    institucion            = partes[6]
-    cargo                  = partes[7]
-
-    nombre_completo = f"{nombres1} {apellido_paterno} {apellido_materno}".strip()
+    apellido_paterno     = partes[0]
+    apellido_materno     = partes[1]
+    nombres1             = partes[2]
+    apellido_paterno_2   = partes[3]
+    apellido_materno_2   = partes[4]
+    nombres2             = partes[5]
+    institucion          = partes[6]
+    cargo                = partes[7]
+    nombre_completo      = f"{nombres1} {apellido_paterno} {apellido_materno}".strip()
 
     registros_titulares.append([
         rut_con_formato,
@@ -86,7 +96,7 @@ df_titulares = pd.DataFrame(registros_titulares, columns=[
     'Institución', 'Cargo', 'Fecha', 'Tipo Movimiento'
 ])
 
-# --- ARCHIVO 2: Parentesco ---
+# --- PARENTESCO ---
 with open(ruta_parentesco, 'r', encoding='latin-1') as archivo:
     lineas = archivo.readlines()
 
@@ -94,15 +104,18 @@ registros_parentesco = []
 
 for linea in lineas:
     linea = linea.strip()
-    rut_matches = re.findall(r'^(\d+)(\d{1,})', linea)
-    if not rut_matches:
+    rut_match = re.match(r'^(\d+)', linea)
+    if not rut_match:
         print(f"❌ RUTs no encontrados: {linea}")
         continue
 
-    rut_titular = formatear_rut(rut_matches[0][0])
-    rut_pariente = formatear_rut(rut_matches[0][1])
+    cadena_ruts = rut_match.group(1)
+    rut_titular, rut_pariente = extraer_ruts_concatenados(cadena_ruts)
+    if not rut_titular or not rut_pariente:
+        print(f"❌ No se pudo separar correctamente los RUTs: {cadena_ruts}")
+        continue
 
-    resto = linea[len(rut_matches[0][0] + rut_matches[0][1]):].strip()
+    resto = linea[len(cadena_ruts):].strip()
     partes = re.split(r'\s{2,}', resto)
 
     ult_campo = ''
@@ -122,14 +135,13 @@ for linea in lineas:
     while len(partes) < 6:
         partes.append('')
 
-    apellido_paterno       = partes[0]
-    apellido_materno       = partes[1]
-    nombres1               = partes[2]
-    apellido_paterno_2     = partes[3]
-    apellido_materno_2     = partes[4]
-    nombres2               = partes[5]
-
-    nombre_completo = f"{nombres1} {apellido_paterno} {apellido_materno}".strip()
+    apellido_paterno     = partes[0]
+    apellido_materno     = partes[1]
+    nombres1             = partes[2]
+    apellido_paterno_2   = partes[3]
+    apellido_materno_2   = partes[4]
+    nombres2             = partes[5]
+    nombre_completo      = f"{nombres1} {apellido_paterno} {apellido_materno}".strip()
 
     registros_parentesco.append([
         rut_titular,
@@ -148,11 +160,11 @@ for linea in lineas:
 
 df_parentesco = pd.DataFrame(registros_parentesco, columns=[
     'RUT Titular', 'RUT Pariente', 'Apellido Paterno', 'Apellido Materno',
-    'Nombres', 'Apellido Paterno (2)', 'Apellido Materno (2)', 'Nombres (2)', 'Nombre Completo',
-    'Tipo Parentesco', 'Fecha Movimiento', 'Alta'
+    'Nombres', 'Apellido Paterno (2)', 'Apellido Materno (2)', 'Nombres (2)',
+    'Nombre Completo', 'Tipo Parentesco', 'Fecha Movimiento', 'Alta'
 ])
 
-# --- ARCHIVO 3: Socios-Sociedades ---
+# --- SOCIOS-SOCIEDADES ---
 with open(ruta_socios, 'r', encoding='latin-1') as archivo:
     lineas = archivo.readlines()
 
@@ -160,15 +172,18 @@ registros_socios = []
 
 for linea in lineas:
     linea = linea.strip()
-    rut_matches = re.findall(r'^(\d+)(\d{1,})', linea)
-    if not rut_matches:
+    rut_match = re.match(r'^(\d+)', linea)
+    if not rut_match:
         print(f"❌ RUTs no encontrados en SOCIOS: {linea}")
         continue
 
-    rut_titular = formatear_rut(rut_matches[0][0])
-    rut_socio = formatear_rut(rut_matches[0][1])
+    cadena_ruts = rut_match.group(1)
+    rut_titular, rut_socio = extraer_ruts_concatenados(cadena_ruts)
+    if not rut_titular or not rut_socio:
+        print(f"❌ No se pudo separar correctamente los RUTs en SOCIOS: {cadena_ruts}")
+        continue
 
-    resto = linea[len(rut_matches[0][0] + rut_matches[0][1]):].strip()
+    resto = linea[len(cadena_ruts):].strip()
     partes = re.split(r'\s{2,}', resto)
 
     campo_final = ''
@@ -215,7 +230,7 @@ df_socios = pd.DataFrame(registros_socios, columns=[
     'A', 'Fecha', 'C'
 ])
 
-# --- LIMPIEZA FINAL ---
+# --- LIMPIEZA ---
 df_titulares = df_titulares.applymap(limpiar_texto)
 df_parentesco = df_parentesco.applymap(limpiar_texto)
 df_socios = df_socios.applymap(limpiar_texto)
