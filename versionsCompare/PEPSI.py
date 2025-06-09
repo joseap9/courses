@@ -22,16 +22,14 @@ def formatear_rut(rut):
         return rut
     return rut[:-1] + '-' + rut[-1]
 
-def extraer_ruts_concatenados(cadena):
-    cadena = cadena.lstrip('0')
-    for i in range(2, len(cadena)-1):
-        rut1_raw = cadena[:i]
-        rut2_raw = cadena[i:]
-        if len(rut1_raw) >= 2 and len(rut2_raw) >= 2:
-            rut1 = formatear_rut(rut1_raw)
-            rut2 = formatear_rut(rut2_raw)
-            return rut1, rut2
-    return None, None
+def dividir_y_formatear_ruts(cadena):
+    if len(cadena) < 10:
+        return None, None
+    rut1_raw = cadena[:10]
+    rut2_raw = cadena[10:]
+    rut1 = formatear_rut(rut1_raw)
+    rut2 = formatear_rut(rut2_raw) if rut2_raw else ''
+    return rut1, rut2
 
 # --- TITULARES ---
 with open(ruta_titulares, 'r', encoding='latin-1') as archivo:
@@ -110,8 +108,8 @@ for linea in lineas:
         continue
 
     cadena_ruts = rut_match.group(1)
-    rut_titular, rut_pariente = extraer_ruts_concatenados(cadena_ruts)
-    if not rut_titular or not rut_pariente:
+    rut_titular, rut_pariente = dividir_y_formatear_ruts(cadena_ruts)
+    if not rut_titular or rut_pariente is None:
         print(f"❌ No se pudo separar correctamente los RUTs: {cadena_ruts}")
         continue
 
@@ -164,7 +162,7 @@ df_parentesco = pd.DataFrame(registros_parentesco, columns=[
     'Nombre Completo', 'Tipo Parentesco', 'Fecha Movimiento', 'Alta'
 ])
 
-# --- SOCIOS-SOCIEDADES ---
+# --- SOCIOS ---
 with open(ruta_socios, 'r', encoding='latin-1') as archivo:
     lineas = archivo.readlines()
 
@@ -178,8 +176,8 @@ for linea in lineas:
         continue
 
     cadena_ruts = rut_match.group(1)
-    rut_titular, rut_socio = extraer_ruts_concatenados(cadena_ruts)
-    if not rut_titular or not rut_socio:
+    rut_titular, rut_socio = dividir_y_formatear_ruts(cadena_ruts)
+    if not rut_titular or rut_socio is None:
         print(f"❌ No se pudo separar correctamente los RUTs en SOCIOS: {cadena_ruts}")
         continue
 
@@ -230,18 +228,17 @@ df_socios = pd.DataFrame(registros_socios, columns=[
     'A', 'Fecha', 'C'
 ])
 
-# --- LIMPIEZA ---
+# --- LIMPIEZA Y EXPORTACIÓN ---
 df_titulares = df_titulares.applymap(limpiar_texto)
 df_parentesco = df_parentesco.applymap(limpiar_texto)
 df_socios = df_socios.applymap(limpiar_texto)
 
-# --- EXPORTACIÓN A EXCEL ---
 with pd.ExcelWriter(ruta_salida_excel, engine='openpyxl') as writer:
     df_titulares.to_excel(writer, sheet_name='Titulares', index=False)
     df_parentesco.to_excel(writer, sheet_name='Parentesco', index=False)
     df_socios.to_excel(writer, sheet_name='SOCIOS_SOCIEDADES', index=False)
 
-# --- RESUMEN DE FILAS ---
+# --- RESUMEN ---
 print("✅ Exportación completada con las tres hojas.")
 print(f"📄 Filas Titulares: {len(df_titulares)}")
 print(f"📄 Filas Parentesco: {len(df_parentesco)}")
