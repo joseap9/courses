@@ -2,6 +2,12 @@ import pandas as pd
 import re
 import unicodedata
 
+# --- RUTAS DE ARCHIVOS ---
+ruta_titulares = r'C:\Users\fxb8co\Documents\Otros\PEP SINACOFT\PTGENST2025010603.txt'
+ruta_parentesco = r'C:\Users\fxb8co\Documents\Otros\PEP SINACOFT\PTGENRE2025010603.txt'
+ruta_socios = r'C:\Users\fxb8co\Documents\Otros\PEP SINACOFT\PTGENSS2025010603.txt'
+ruta_salida_excel = r'C:\Users\fxb8co\Documents\salida_final.xlsx'
+
 # --- FUNCIONES ---
 def limpiar_texto(texto):
     if not isinstance(texto, str):
@@ -24,8 +30,6 @@ def dividir_ruts_por_10(cadena):
     return rut1, rut2
 
 # --- ARCHIVO 1: Titulares ---
-ruta_titulares = r'C:\Users\fxb8co\Documents\Otros\PEP SINACOFT\PTGENST2025010603.txt'
-
 with open(ruta_titulares, 'r', encoding='latin-1') as archivo:
     lineas = archivo.readlines()
 
@@ -89,9 +93,7 @@ df_titulares = pd.DataFrame(registros_titulares, columns=[
     'Institución', 'Cargo', 'Fecha', 'Tipo Movimiento', 'Apellidos'
 ])
 
-# --- ARCHIVO 2: Parentesco (sin Institución ni Cargo) ---
-ruta_parentesco = r'C:\Users\fxb8co\Documents\Otros\PEP SINACOFT\PTGENRE2025010603.txt'
-
+# --- ARCHIVO 2: Parentesco ---
 with open(ruta_parentesco, 'r', encoding='latin-1') as archivo:
     lineas = archivo.readlines()
 
@@ -159,8 +161,6 @@ df_parentesco = pd.DataFrame(registros_parentesco, columns=[
 ])
 
 # --- ARCHIVO 3: Socios-Sociedades ---
-ruta_socios = r'C:\Users\fxb8co\Documents\Otros\PEP SINACOFT\PTGENSS2025010603.txt'
-
 with open(ruta_socios, 'r', encoding='latin-1') as archivo:
     lineas = archivo.readlines()
 
@@ -224,18 +224,17 @@ df_socios = pd.DataFrame(registros_socios, columns=[
     'A', 'Fecha', 'C'
 ])
 
-# --- LIMPIEZA ---
+# --- LIMPIEZA Y EXPORTACIÓN ---
 df_titulares = df_titulares.applymap(limpiar_texto)
 df_parentesco = df_parentesco.applymap(limpiar_texto)
 df_socios = df_socios.applymap(limpiar_texto)
 
-# --- EXPORTACIÓN A EXCEL ---
-ruta_salida_excel = r'C:\Users\fxb8co\Documents\salida_final.xlsx'
 with pd.ExcelWriter(ruta_salida_excel, engine='openpyxl') as writer:
     df_titulares.to_excel(writer, sheet_name='Titulares', index=False)
     df_parentesco.to_excel(writer, sheet_name='Parentesco', index=False)
     df_socios.to_excel(writer, sheet_name='SOCIOS_SOCIEDADES', index=False)
 
+# --- RESUMEN ---
 print("✅ Exportación completada con las tres hojas.")
 print(f"📄 Filas Titulares: {len(df_titulares)}")
 print(f"📄 Filas Parentesco: {len(df_parentesco)}")
