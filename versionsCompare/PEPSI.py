@@ -11,6 +11,7 @@ def limpiar_texto(texto):
 
 # --- ARCHIVO 1: Titulares ---
 ruta_titulares = r'C:\Users\fxb8co\Documents\Otros\PEP SINACOFT\PTGENST2025010603.txt'
+
 with open(ruta_titulares, 'r', encoding='latin-1') as archivo:
     lineas = archivo.readlines()
 
@@ -20,7 +21,9 @@ for linea in lineas:
     linea = linea.strip()
     rut_match = re.match(r'^(\d+)', linea)
     if not rut_match:
+        print(f"❌ RUT no encontrado: {linea}")
         continue
+
     rut_numerico = rut_match.group(1)
     rut_con_formato = rut_numerico[:-1] + '-' + rut_numerico[-1]
     resto = linea[len(rut_numerico):].strip()
@@ -34,6 +37,8 @@ for linea in lineas:
             fecha = posible_fecha[:-2]
             tipo_movimiento = posible_fecha[-2:]
             partes = partes[:-1]
+        else:
+            print(f"⚠️ Fecha/tipo movimiento mal formado o ausente: {posible_fecha}")
 
     while len(partes) < 8:
         partes.append('')
@@ -46,6 +51,7 @@ for linea in lineas:
     nombres2               = partes[5]
     institucion            = partes[6]
     cargo                  = partes[7]
+
     apellidos_combinados = f"{apellido_paterno} {apellido_materno}".strip()
 
     registros_titulares.append([
@@ -71,6 +77,7 @@ df_titulares = pd.DataFrame(registros_titulares, columns=[
 
 # --- ARCHIVO 2: Parentesco ---
 ruta_parentesco = r'C:\Users\fxb8co\Documents\Otros\PEP SINACOFT\PTGENRE2025010603.txt'
+
 with open(ruta_parentesco, 'r', encoding='latin-1') as archivo:
     lineas = archivo.readlines()
 
@@ -80,6 +87,7 @@ for linea in lineas:
     linea = linea.strip()
     rut_matches = re.findall(r'^(\d+)(\d{1,})', linea)
     if not rut_matches:
+        print(f"❌ RUTs no encontrados: {linea}")
         continue
 
     rut_titular = rut_matches[0][0]
@@ -101,6 +109,8 @@ for linea in lineas:
             fecha_mov = ult_campo[2:12]
             alta = ult_campo[12:]
             partes = partes[:-1]
+        else:
+            print(f"⚠️ Campo parentesco mal formado o ausente: {ult_campo}")
 
     while len(partes) < 6:
         partes.append('')
@@ -111,6 +121,7 @@ for linea in lineas:
     apellido_paterno_2     = partes[3]
     apellido_materno_2     = partes[4]
     nombres2               = partes[5]
+
     apellidos_combinados = f"{apellido_paterno} {apellido_materno}".strip()
 
     registros_parentesco.append([
@@ -136,6 +147,7 @@ df_parentesco = pd.DataFrame(registros_parentesco, columns=[
 
 # --- ARCHIVO 3: Socios-Sociedades ---
 ruta_socios = r'C:\Users\fxb8co\Documents\Otros\PEP SINACOFT\PTGENSS2025010603.txt'
+
 with open(ruta_socios, 'r', encoding='latin-1') as archivo:
     lineas = archivo.readlines()
 
@@ -145,6 +157,7 @@ for linea in lineas:
     linea = linea.strip()
     rut_match = re.match(r'^(\d+)', linea)
     if not rut_match:
+        print(f"❌ RUT no encontrado: {linea}")
         continue
 
     rut_numerico = rut_match.group(1)
@@ -160,6 +173,8 @@ for linea in lineas:
             fecha = posible_fecha[:-2]
             tipo_movimiento = posible_fecha[-2:]
             partes = partes[:-1]
+        else:
+            print(f"⚠️ Fecha/tipo movimiento mal formado o ausente: {posible_fecha}")
 
     while len(partes) < 8:
         partes.append('')
@@ -172,6 +187,7 @@ for linea in lineas:
     nombres2               = partes[5]
     institucion            = partes[6]
     cargo                  = partes[7]
+
     apellidos_combinados = f"{apellido_paterno} {apellido_materno}".strip()
 
     registros_socios.append([
@@ -192,19 +208,19 @@ for linea in lineas:
 df_socios = pd.DataFrame(registros_socios, columns=[
     'RUT', 'Apellido Paterno', 'Apellido Materno', 'Nombres',
     'Nombres (2)', 'Apellido Paterno (2)', 'Apellido Materno (2)',
-    'Sociedad', 'Cargo', 'Fecha', 'Tipo Movimiento', 'Apellidos'
+    'Institución', 'Cargo', 'Fecha', 'Tipo Movimiento', 'Apellidos'
 ])
 
-# --- LIMPIEZA ---
+# --- LIMPIEZA DE TODOS LOS DATAFRAMES ---
 df_titulares = df_titulares.applymap(limpiar_texto)
 df_parentesco = df_parentesco.applymap(limpiar_texto)
 df_socios = df_socios.applymap(limpiar_texto)
 
-# --- Exportar a Excel ---
+# --- EXPORTACIÓN A EXCEL ---
 ruta_salida_excel = r'C:\Users\fxb8co\Documents\salida_final.xlsx'
 with pd.ExcelWriter(ruta_salida_excel, engine='openpyxl') as writer:
     df_titulares.to_excel(writer, sheet_name='Titulares', index=False)
     df_parentesco.to_excel(writer, sheet_name='Parentesco', index=False)
     df_socios.to_excel(writer, sheet_name='SOCIOS_SOCIEDADES', index=False)
 
-print("✅ Exportación completada con las tres hojas.")
+print("✅ Exportación completada con ambas hojas.")
