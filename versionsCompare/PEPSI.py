@@ -19,7 +19,7 @@ def limpiar_texto(texto):
 def formatear_rut(rut):
     rut = rut.lstrip('0')
     if len(rut) < 2:
-        return rut
+        return ''
     return rut[:-1] + '-' + rut[-1]
 
 def dividir_y_formatear_ruts(cadena):
