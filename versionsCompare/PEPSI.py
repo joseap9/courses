@@ -9,9 +9,18 @@ def limpiar_texto(texto):
     texto = unicodedata.normalize('NFKC', texto)
     return texto
 
-# --- ARCHIVO 1: Titulares ---
-ruta_titulares = r'C:\Users\fxb8co\Documents\Otros\PEP SINACOFT\PTGENST2025010603.txt'
+def formatear_rut(rut_str):
+    rut_sin_ceros = rut_str.lstrip('0')
+    if len(rut_sin_ceros) < 2:
+        return rut_sin_ceros
+    return rut_sin_ceros[:-1] + '-' + rut_sin_ceros[-1]
 
+# --- RUTAS DE ARCHIVOS ---
+ruta_titulares = r'C:\Users\fxb8co\Documents\Otros\PEP SINACOFT\PTGENST2025010603.txt'
+ruta_parentesco = r'C:\Users\fxb8co\Documents\Otros\PEP SINACOFT\PTGENRE2025010603.txt'
+ruta_socios = r'C:\Users\fxb8co\Documents\Otros\PEP SINACOFT\PTGENSS2025010603.txt'
+
+# --- ARCHIVO 1: Titulares ---
 with open(ruta_titulares, 'r', encoding='latin-1') as archivo:
     lineas = archivo.readlines()
 
@@ -25,7 +34,7 @@ for linea in lineas:
         continue
 
     rut_numerico = rut_match.group(1)
-    rut_con_formato = rut_numerico[:-1] + '-' + rut_numerico[-1]
+    rut_con_formato = formatear_rut(rut_numerico)
     resto = linea[len(rut_numerico):].strip()
     partes = re.split(r'\s{2,}', resto)
 
@@ -43,41 +52,38 @@ for linea in lineas:
     while len(partes) < 8:
         partes.append('')
 
-    apellido_paterno       = partes[0]
-    apellido_materno       = partes[1]
-    nombres1               = partes[2]
-    apellido_paterno_2     = partes[3]
-    apellido_materno_2     = partes[4]
-    nombres2               = partes[5]
-    institucion            = partes[6]
-    cargo                  = partes[7]
-
-    apellidos_combinados = f"{apellido_paterno} {apellido_materno}".strip()
+    apellido_paterno     = partes[0]
+    apellido_materno     = partes[1]
+    nombres1             = partes[2]
+    apellido_paterno_2   = partes[3]
+    apellido_materno_2   = partes[4]
+    nombres2             = partes[5]
+    institucion          = partes[6]
+    cargo                = partes[7]
+    nombre_completo      = f"{nombres1} {apellido_paterno} {apellido_materno}".strip()
 
     registros_titulares.append([
         rut_con_formato,
         apellido_paterno,
         apellido_materno,
         nombres1,
-        nombres2,
         apellido_paterno_2,
         apellido_materno_2,
+        nombres2,
+        nombre_completo,
         institucion,
         cargo,
         fecha,
-        tipo_movimiento,
-        apellidos_combinados
+        tipo_movimiento
     ])
 
 df_titulares = pd.DataFrame(registros_titulares, columns=[
     'RUT', 'Apellido Paterno', 'Apellido Materno', 'Nombres',
-    'Nombres (2)', 'Apellido Paterno (2)', 'Apellido Materno (2)',
-    'Institución', 'Cargo', 'Fecha', 'Tipo Movimiento', 'Apellidos'
+    'Apellido Paterno (2)', 'Apellido Materno (2)', 'Nombres (2)', 'Nombre Completo',
+    'Institución', 'Cargo', 'Fecha', 'Tipo Movimiento'
 ])
 
 # --- ARCHIVO 2: Parentesco ---
-ruta_parentesco = r'C:\Users\fxb8co\Documents\Otros\PEP SINACOFT\PTGENRE2025010603.txt'
-
 with open(ruta_parentesco, 'r', encoding='latin-1') as archivo:
     lineas = archivo.readlines()
 
@@ -85,17 +91,14 @@ registros_parentesco = []
 
 for linea in lineas:
     linea = linea.strip()
-    rut_matches = re.findall(r'^(\d+)(\d{1,})', linea)
+    rut_matches = re.findall(r'^(\d{10})(\d+)', linea)
     if not rut_matches:
         print(f"❌ RUTs no encontrados: {linea}")
         continue
 
-    rut_titular = rut_matches[0][0]
-    rut_pariente = rut_matches[0][1]
-    rut_titular_fmt = rut_titular[:-1] + '-' + rut_titular[-1]
-    rut_pariente_fmt = rut_pariente[:-1] + '-' + rut_pariente[-1]
-
-    resto = linea[len(rut_titular + rut_pariente):].strip()
+    rut_titular = formatear_rut(rut_matches[0][0])
+    rut_pariente = formatear_rut(rut_matches[0][1])
+    resto = linea[len(rut_matches[0][0] + rut_matches[0][1]):].strip()
     partes = re.split(r'\s{2,}', resto)
 
     ult_campo = ''
@@ -115,39 +118,36 @@ for linea in lineas:
     while len(partes) < 6:
         partes.append('')
 
-    apellido_paterno       = partes[0]
-    apellido_materno       = partes[1]
-    nombres1               = partes[2]
-    apellido_paterno_2     = partes[3]
-    apellido_materno_2     = partes[4]
-    nombres2               = partes[5]
-
-    apellidos_combinados = f"{apellido_paterno} {apellido_materno}".strip()
+    apellido_paterno     = partes[0]
+    apellido_materno     = partes[1]
+    nombres1             = partes[2]
+    apellido_paterno_2   = partes[3]
+    apellido_materno_2   = partes[4]
+    nombres2             = partes[5]
+    nombre_completo      = f"{nombres1} {apellido_paterno} {apellido_materno}".strip()
 
     registros_parentesco.append([
-        rut_titular_fmt,
-        rut_pariente_fmt,
+        rut_titular,
+        rut_pariente,
         apellido_paterno,
         apellido_materno,
         nombres1,
-        nombres2,
         apellido_paterno_2,
         apellido_materno_2,
+        nombres2,
+        nombre_completo,
         tipo_parentesco,
         fecha_mov,
-        alta,
-        apellidos_combinados
+        alta
     ])
 
 df_parentesco = pd.DataFrame(registros_parentesco, columns=[
     'RUT Titular', 'RUT Pariente', 'Apellido Paterno', 'Apellido Materno',
-    'Nombres', 'Nombres (2)', 'Apellido Paterno (2)', 'Apellido Materno (2)',
-    'Tipo Parentesco', 'Fecha Movimiento', 'Alta', 'Apellidos'
+    'Nombres', 'Apellido Paterno (2)', 'Apellido Materno (2)', 'Nombres (2)', 'Nombre Completo',
+    'Tipo Parentesco', 'Fecha Movimiento', 'Alta'
 ])
 
 # --- ARCHIVO 3: Socios-Sociedades ---
-ruta_socios = r'C:\Users\fxb8co\Documents\Otros\PEP SINACOFT\PTGENSS2025010603.txt'
-
 with open(ruta_socios, 'r', encoding='latin-1') as archivo:
     lineas = archivo.readlines()
 
@@ -155,72 +155,70 @@ registros_socios = []
 
 for linea in lineas:
     linea = linea.strip()
-    rut_match = re.match(r'^(\d+)', linea)
-    if not rut_match:
-        print(f"❌ RUT no encontrado: {linea}")
+    rut_matches = re.findall(r'^(\d{10})(\d+)', linea)
+    if not rut_matches:
+        print(f"❌ RUTs no encontrados en SOCIOS: {linea}")
         continue
 
-    rut_numerico = rut_match.group(1)
-    rut_con_formato = rut_numerico[:-1] + '-' + rut_numerico[-1]
-    resto = linea[len(rut_numerico):].strip()
+    rut_titular = formatear_rut(rut_matches[0][0])
+    rut_socio = formatear_rut(rut_matches[0][1])
+    resto = linea[len(rut_matches[0][0] + rut_matches[0][1]):].strip()
     partes = re.split(r'\s{2,}', resto)
 
+    campo_final = ''
+    a = ''
     fecha = ''
-    tipo_movimiento = ''
+    c = ''
     if partes:
-        posible_fecha = partes[-1]
-        if re.match(r'\d{4}/\d{2}/\d{2}\d{2}', posible_fecha):
-            fecha = posible_fecha[:-2]
-            tipo_movimiento = posible_fecha[-2:]
+        campo_final = partes[-1]
+        if re.match(r'\d{2}\d{4}/\d{2}/\d{2}\d{2}', campo_final):
+            a = campo_final[:2]
+            fecha = campo_final[2:12]
+            c = campo_final[12:]
             partes = partes[:-1]
         else:
-            print(f"⚠️ Fecha/tipo movimiento mal formado o ausente: {posible_fecha}")
+            print(f"⚠️ Campo A/FECHA/C mal formado o ausente: {campo_final}")
 
-    while len(partes) < 8:
+    while len(partes) < 6:
         partes.append('')
 
-    apellido_paterno       = partes[0]
-    apellido_materno       = partes[1]
-    nombres1               = partes[2]
-    apellido_paterno_2     = partes[3]
-    apellido_materno_2     = partes[4]
-    nombres2               = partes[5]
-    institucion            = partes[6]
-    cargo                  = partes[7]
-
-    apellidos_combinados = f"{apellido_paterno} {apellido_materno}".strip()
+    apellido_paterno     = partes[0]
+    apellido_materno     = partes[1]
+    nombres1             = partes[2]
+    apellido_paterno_2   = partes[3]
+    apellido_materno_2   = partes[4]
+    nombres2             = partes[5]
 
     registros_socios.append([
-        rut_con_formato,
+        rut_titular,
+        rut_socio,
         apellido_paterno,
         apellido_materno,
         nombres1,
-        nombres2,
         apellido_paterno_2,
         apellido_materno_2,
-        institucion,
-        cargo,
+        nombres2,
+        a,
         fecha,
-        tipo_movimiento,
-        apellidos_combinados
+        c
     ])
 
 df_socios = pd.DataFrame(registros_socios, columns=[
-    'RUT', 'Apellido Paterno', 'Apellido Materno', 'Nombres',
-    'Nombres (2)', 'Apellido Paterno (2)', 'Apellido Materno (2)',
-    'Institución', 'Cargo', 'Fecha', 'Tipo Movimiento', 'Apellidos'
+    'RUT Titular', 'RUT Socio', 'Apellido Paterno', 'Apellido Materno',
+    'Nombres', 'Apellido Paterno (2)', 'Apellido Materno (2)', 'Nombres (2)',
+    'A', 'Fecha', 'C'
 ])
 
-# --- LIMPIEZA DE TODOS LOS DATAFRAMES ---
+# --- LIMPIEZA FINAL ---
 df_titulares = df_titulares.applymap(limpiar_texto)
 df_parentesco = df_parentesco.applymap(limpiar_texto)
 df_socios = df_socios.applymap(limpiar_texto)
 
-# --- EXPORTACIÓN A EXCEL ---
+# --- EXPORTAR A EXCEL ---
 ruta_salida_excel = r'C:\Users\fxb8co\Documents\salida_final.xlsx'
 with pd.ExcelWriter(ruta_salida_excel, engine='openpyxl') as writer:
     df_titulares.to_excel(writer, sheet_name='Titulares', index=False)
     df_parentesco.to_excel(writer, sheet_name='Parentesco', index=False)
     df_socios.to_excel(writer, sheet_name='SOCIOS_SOCIEDADES', index=False)
 
-print("✅ Exportación completada con ambas hojas.")
+print("✅ Exportación completada con las tres hojas.")
