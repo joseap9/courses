@@ -1,53 +1,39 @@
-import cv2
-import pytesseract
-import numpy as np
-
-# Ruta Tesseract
-pytesseract.pytesseract.tesseract_cmd = r"C:\Users\TuUsuario\AppData\Local\Programs\Tesseract-OCR\tesseract.exe"
-
-# Cargar imagen
-image_path = "07d49400-86ea-4827-afb0-40b835b8de8c.heic"
-image = cv2.imread(image_path)
-
-# Redimensionar
-max_width = 1500
-if image.shape[1] > max_width:
-    scale_ratio = max_width / image.shape[1]
-    image = cv2.resize(image, (int(image.shape[1] * scale_ratio), int(image.shape[0] * scale_ratio)))
-
-# Mostrar imagen original redimensionada
-cv2.imshow("Imagen Original", image)
+# Redimensionar a ancho base
+base_width = 1000
+scale_ratio = base_width / image.shape[1]
+image = cv2.resize(image, (int(image.shape[1] * scale_ratio), int(image.shape[0] * scale_ratio)))
 
 # Convertir a HSV
 hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
-# Definir rango de azul claro
-lower_blue = np.array([90, 50, 180])
+# Detectar color celeste
+lower_blue = np.array([90, 30, 170])
 upper_blue = np.array([130, 255, 255])
-
-# Máscara para detectar color azul
 mask = cv2.inRange(hsv, lower_blue, upper_blue)
 
-# Mostrar la máscara
-cv2.imshow("Máscara Azul (cajas detectables)", mask)
+# Morfología para unir regiones si hay cajas partidas
+kernel = np.ones((3, 3), np.uint8)
+mask = cv2.dilate(mask, kernel, iterations=1)
 
-# Encontrar contornos
+# Mostrar máscara
+cv2.imshow("Máscara Azul", mask)
+
+# Contornos sin filtrar por tamaño
 contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-# Filtrar y ordenar
+# Ordenar por posición
 cajas = []
 for cnt in contours:
     x, y, w, h = cv2.boundingRect(cnt)
-    if w > 50 and h > 15:
-        cajas.append((x, y, w, h))
+    cajas.append((x, y, w, h))
+
+# Ordenar verticalmente
 cajas = sorted(cajas, key=lambda b: (b[1], b[0]))
 
-# OCR y visualización
+# Visualización + OCR
 ocr_config = r'--oem 3 --psm 6 -l spa'
-valores = []
-
-# Clonar imagen para dibujo final
 output_image = image.copy()
+valores = []
 
 for i, (x, y, w, h) in enumerate(cajas):
     roi = image[y:y+h, x:x+w]
@@ -55,18 +41,16 @@ for i, (x, y, w, h) in enumerate(cajas):
     text = pytesseract.image_to_string(gray, config=ocr_config)
     valores.append(text.strip())
 
-    # Dibujar recuadro y número
     cv2.rectangle(output_image, (x, y), (x+w, y+h), (0, 255, 0), 2)
-    cv2.putText(output_image, f"{i+1}", (x, y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
+    cv2.putText(output_image, f"{i+1}", (x+2, y-5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
 
-# Mostrar imagen final con recuadros
+# Mostrar cajas detectadas numeradas
 cv2.imshow("Cajas Detectadas y Numeradas", output_image)
 
-# Imprimir textos extraídos
-print("== TEXTOS DETECTADOS EN LAS CAJAS ==")
+# Imprimir valores
+print("=== TEXTOS DETECTADOS ===")
 for i, val in enumerate(valores, 1):
     print(f"{i}. {val}")
 
-# Esperar tecla
 cv2.waitKey(0)
 cv2.destroyAllWindows()
