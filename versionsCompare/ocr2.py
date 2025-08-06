@@ -1,3 +1,14 @@
+import cv2
+import pytesseract
+import numpy as np
+
+# Ruta Tesseract
+pytesseract.pytesseract.tesseract_cmd = r"C:\Users\TuUsuario\AppData\Local\Programs\Tesseract-OCR\tesseract.exe"
+
+# Cargar imagen
+image_path = "110affd9-ff44-4676-a58e-e015a6d03570.jpeg"
+image = cv2.imread(image_path)
+
 # Redimensionar a ancho base
 base_width = 1000
 scale_ratio = base_width / image.shape[1]
