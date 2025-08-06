@@ -106,59 +106,75 @@ import pytesseract
 import numpy as np
 import json
 
-# Configurar ruta a Tesseract si es necesario
+# Ruta a Tesseract
 pytesseract.pytesseract.tesseract_cmd = r"C:\Users\TuUsuario\AppData\Local\Programs\Tesseract-OCR\tesseract.exe"
 
 # Cargar imagen
 image_path = "b0df7717-3255-4af6-a471-f727695a6e7a.jpeg"
 image = cv2.imread(image_path)
+original = image.copy()
 
-# Convertir a HSV para detectar color azul claro
-hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+# Convertir a escala de grises
+gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-# Rango para azul claro (ajustable según tu formulario)
-lower_blue = np.array([85, 30, 100])
-upper_blue = np.array([140, 255, 255])
+# Umbral para detectar cajas
+thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C,
+                               cv2.THRESH_BINARY_INV, 15, 10)
 
-# Crear máscara para regiones azul claro
-mask = cv2.inRange(hsv, lower_blue, upper_blue)
+# Mostrar la imagen con las cajas detectadas
+contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-# Encontrar contornos de las cajas azules
-contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-# Ordenar contornos de arriba hacia abajo
-contours = sorted(contours, key=lambda c: cv2.boundingRect(c)[1])
-
-# Extraer texto de cada contorno
-resultados = []
 for c in contours:
     x, y, w, h = cv2.boundingRect(c)
-    if w > 100 and h > 20:  # filtrar cajas pequeñas/no útiles
-        roi = image[y:y+h, x:x+w]
+    if w > 100 and h > 20:
+        cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
-        # Preprocesamiento
-        gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
-        gray = cv2.bilateralFilter(gray, 11, 17, 17)
-        gray = cv2.convertScaleAbs(gray, alpha=1.5, beta=0)
+cv2.imshow("Imagen con cajas detectadas", image)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
 
-        # OCR
-        texto = pytesseract.image_to_string(gray, config='--oem 3 --psm 7', lang='spa')
+# Extraer cajas y procesar
+boxes = []
+for c in contours:
+    x, y, w, h = cv2.boundingRect(c)
+    if w > 100 and h > 20:
+        boxes.append((x, y, w, h))
 
-        # Reemplazos comunes de OCR
-        texto = texto.replace("?", "7").replace("©", "0").strip()
+# Ordenar cajas de arriba hacia abajo y de izquierda a derecha
+def ordenar_por_filas_y_columnas(cajas, tolerancia_y=10):
+    cajas = sorted(cajas, key=lambda b: (b[1] // tolerancia_y, b[0]))
+    return cajas
 
-        resultados.append(texto)
+boxes = ordenar_por_filas_y_columnas(boxes)
 
-# Mostrar resultados como lista
-print("\nResultados por caja azul:")
-for i, t in enumerate(resultados):
-    print(f"{i+1}: {t}")
+# Campos en orden
+campos_ordenados = [
+    "RUT", "Razón social", "Domicilio", "Ciudad", "País",
+    "Domicilio tributario", "Teléfono", "Representante legal 1", "Representante legal 2",
+    "Uso del Vehículo", "Tipo de entidad", "Gerencia"
+]
 
-# Opcional: Guardar como JSON
-json_data = {f"campo_{i+1}": texto for i, texto in enumerate(resultados)}
-with open("resultados_ocr.json", "w", encoding="utf-8") as f:
-    json.dump(json_data, f, indent=2, ensure_ascii=False)
+# OCR sobre cada caja
+resultado = {}
+for i, (x, y, w, h) in enumerate(boxes[:len(campos_ordenados)]):
+    roi = original[y:y+h, x:x+w]
+    roi_gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+    roi_gray = cv2.bilateralFilter(roi_gray, 11, 17, 17)
+    roi_gray = cv2.convertScaleAbs(roi_gray, alpha=1.5, beta=0)
 
-print("\nGuardado en resultados_ocr.json")
+    # Mostrar cada caja preprocesada
+    cv2.imshow(f"Caja {i+1} - {campos_ordenados[i]}", roi_gray)
+    cv2.waitKey(0)
+
+    texto = pytesseract.image_to_string(roi_gray, config='--oem 3 --psm 7', lang='spa')
+    texto = texto.replace("?", "7").strip()
+
+    campo = campos_ordenados[i]
+    resultado[campo] = texto
+
+cv2.destroyAllWindows()
+
+# Mostrar resultado en JSON
+print(json.dumps(resultado, indent=2, ensure_ascii=False))
 
 
