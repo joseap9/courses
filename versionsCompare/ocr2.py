@@ -5,11 +5,11 @@ import numpy as np
 from PIL import Image
 import io
 
-# Ruta a Tesseract (ajusta según tu instalación)
+# Ruta a Tesseract
 pytesseract.pytesseract.tesseract_cmd = r"C:\Users\TuUsuario\AppData\Local\Programs\Tesseract-OCR\tesseract.exe"
 
-# Ruta del PDF
-pdf_path = "formulario.pdf"
+# Ruta del PDF escaneado
+pdf_path = "DeclaraciónBFJun2025_giwIbRd.pdf"
 doc = fitz.open(pdf_path)
 
 for i, page in enumerate(doc):
@@ -17,52 +17,55 @@ for i, page in enumerate(doc):
     image_list = page.get_images(full=True)
 
     if len(image_list) == 0:
-        print("✅ Texto detectado. Extrayendo directamente...")
-        text = page.get_text()
-        print("="*40)
-        print(text.strip())
-        print("="*40)
+        print("❌ No hay imagen embebida, probablemente no es un PDF escaneado.")
+        continue
 
-    else:
-        print(f"🖼️ Imagen escaneada detectada. Extrayendo y aplicando OCR...")
-        xref = image_list[0][0]
-        base_image = doc.extract_image(xref)
-        image_bytes = base_image["image"]
+    # Extraer la primera imagen embebida
+    xref = image_list[0][0]
+    base_image = doc.extract_image(xref)
+    image_bytes = base_image["image"]
 
-        # Convertir a imagen OpenCV
-        pil_image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-        open_cv_image = np.array(pil_image)
-        open_cv_image = open_cv_image[:, :, ::-1].copy()  # RGB a BGR
-        original = open_cv_image.copy()
+    # Convertir a imagen OpenCV
+    pil_image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    image = np.array(pil_image)[:, :, ::-1].copy()  # RGB a BGR
+    original = image.copy()
 
-        # Preprocesamiento
-        gray = cv2.cvtColor(open_cv_image, cv2.COLOR_BGR2GRAY)
-        gray = cv2.bilateralFilter(gray, 11, 17, 17)
-        gray = cv2.convertScaleAbs(gray, alpha=1.5, beta=0)
+    # Convertir a escala de grises y suavizar
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    blur = cv2.GaussianBlur(gray, (3, 3), 0)
+    edges = cv2.Canny(blur, 50, 150)
 
-        # Detección de cuadros/casillas
-        thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C,
-                                       cv2.THRESH_BINARY_INV, 15, 10)
-        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # Detectar líneas horizontales y verticales (líneas largas de formularios)
+    kernel_h = cv2.getStructuringElement(cv2.MORPH_RECT, (100, 1))
+    kernel_v = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 40))
 
-        campos_detectados = 0
-        for cnt in contours:
-            x, y, w, h = cv2.boundingRect(cnt)
-            if 10 < w < 150 and 10 < h < 150:  # Filtrar cuadros razonables
-                campos_detectados += 1
-                cv2.rectangle(original, (x, y), (x + w, y + h), (0, 0, 255), 2)
+    lines_h = cv2.morphologyEx(edges, cv2.MORPH_OPEN, kernel_h)
+    lines_v = cv2.morphologyEx(edges, cv2.MORPH_OPEN, kernel_v)
 
-        print(f"🟥 Campos detectados: {campos_detectados}")
+    combined = cv2.add(lines_h, lines_v)
 
-        # Mostrar la imagen con recuadros (opcional)
-        cv2.imshow(f"Campos - Página {i+1}", original)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+    # Detectar contornos
+    contours, _ = cv2.findContours(combined, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-        # OCR
-        custom_config = r'--oem 3 --psm 4'
-        text = pytesseract.image_to_string(gray, config=custom_config, lang="spa")
+    campos_detectados = 0
+    for cnt in contours:
+        x, y, w, h = cv2.boundingRect(cnt)
+        if w > 40 and h > 10:  # ajusta según tamaño de campos
+            campos_detectados += 1
+            cv2.rectangle(original, (x, y), (x + w, y + h), (0, 0, 255), 2)
 
-        print("="*40)
-        print(text.strip())
-        print("="*40)
+    print(f"🟥 Se detectaron {campos_detectados} campos en la página {i+1}.")
+
+    # Mostrar imagen con campos detectados
+    cv2.imshow(f"Campos detectados - Página {i+1}", original)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+    # OCR para extraer texto (manuscrito o impreso)
+    config = r'--oem 3 --psm 4'
+    ocr_text = pytesseract.image_to_string(gray, config=config, lang='spa')
+
+    print("📄 Texto extraído con OCR:")
+    print("=" * 40)
+    print(ocr_text.strip())
+    print("=" * 40)
