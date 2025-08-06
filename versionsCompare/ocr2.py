@@ -1,59 +1,47 @@
 import fitz  # PyMuPDF
-from pdf2image import convert_from_path
 import pytesseract
 import cv2
-import os
+import numpy as np
+from PIL import Image
+import io
 
-# Ruta a Tesseract si es necesario
+# Ruta a Tesseract
 pytesseract.pytesseract.tesseract_cmd = r"C:\Users\TuUsuario\AppData\Local\Programs\Tesseract-OCR\tesseract.exe"
 
+# Ruta del PDF
 pdf_path = "formulario.pdf"
 
 # Abrir PDF
 doc = fitz.open(pdf_path)
 
-def es_pdf_escaneado(doc):
-    texto_total = ""
-    for page in doc:
-        texto = page.get_text()
-        texto_total += texto.strip()
-    return len(texto_total.strip()) < 20  # umbral: si no hay casi nada de texto, es escaneado
+for i, page in enumerate(doc):
+    print(f"\n📄 Página {i+1}")
+    image_list = page.get_images(full=True)
+    
+    if len(image_list) == 0:
+        print("✅ Contiene texto o vectores. Extrayendo texto directamente...")
+        text = page.get_text()
+        print(text)
+    else:
+        print(f"🖼️ Contiene {len(image_list)} imagen(es). Aplicando OCR a la imagen...")
+        xref = image_list[0][0]  # Tomamos la primera imagen (puedes iterar si hay más)
+        base_image = doc.extract_image(xref)
+        image_bytes = base_image["image"]
 
-# Verificar si es PDF escaneado o texto normal
-if es_pdf_escaneado(doc):
-    print("🔍 PDF parece ser escaneado. Aplicando OCR...")
+        # Convertir los bytes a imagen OpenCV
+        pil_image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        open_cv_image = np.array(pil_image)
+        open_cv_image = open_cv_image[:, :, ::-1].copy()  # Convertir RGB a BGR
 
-    # Convertir cada página del PDF a imagen
-    pages = convert_from_path(pdf_path, dpi=300)
-
-    for i, page in enumerate(pages):
-        image_path = f"temp_page_{i}.jpg"
-        page.save(image_path, "JPEG")
-
-        # Leer imagen
-        image = cv2.imread(image_path)
-
-        # Preprocesamiento
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        # (Opcional) Preprocesamiento
+        gray = cv2.cvtColor(open_cv_image, cv2.COLOR_BGR2GRAY)
         gray = cv2.bilateralFilter(gray, 11, 17, 17)
         gray = cv2.convertScaleAbs(gray, alpha=1.5, beta=0)
 
         # OCR
         custom_config = r'--oem 3 --psm 4'
         text = pytesseract.image_to_string(gray, config=custom_config, lang="spa")
-
-        print(f"\n🧾 TEXTO OCR - Página {i+1}")
-        print("=" * 40)
+        
+        print("="*40)
         print(text)
-        print("=" * 40)
-
-        os.remove(image_path)
-
-else:
-    print("✅ PDF contiene texto seleccionable. Extrayendo sin OCR...")
-    for i, page in enumerate(doc):
-        text = page.get_text()
-        print(f"\n🧾 TEXTO EXTRAÍDO - Página {i+1}")
-        print("=" * 40)
-        print(text)
-        print("=" * 40)
+        print("="*40)
