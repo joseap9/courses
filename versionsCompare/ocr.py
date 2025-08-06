@@ -177,4 +177,4 @@ cv2.destroyAllWindows()
 # Mostrar resultado en JSON
 print(json.dumps(resultado, indent=2, ensure_ascii=False))
 
-
+================================================================
