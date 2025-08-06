@@ -99,3 +99,66 @@ while i < len(lines) - 1:
 print("\nResultado en JSON:")
 print(json.dumps(resultado, indent=2, ensure_ascii=False))
 
+================================================
+
+import cv2
+import pytesseract
+import numpy as np
+import json
+
+# Configurar ruta a Tesseract si es necesario
+pytesseract.pytesseract.tesseract_cmd = r"C:\Users\TuUsuario\AppData\Local\Programs\Tesseract-OCR\tesseract.exe"
+
+# Cargar imagen
+image_path = "b0df7717-3255-4af6-a471-f727695a6e7a.jpeg"
+image = cv2.imread(image_path)
+
+# Convertir a HSV para detectar color azul claro
+hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+
+# Rango para azul claro (ajustable según tu formulario)
+lower_blue = np.array([85, 30, 100])
+upper_blue = np.array([140, 255, 255])
+
+# Crear máscara para regiones azul claro
+mask = cv2.inRange(hsv, lower_blue, upper_blue)
+
+# Encontrar contornos de las cajas azules
+contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+# Ordenar contornos de arriba hacia abajo
+contours = sorted(contours, key=lambda c: cv2.boundingRect(c)[1])
+
+# Extraer texto de cada contorno
+resultados = []
+for c in contours:
+    x, y, w, h = cv2.boundingRect(c)
+    if w > 100 and h > 20:  # filtrar cajas pequeñas/no útiles
+        roi = image[y:y+h, x:x+w]
+
+        # Preprocesamiento
+        gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+        gray = cv2.bilateralFilter(gray, 11, 17, 17)
+        gray = cv2.convertScaleAbs(gray, alpha=1.5, beta=0)
+
+        # OCR
+        texto = pytesseract.image_to_string(gray, config='--oem 3 --psm 7', lang='spa')
+
+        # Reemplazos comunes de OCR
+        texto = texto.replace("?", "7").replace("©", "0").strip()
+
+        resultados.append(texto)
+
+# Mostrar resultados como lista
+print("\nResultados por caja azul:")
+for i, t in enumerate(resultados):
+    print(f"{i+1}: {t}")
+
+# Opcional: Guardar como JSON
+json_data = {f"campo_{i+1}": texto for i, texto in enumerate(resultados)}
+with open("resultados_ocr.json", "w", encoding="utf-8") as f:
+    json.dump(json_data, f, indent=2, ensure_ascii=False)
+
+print("\nGuardado en resultados_ocr.json")
+
+
