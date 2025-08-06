@@ -22,7 +22,7 @@ gray = cv2.convertScaleAbs(gray, alpha=1.5, beta=0)
 
 # OCR con config ajustada
 custom_config = r'--oem 3 --psm 4'  # 4 = layout fluido, bueno para formularios
-text = pytesseract.image_to_string(gray, config=custom_config, lang="spa")
+text = pytesseract.image_to_string(gray, config=custom_config, lang=")
 
 # Mostrar resultado crudo
 print("TEXTO OCR:")
