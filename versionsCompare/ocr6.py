@@ -8,11 +8,13 @@ import os
 # -------- Configuración --------
 pytesseract.pytesseract.tesseract_cmd = r"C:\Users\TuUsuario\AppData\Local\Programs\Tesseract-OCR\tesseract.exe"
 file_path = "formulario.pdf"   # PDF o imagen
-max_width = 1500               # mismo valor que tu pipeline original
+max_width = 1500               # igual que tu pipeline original
 ocr_config = r'--oem 3 --psm 6 -l spa'
-EXPECTED_FIRST_PAGE_BOXES = 30 # garantía en la primera página
 
-# Solo para mostrar en pantalla sin que se "corten" las ventanas (no afecta al OCR)
+# Si quieres forzar 30 cajas en la primera página, deja 30. Para desactivar, usa None.
+EXPECTED_FIRST_PAGE_BOXES = 30
+
+# Ventanas de depuración escaladas (no afecta al OCR)
 SHOW_MAX_W, SHOW_MAX_H = 1400, 900
 
 def show_resized(title, img, max_w=SHOW_MAX_W, max_h=SHOW_MAX_H):
@@ -23,10 +25,7 @@ def show_resized(title, img, max_w=SHOW_MAX_W, max_h=SHOW_MAX_H):
     cv2.imshow(title, img)
 
 def dpi_for_target_width(page, target_width_px=1500, min_dpi=120, max_dpi=300):
-    """
-    Calcula un DPI para que el ANCHO rasterizado de la página quede ~target_width_px.
-    Así el PDF 'calza' con tu redimensión de imágenes y no cambia el pipeline.
-    """
+    """DPI para que el ancho rasterizado quede ~target_width_px (calza con max_width)."""
     w_pt = page.rect.width  # puntos (1/72")
     w_in = w_pt / 72.0 if w_pt else 0.0
     if w_in <= 0:
@@ -42,11 +41,7 @@ def render_pdf_page_to_bgr(page, target_width_px=1500):
     return img_bgr
 
 def cargar_imagen_o_pdf(file_path):
-    """
-    Devuelve una lista de imágenes BGR.
-    - Si es imagen: [imagen]
-    - Si es PDF: [página1, página2, ...] rasterizadas a un ancho ≈ max_width
-    """
+    """Devuelve lista de imágenes BGR (una por página si es PDF)."""
     ext = os.path.splitext(file_path)[1].lower()
     if ext == ".pdf":
         imgs = []
@@ -61,101 +56,113 @@ def cargar_imagen_o_pdf(file_path):
             raise RuntimeError("No se pudo cargar la imagen.")
         return [img]
 
-def filtrar_cajas_por_rango(contours, rango_w, rango_h, min_area=0):
-    """Devuelve bboxes (x,y,w,h) que cumplan rangos de w, h y área mínima."""
-    w_min, w_max = rango_w
-    h_min, h_max = rango_h
-    cajas = []
-    for cnt in contours:
-        if cv2.contourArea(cnt) < min_area:
-            continue
-        x, y, w, h = cv2.boundingRect(cnt)
-        if (w_min < w < w_max) and (h_min < h < h_max):
-            cajas.append((x, y, w, h))
-    return cajas
-
 def ordenar_cajas_derecha_izquierda_arriba_abajo(cajas, img_h, row_tol_ratio=0.02, min_row_tol_px=6):
     """
     Ordena por filas (arriba→abajo) y dentro de cada fila de derecha→izquierda.
-    Agrupa por centro Y con una tolerancia adaptativa.
+    Agrupa filas por centro-Y con tolerancia adaptativa.
     """
     if not cajas:
         return []
 
-    # Orden preliminar por Y asc, luego X desc (para ayudar al agrupado)
+    # Orden preliminar por Y (centro) asc y X (centro) desc
     cajas = sorted(cajas, key=lambda b: (b[1] + b[3] / 2.0, - (b[0] + b[2] / 2.0)))
 
-    # Tolerancia vertical p/ agrupar filas
     row_tol = max(int(img_h * row_tol_ratio), min_row_tol_px)
-
     filas = []
     for box in cajas:
         x, y, w, h = box
         cy = y + h / 2.0
-        colocado = False
+        placed = False
         for fila in filas:
-            # usa el promedio de la fila para decidir pertenencia
             cys = [fy + fh / 2.0 for (_, fy, fw, fh) in fila]
             if abs(cy - (sum(cys) / len(cys))) <= row_tol:
                 fila.append(box)
-                colocado = True
+                placed = True
                 break
-        if not colocado:
+        if not placed:
             filas.append([box])
 
-    # Orden final: filas por Y asc y dentro de cada fila por X desc (derecha→izquierda)
+    # Filas por Y asc; dentro de cada fila X desc (derecha→izquierda)
     filas = sorted(filas, key=lambda fila: sum([fy + fh / 2.0 for (_, fy, fw, fh) in fila]) / len(fila))
     cajas_ordenadas = []
     for fila in filas:
-        fila_ordenada = sorted(fila, key=lambda b: -(b[0] + b[2] / 2.0))  # X centro descendente
+        fila_ordenada = sorted(fila, key=lambda b: -(b[0] + b[2] / 2.0))
         cajas_ordenadas.extend(fila_ordenada)
 
     return cajas_ordenadas
 
-def detectar_cajas_con_garantia_primera_pagina(mask, img_shape, expected=30):
+def filtrar_cajas_por_percentil(contours, min_area=80, p_low=10, p_high=95):
     """
-    Intenta obtener 'expected' cajas desde la máscara, probando rangos en cascada.
-    Si hay más de expected, se recorta a las 30 primeras según el orden solicitado.
-    Si hay menos, toma todas las candidatas posibles.
+    Filtro ADAPTATIVO: calcula percentiles de w y h y acepta cajas dentro de [p_low, p_high].
+    """
+    ws, hs, bboxes = [], [], []
+    for cnt in contours:
+        if cv2.contourArea(cnt) < min_area:
+            continue
+        x, y, w, h = cv2.boundingRect(cnt)
+        ws.append(w); hs.append(h); bboxes.append((x, y, w, h))
+
+    if not bboxes:
+        return []
+
+    w_low, w_high = np.percentile(ws, p_low), np.percentile(ws, p_high)
+    h_low, h_high = np.percentile(hs, p_low), np.percentile(hs, p_high)
+
+    cajas = [(x, y, w, h) for (x, y, w, h) in bboxes
+             if (w_low <= w <= w_high) and (h_low <= h <= h_high)]
+    return cajas
+
+def detectar_cajas_adaptativo(mask, img_shape, expected=None):
+    """
+    Detecta cajas con filtro por percentiles y (opcional) intenta alcanzar 'expected'
+    relajando percentiles si es necesario. Orden final: arriba→abajo, derecha→izquierda.
     """
     H, W = img_shape[:2]
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-    # Secuencia de rangos (tu original primero)
-    rangos = [
-        ((40, 500), (10, 300), 80),    # original
-        ((30, 600), (9, 350), 60),     # leve relajación
-        ((20, 800), (8, 400), 40),     # relajado
-        ((10, 1200), (5, 600), 20),    # muy relajado
+    # Secuencia de parámetros (cada paso más permisivo)
+    params_seq = [
+        # (p_low, p_high, min_area)
+        (10, 95, 80),   # base
+        (5, 97, 60),    # más permisivo
+        (3, 98, 40),    # aún más
+        (1, 99, 20),    # casi todo
     ]
 
-    candidatas = []
-    for (rw, rh, min_area) in rangos:
-        cajas = filtrar_cajas_por_rango(contours, rw, rh, min_area=min_area)
+    best = []
+    for p_low, p_high, min_area in params_seq:
+        cajas = filtrar_cajas_por_percentil(contours, min_area=min_area, p_low=p_low, p_high=p_high)
         cajas = ordenar_cajas_derecha_izquierda_arriba_abajo(cajas, H)
-        if len(cajas) >= expected:
-            candidatas = cajas
-            break
-        # Mantén la mejor hasta ahora (más cercana a expected)
-        if len(cajas) > len(candidatas):
-            candidatas = cajas
+        if expected is not None and len(cajas) >= expected:
+            return cajas[:expected]
+        if len(cajas) > len(best):
+            best = cajas
 
-    # Último recurso: si seguimos por debajo, acepta TODO lo razonable (área >= 10)
-    if len(candidatas) < expected:
-        cajas_all = filtrar_cajas_por_rango(contours, (1, W), (1, H), min_area=10)
-        cajas_all = ordenar_cajas_derecha_izquierda_arriba_abajo(cajas_all, H)
-        if len(cajas_all) > len(candidatas):
-            candidatas = cajas_all
+    # Último recurso si no se alcanzó expected: acepta todo con área mínima pequeña
+    if expected is not None and len(best) < expected:
+        rough = []
+        for cnt in contours:
+            if cv2.contourArea(cnt) < 10:
+                continue
+            x, y, w, h = cv2.boundingRect(cnt)
+            rough.append((x, y, w, h))
+        rough = ordenar_cajas_derecha_izquierda_arriba_abajo(rough, H)
+        if len(rough) > len(best):
+            best = rough
 
-    # Deja exactamente 'expected' si hay de sobra
-    if len(candidatas) > expected:
-        candidatas = candidatas[:expected]
+    # Si hay expected y sobran, corta; si faltan, devuelve lo que hay
+    if expected is not None and len(best) > expected:
+        best = best[:expected]
 
-    return candidatas  # puede devolver < expected si realmente no hay suficientes cajas
+    return best
 
-def procesar_imagen_pipeline_antiguo(image_bgr, titulo="Página", force_30=False, expected=30):
+def procesar_imagen_pipeline(image_bgr, titulo="Página", expected=None):
     """
-    Tu pipeline original; si force_30=True, aplica la garantía de 30 cajas (1ª página).
+    Tu pipeline original con filtro ADAPTATIVO:
+    - Redimensionar si ancho > max_width
+    - HSV -> máscara azul
+    - Cajas por percentiles (y, si expected, relajación progresiva para alcanzarlo)
+    - OCR psm=6 sobre cada caja
     """
     image = image_bgr.copy()
     original = image_bgr.copy()
@@ -168,25 +175,19 @@ def procesar_imagen_pipeline_antiguo(image_bgr, titulo="Página", force_30=False
         original = cv2.resize(original, (int(original.shape[1] * scale_ratio), int(original.shape[0] * scale_ratio)),
                               interpolation=cv2.INTER_AREA)
 
-    # HSV y máscara azul (idéntico)
+    # HSV y máscara azul (tus mismos umbrales)
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
     lower_blue = np.array([90, 50, 180])
     upper_blue = np.array([130, 255, 255])
     mask = cv2.inRange(hsv, lower_blue, upper_blue)
 
-    # Debug (escala solo para mostrar)
+    # Debug
     show_resized(f"{titulo} - Máscara Azul (cajas detectables)", mask)
 
-    # Contornos
-    if force_30:
-        cajas = detectar_cajas_con_garantia_primera_pagina(mask, image.shape, expected=expected)
-    else:
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        cajas = filtrar_cajas_por_rango(contours, (40, 500), (10, 300), min_area=80)
-        # Orden estándar: arriba→abajo y derecha→izquierda (según lo pediste)
-        cajas = ordenar_cajas_derecha_izquierda_arriba_abajo(cajas, image.shape[0])
+    # Cajas ADAPTATIVAS (si expected no es None, intentará alcanzar ese número)
+    cajas = detectar_cajas_adaptativo(mask, image.shape, expected=expected)
 
-    # OCR
+    # OCR (tu mismo flujo)
     valores = []
     for x, y, w, h in cajas:
         roi = original[y:y+h, x:x+w]
@@ -195,7 +196,7 @@ def procesar_imagen_pipeline_antiguo(image_bgr, titulo="Página", force_30=False
         if text:
             valores.append(text)
 
-    # Visual final con enumeración (idéntico, pero mostrado a escala)
+    # Visual final con enumeración (igual, solo que mostramos escalado)
     output_image = image.copy()
     for i, (x, y, w, h) in enumerate(cajas, start=1):
         cv2.rectangle(output_image, (x, y), (x+w, y+h), (0, 255, 0), 2)
@@ -214,17 +215,12 @@ imagenes = cargar_imagen_o_pdf(file_path)
 
 if file_path.lower().endswith(".pdf"):
     for idx, img_bgr in enumerate(imagenes, start=1):
-        # Primera página: forzar 30 cajas
-        force = (idx == 1)
+        # En la primera página intentamos llegar a EXACTAMENTE 30 (si así lo quieres)
+        expected = EXPECTED_FIRST_PAGE_BOXES if idx == 1 else None
         valores_totales.extend(
-            procesar_imagen_pipeline_antiguo(
-                img_bgr, titulo=f"Página {idx}",
-                force_30=force, expected=EXPECTED_FIRST_PAGE_BOXES
-            )
+            procesar_imagen_pipeline(img_bgr, titulo=f"Página {idx}", expected=expected)
         )
 else:
-    # Imagen suelta: no forzamos 30, mantenemos tu flujo original
-    valores_totales = procesar_imagen_pipeline_antiguo(imagenes[0], titulo="Imagen", force_30=False)
+    valores_totales = procesar_imagen_pipeline(imagenes[0], titulo="Imagen", expected=None)
 
-# Salida
 print(json.dumps(valores_totales, ensure_ascii=False))
