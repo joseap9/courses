@@ -11,7 +11,7 @@ file_path = "formulario.pdf"   # PDF o imagen
 max_width = 1500               # igual que tu pipeline original
 ocr_config = r'--oem 3 --psm 6 -l spa'
 
-# Si quieres forzar 30 cajas en la primera página, deja 30. Para desactivar, usa None.
+# Forzar 30 cajas en la primera página (ajústalo o pon None para desactivar)
 EXPECTED_FIRST_PAGE_BOXES = 30
 
 # Ventanas de depuración escaladas (no afecta al OCR)
@@ -91,78 +91,123 @@ def ordenar_cajas_derecha_izquierda_arriba_abajo(cajas, img_h, row_tol_ratio=0.0
 
     return cajas_ordenadas
 
-def filtrar_cajas_por_percentil(contours, min_area=80, p_low=10, p_high=95):
+# ---------- NUEVO: filtro de CANDIDATAS robusto contra ruido ----------
+def candidatas_desde_mask(mask_blue, img_shape):
     """
-    Filtro ADAPTATIVO: calcula percentiles de w y h y acepta cajas dentro de [p_low, p_high].
+    Genera SOLO candidatas razonables (descarta letras/puntos pequeños) usando:
+      - área mínima relativa
+      - mínimos relativos de w y h
+      - aproximación poligonal convexa (4..8 vértices) ~ rectangular
+    Devuelve lista de bboxes (x,y,w,h).
     """
-    ws, hs, bboxes = [], [], []
-    for cnt in contours:
-        if cv2.contourArea(cnt) < min_area:
-            continue
-        x, y, w, h = cv2.boundingRect(cnt)
-        ws.append(w); hs.append(h); bboxes.append((x, y, w, h))
+    H, W = img_shape[:2]
 
-    if not bboxes:
+    # Limpieza leve
+    kernel = np.ones((3, 3), np.uint8)
+    mask = cv2.morphologyEx(mask_blue, cv2.MORPH_OPEN, kernel, iterations=1)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=1)
+
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    # Umbrales RELATIVOS para tirar basura diminuta (ajustables)
+    min_area_rel = 0.00015     # 0.015% del área de la página
+    min_w_rel    = 0.015       # 1.5% del ancho de la página
+    min_h_rel    = 0.008       # 0.8% del alto de la página
+
+    min_area = int(H * W * min_area_rel)
+    min_w_px = max(3, int(W * min_w_rel))
+    min_h_px = max(3, int(H * min_h_rel))
+
+    candidatas = []
+    for c in contours:
+        area = cv2.contourArea(c)
+        if area < min_area:
+            continue
+
+        x, y, w, h = cv2.boundingRect(c)
+        if w < min_w_px or h < min_h_px:
+            continue
+
+        # Aproximación poligonal para exigir formas "rectangulares"
+        peri = cv2.arcLength(c, True)
+        approx = cv2.approxPolyDP(c, 0.02 * peri, True)
+        if not cv2.isContourConvex(approx):
+            continue
+        if len(approx) < 4 or len(approx) > 8:
+            continue
+
+        # Opcional: rectangularidad/extent (área/area_bbox) para evitar formas raras
+        extent = area / float(w * h)
+        if extent < 0.03 or extent > 0.65:
+            # borde tipo “marco” suele dar extent bajo; si es relleno sólido, será alto
+            # ajusta estos valores si tus cajas son más “gordas” o más “finas”
+            continue
+
+        candidatas.append((x, y, w, h))
+
+    return candidatas
+
+def filtrar_por_percentil_en_candidatas(candidatas, p_low=10, p_high=95):
+    """
+    Aplica percentiles solo a CANDIDATAS (ya sin ruido). Mantiene adaptatividad sin colar letras.
+    """
+    if not candidatas:
         return []
+
+    ws = np.array([w for (_, _, w, _) in candidatas], dtype=np.float32)
+    hs = np.array([h for (_, _, _, h) in candidatas], dtype=np.float32)
 
     w_low, w_high = np.percentile(ws, p_low), np.percentile(ws, p_high)
     h_low, h_high = np.percentile(hs, p_low), np.percentile(hs, p_high)
 
-    cajas = [(x, y, w, h) for (x, y, w, h) in bboxes
+    cajas = [(x, y, w, h) for (x, y, w, h) in candidatas
              if (w_low <= w <= w_high) and (h_low <= h <= h_high)]
     return cajas
 
 def detectar_cajas_adaptativo(mask, img_shape, expected=None):
     """
-    Detecta cajas con filtro por percentiles y (opcional) intenta alcanzar 'expected'
-    relajando percentiles si es necesario. Orden final: arriba→abajo, derecha→izquierda.
+    1) Saca candidatas robustas (sin mini-ruido).
+    2) Aplica percentiles adaptativos.
+    3) Si expected (ej. 30) no se alcanza, relaja percentiles progresivamente.
+    4) Orden final: arriba→abajo y, en cada fila, derecha→izquierda.
     """
     H, W = img_shape[:2]
-    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-    # Secuencia de parámetros (cada paso más permisivo)
+    # 1) CANDIDATAS robustas (ya quitan letras/puntos pequeños)
+    candidatas = candidatas_desde_mask(mask, img_shape)
+    if not candidatas:
+        return []
+
+    # 2) Percentiles adaptativos
     params_seq = [
-        # (p_low, p_high, min_area)
-        (10, 95, 80),   # base
-        (5, 97, 60),    # más permisivo
-        (3, 98, 40),    # aún más
-        (1, 99, 20),    # casi todo
+        (10, 95),
+        (5, 97),
+        (3, 98),
+        (1, 99),
     ]
 
     best = []
-    for p_low, p_high, min_area in params_seq:
-        cajas = filtrar_cajas_por_percentil(contours, min_area=min_area, p_low=p_low, p_high=p_high)
+    for p_low, p_high in params_seq:
+        cajas = filtrar_por_percentil_en_candidatas(candidatas, p_low=p_low, p_high=p_high)
         cajas = ordenar_cajas_derecha_izquierda_arriba_abajo(cajas, H)
         if expected is not None and len(cajas) >= expected:
             return cajas[:expected]
         if len(cajas) > len(best):
             best = cajas
 
-    # Último recurso si no se alcanzó expected: acepta todo con área mínima pequeña
-    if expected is not None and len(best) < expected:
-        rough = []
-        for cnt in contours:
-            if cv2.contourArea(cnt) < 10:
-                continue
-            x, y, w, h = cv2.boundingRect(cnt)
-            rough.append((x, y, w, h))
-        rough = ordenar_cajas_derecha_izquierda_arriba_abajo(rough, H)
-        if len(rough) > len(best):
-            best = rough
-
-    # Si hay expected y sobran, corta; si faltan, devuelve lo que hay
+    # 3) Si no alcanzó expected, usa TODAS las candidatas (ordenadas)
+    best = ordenar_cajas_derecha_izquierda_arriba_abajo(best or candidatas, H)
     if expected is not None and len(best) > expected:
         best = best[:expected]
-
     return best
 
 def procesar_imagen_pipeline(image_bgr, titulo="Página", expected=None):
     """
-    Tu pipeline original con filtro ADAPTATIVO:
-    - Redimensionar si ancho > max_width
-    - HSV -> máscara azul
-    - Cajas por percentiles (y, si expected, relajación progresiva para alcanzarlo)
-    - OCR psm=6 sobre cada caja
+    Tu pipeline con:
+      - redimensión a max_width
+      - máscara HSV igual a la tuya
+      - detección ADAPTATIVA robusta (evita cajas diminutas falsas)
+      - OCR psm=6
     """
     image = image_bgr.copy()
     original = image_bgr.copy()
@@ -184,7 +229,7 @@ def procesar_imagen_pipeline(image_bgr, titulo="Página", expected=None):
     # Debug
     show_resized(f"{titulo} - Máscara Azul (cajas detectables)", mask)
 
-    # Cajas ADAPTATIVAS (si expected no es None, intentará alcanzar ese número)
+    # Cajas ADAPTATIVAS robustas
     cajas = detectar_cajas_adaptativo(mask, image.shape, expected=expected)
 
     # OCR (tu mismo flujo)
@@ -196,7 +241,7 @@ def procesar_imagen_pipeline(image_bgr, titulo="Página", expected=None):
         if text:
             valores.append(text)
 
-    # Visual final con enumeración (igual, solo que mostramos escalado)
+    # Visual final con enumeración (igual, mostrado a escala)
     output_image = image.copy()
     for i, (x, y, w, h) in enumerate(cajas, start=1):
         cv2.rectangle(output_image, (x, y), (x+w, y+h), (0, 255, 0), 2)
@@ -215,8 +260,8 @@ imagenes = cargar_imagen_o_pdf(file_path)
 
 if file_path.lower().endswith(".pdf"):
     for idx, img_bgr in enumerate(imagenes, start=1):
-        # En la primera página intentamos llegar a EXACTAMENTE 30 (si así lo quieres)
-        expected = EXPECTED_FIRST_PAGE_BOXES if idx == 1 else None
+        # En la primera página intentamos EXACTAMENTE 30 si así lo definiste
+        expected = EXPECTED_FIRST_PAGE_BOXES if idx == 1 and EXPECTED_FIRST_PAGE_BOXES else None
         valores_totales.extend(
             procesar_imagen_pipeline(img_bgr, titulo=f"Página {idx}", expected=expected)
         )
