@@ -3,174 +3,138 @@ import cv2
 import pytesseract
 import numpy as np
 import json
+import os
 
-# --- Configuración Tesseract ---
+# -------- Configuración --------
 pytesseract.pytesseract.tesseract_cmd = r"C:\Users\TuUsuario\AppData\Local\Programs\Tesseract-OCR\tesseract.exe"
+file_path = "formulario.pdf"  # puede ser PDF o imagen
+max_width = 1500               # mismo valor que tu pipeline original
+ocr_config = r'--oem 3 --psm 6 -l spa'
 
-# --- Archivo de entrada (PDF o imagen) ---
-file_path = "formulario.pdf"
-
-# --- Configuración OCR base ---
-OCR_BASE = r'--oem 3 -l spa'  # psm se define en los intentos
-
-# --- Debug: tamaño máx de ventana SOLO para mostrar (no afecta procesamiento) ---
-SHOW_MAX_W = 1400
-SHOW_MAX_H = 900
+# Solo para mostrar en pantalla sin que se "corten" las ventanas (no afecta al OCR)
+SHOW_MAX_W, SHOW_MAX_H = 1400, 900
 
 def show_resized(title, img, max_w=SHOW_MAX_W, max_h=SHOW_MAX_H):
-    """Muestra 'img' en una ventana escalada para que quepa en pantalla."""
     h, w = img.shape[:2]
     scale = min(max_w / w, max_h / h, 1.0)
     if scale < 1.0:
-        img_disp = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
-    else:
-        img_disp = img
-    cv2.imshow(title, img_disp)
+        img = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+    cv2.imshow(title, img)
 
-def dpi_for_page(page, target_width_px=1800, min_dpi=150, max_dpi=300):
-    """DPI por página para que el ancho renderizado sea ~target_width_px, con límites."""
-    w_pt = page.rect.width
+def dpi_for_target_width(page, target_width_px=1500, min_dpi=120, max_dpi=300):
+    """
+    Calcula un DPI para que el ANCHO rasterizado de la página quede ~target_width_px.
+    Así el PDF 'calza' con tu redimensión de imágenes y no cambia el pipeline.
+    """
+    w_pt = page.rect.width  # puntos (1/72")
     w_in = w_pt / 72.0 if w_pt else 0.0
     if w_in <= 0:
         return 200
     dpi = int(np.clip(target_width_px / w_in, min_dpi, max_dpi))
     return dpi
 
-def quitar_azul_de_imagen(img_bgr, mask_blue):
-    """Blanquea píxeles azules para no confundir al OCR."""
-    cleaned = img_bgr.copy()
-    cleaned[mask_blue > 0] = (255, 255, 255)
-    return cleaned
+def render_pdf_page_to_bgr(page, target_width_px=1500):
+    dpi = dpi_for_target_width(page, target_width_px=target_width_px)
+    pix = page.get_pixmap(dpi=dpi, alpha=False)   # RGB sin alfa
+    img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, 3)
+    img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+    return img_bgr
 
-def extraer_bboxes_desde_mask(mask_blue):
+def cargar_imagen_o_pdf(file_path):
     """
-    Encuentra TODAS las cajas azules a partir de la máscara.
-    Sin filtros agresivos: solo descarta ruido minúsculo.
-    Devuelve lista de bboxes (x,y,w,h) ordenadas por fila/columna.
+    Devuelve una lista de imágenes BGR.
+    - Si es imagen: [imagen]
+    - Si es PDF: [página1, página2, ...] rasterizadas a un ancho ≈ max_width
     """
-    contours, _ = cv2.findContours(mask_blue, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    bboxes = []
-    for c in contours:
-        x, y, w, h = cv2.boundingRect(c)
-        if w * h >= 100:  # descarta solo ruido muy pequeño
-            bboxes.append((x, y, w, h))
-    # Orden estable por fila/columna
-    bboxes.sort(key=lambda b: (b[1], b[0]))
-    return bboxes
+    ext = os.path.splitext(file_path)[1].lower()
+    if ext == ".pdf":
+        imgs = []
+        doc = fitz.open(file_path)
+        for page in doc:
+            img_bgr = render_pdf_page_to_bgr(page, target_width_px=max_width)
+            imgs.append(img_bgr)
+        return imgs
+    else:
+        img = cv2.imread(file_path)
+        if img is None:
+            raise RuntimeError("No se pudo cargar la imagen.")
+        return [img]
 
-def ocr_roi(gray, psm_sequence=(7, 6, 11)):
+def procesar_imagen_pipeline_antiguo(image_bgr, titulo="Página"):
     """
-    Intenta OCR con varios PSM y preprocesamientos.
-    Devuelve el mejor texto encontrado.
+    Tu pipeline original intacto:
+    - Redimensionar si ancho > max_width
+    - HSV -> máscara azul
+    - Contornos
+    - Filtros: 40<w<500 y 10<h<300
+    - OCR con psm=6
     """
-    # 1) Grayscale “limpio”
-    for psm in psm_sequence:
-        cfg = f"{OCR_BASE} --psm {psm}"
-        txt = pytesseract.image_to_string(gray, config=cfg).strip()
-        if txt:
-            return txt
+    image = image_bgr.copy()
+    original = image_bgr.copy()
 
-    # 2) Escalado x2 y contraste (CLAHE)
-    big = cv2.resize(gray, None, fx=2.0, fy=2.0, interpolation=cv2.INTER_CUBIC)
-    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8)).apply(big)
-    for psm in psm_sequence:
-        cfg = f"{OCR_BASE} --psm {psm}"
-        txt = pytesseract.image_to_string(clahe, config=cfg).strip()
-        if txt:
-            return txt
+    # Redimensionar si es necesario (igual que tu código)
+    if image.shape[1] > max_width:
+        scale_ratio = max_width / image.shape[1]
+        image = cv2.resize(image, (int(image.shape[1] * scale_ratio), int(image.shape[0] * scale_ratio)),
+                           interpolation=cv2.INTER_AREA)
+        original = cv2.resize(original, (int(original.shape[1] * scale_ratio), int(original.shape[0] * scale_ratio)),
+                              interpolation=cv2.INTER_AREA)
 
-    # 3) Binarización adaptativa
-    bin_adapt = cv2.adaptiveThreshold(clahe, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                                      cv2.THRESH_BINARY, 31, 10)
-    for psm in psm_sequence:
-        cfg = f"{OCR_BASE} --psm {psm}"
-        txt = pytesseract.image_to_string(bin_adapt, config=cfg).strip()
-        if txt:
-            return txt
+    # HSV y máscara azul (idéntico a tu código)
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+    lower_blue = np.array([90, 50, 180])
+    upper_blue = np.array([130, 255, 255])
+    mask = cv2.inRange(hsv, lower_blue, upper_blue)
 
-    return ""  # nada legible
+    # Debug (escala solo para mostrar)
+    show_resized(f"{titulo} - Máscara Azul (cajas detectables)", mask)
 
-def procesar_imagen(image_bgr, titulo="Página", debug=True):
-    """
-    - Muestra imagen original escalada (debug).
-    - Crea máscara azul.
-    - Toma TODAS las cajas de la máscara (sin excluir por tamaño relativo).
-    - Recorta interior con margen porcentual (independiente de la escala).
-    - Quita azul y hace OCR (con intentos).
-    - Dibuja enumeración en todas las cajas.
-    """
-    if debug:
-        show_resized(f"{titulo} - Antes de máscara", image_bgr)
+    # Contornos (idéntico)
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-    hsv = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2HSV)
-    lower_blue = np.array([90, 50, 180], dtype=np.uint8)
-    upper_blue = np.array([130, 255, 255], dtype=np.uint8)
-    mask_blue = cv2.inRange(hsv, lower_blue, upper_blue)
+    # Filtro por tamaño (idéntico)
+    cajas = []
+    for cnt in contours:
+        x, y, w, h = cv2.boundingRect(cnt)
+        if 40 < w < 500 and 10 < h < 300:
+            cajas.append((x, y, w, h))
 
-    # Limpieza leve (sin parámetros críticos)
-    kernel = np.ones((3, 3), np.uint8)
-    mask_blue = cv2.morphologyEx(mask_blue, cv2.MORPH_OPEN, kernel, iterations=1)
-    mask_blue = cv2.morphologyEx(mask_blue, cv2.MORPH_CLOSE, kernel, iterations=1)
+    # Orden por fila/columna (idéntico)
+    cajas = sorted(cajas, key=lambda b: (b[1], b[0]))
 
-    if debug:
-        show_resized(f"{titulo} - Máscara Azul", mask_blue)
-
-    # Imagen sin azul (para evitar que los bordes contaminen OCR)
-    img_clean = quitar_azul_de_imagen(image_bgr, mask_blue)
-
-    # TODAS las cajas (sin filtros de porcentaje/percentiles)
-    bboxes = extraer_bboxes_desde_mask(mask_blue)
-
+    # OCR (idéntico)
     valores = []
-    vis = image_bgr.copy()
-
-    for idx, (x, y, w, h) in enumerate(bboxes, start=1):
-        # Margen interior porcentual (escala-agnóstico): 6% del menor lado
-        m = max(1, int(0.06 * min(w, h)))
-        x_in = x + m
-        y_in = y + m
-        w_in = max(1, w - 2 * m)
-        h_in = max(1, h - 2 * m)
-
-        roi = img_clean[y_in:y_in+h_in, x_in:x_in+w_in]
-        if roi.size == 0:
-            continue
-
+    for x, y, w, h in cajas:
+        roi = original[y:y+h, x:x+w]
         gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+        text = pytesseract.image_to_string(gray, config=ocr_config).strip()
+        if text:
+            valores.append(text)
 
-        # OCR con intentos (psm 7→6→11 y distintos preprocesados)
-        txt = ocr_roi(gray)
-        if txt:
-            valores.append(txt)
+    # Visual final con enumeración (idéntico, pero mostrado a escala)
+    output_image = image.copy()
+    for i, (x, y, w, h) in enumerate(cajas):
+        cv2.rectangle(output_image, (x, y), (x+w, y+h), (0, 255, 0), 2)
+        cv2.putText(output_image, f"{i+1}", (x, max(12, y - 5)),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
 
-        # Dibujo y enumeración SIEMPRE, para ver que se procesa todo
-        cv2.rectangle(vis, (x, y), (x+w, y+h), (0, 255, 0), 2)
-        y_text = max(15, y - 5)
-        cv2.putText(vis, str(idx), (x, y_text),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-
-    if debug:
-        show_resized(f"{titulo} - Cajas Detectadas y Numeradas", vis)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+    show_resized(f"{titulo} - Cajas Detectadas y Numeradas", output_image)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
     return valores
 
-# -------------------- Flujo principal --------------------
+# --------- Flujo principal ---------
 valores_totales = []
+imagenes = cargar_imagen_o_pdf(file_path)
 
 if file_path.lower().endswith(".pdf"):
-    doc = fitz.open(file_path)
-    for i, page in enumerate(doc, start=1):
-        dpi = dpi_for_page(page)  # DPI adaptativo
-        pix = page.get_pixmap(dpi=dpi, alpha=False)  # RGB
-        img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, 3)
-        img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-        valores_totales.extend(procesar_imagen(img_bgr, titulo=f"Página {i}", debug=True))
+    for idx, img_bgr in enumerate(imagenes, start=1):
+        valores_totales.extend(
+            procesar_imagen_pipeline_antiguo(img_bgr, titulo=f"Página {idx}")
+        )
 else:
-    img_bgr = cv2.imread(file_path)
-    if img_bgr is None:
-        raise RuntimeError("No se pudo cargar la imagen.")
-    valores_totales = procesar_imagen(img_bgr, titulo="Imagen", debug=True)
+    valores_totales = procesar_imagen_pipeline_antiguo(imagenes[0], titulo="Imagen")
 
-print(json.dumps(valores_totales, ensure_ascii=False, indent=2))
+# Salida
+print(json.dumps(valores_totales, ensure_ascii=False))
