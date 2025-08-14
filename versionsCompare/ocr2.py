@@ -7,7 +7,7 @@ import json
 pytesseract.pytesseract.tesseract_cmd = r"C:\Users\TuUsuario\AppData\Local\Programs\Tesseract-OCR\tesseract.exe"
 
 # Cargar imagen
-image_path = "07d49400-86ea-4827-afb0-40b835b8de8c.heic"
+image_path = "07d49400-86ea-4827-afb0-40b835b8de8c.png"
 image = cv2.imread(image_path)
 original = image.copy()
 

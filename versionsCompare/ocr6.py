@@ -1,18 +1,21 @@
-import fitz  # PyMuPDF
+import fitz  # PyMuPDF para PDF -> imagen
 import cv2
 import pytesseract
 import numpy as np
 import json
 import os
 
-# -------- Configuración --------
+# ---------------- Configuración ----------------
 pytesseract.pytesseract.tesseract_cmd = r"C:\Users\TuUsuario\AppData\Local\Programs\Tesseract-OCR\tesseract.exe"
-file_path = "formulario.pdf"         # PDF o imagen
-max_width = 1500                      # como tu pipeline original
-ocr_config = r'--oem 3 --psm 6 -l spa'
-EXPECTED_FIRST_PAGE_BOXES = 30        # primera página: objetivo 30
 
-# Solo para mostrar sin cortar (no afecta OCR)
+file_path = "formulario.pdf"   # Puede ser .pdf o imagen (.png/.jpg/.heic si tu OpenCV lo soporta)
+max_width = 1500               # Mismo criterio de tu pipeline original
+ocr_config = r'--oem 3 --psm 6 -l spa'
+
+# Orden dentro de la fila: True = derecha→izquierda, False = izquierda→derecha
+ORDER_RIGHT_TO_LEFT = True
+
+# Mostrar ventanas a escala (solo visual)
 SHOW_MAX_W, SHOW_MAX_H = 1400, 900
 def show_resized(title, img, max_w=SHOW_MAX_W, max_h=SHOW_MAX_H):
     h, w = img.shape[:2]
@@ -21,9 +24,9 @@ def show_resized(title, img, max_w=SHOW_MAX_W, max_h=SHOW_MAX_H):
         img = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
     cv2.imshow(title, img)
 
-# ---------- Carga PDF a “ancho ≈ max_width” ----------
+# ---------------- PDF → Imagen (ancho ≈ max_width) ----------------
 def dpi_for_target_width(page, target_width_px=1500, min_dpi=120, max_dpi=300):
-    w_pt = page.rect.width
+    w_pt = page.rect.width  # puntos (1/72")
     w_in = w_pt / 72.0 if w_pt else 0.0
     if w_in <= 0:
         return 200
@@ -31,120 +34,72 @@ def dpi_for_target_width(page, target_width_px=1500, min_dpi=120, max_dpi=300):
 
 def render_pdf_page_to_bgr(page, target_width_px=1500):
     dpi = dpi_for_target_width(page, target_width_px=target_width_px)
-    pix = page.get_pixmap(dpi=dpi, alpha=False)   # RGB sin alfa
+    pix = page.get_pixmap(dpi=dpi, alpha=False)  # RGB
     img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, 3)
     return cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
 
-def cargar_imagen_o_pdf(file_path):
-    ext = os.path.splitext(file_path)[1].lower()
+def cargar_imagen_o_pdf(path):
+    ext = os.path.splitext(path)[1].lower()
     if ext == ".pdf":
-        doc = fitz.open(file_path)
+        doc = fitz.open(path)
         return [render_pdf_page_to_bgr(p, target_width_px=max_width) for p in doc]
     else:
-        im = cv2.imread(file_path)
+        im = cv2.imread(path)
         if im is None:
             raise RuntimeError("No se pudo cargar la imagen.")
         return [im]
 
-# ---------- Orden: arriba→abajo, dentro de fila derecha→izquierda ----------
-def ordenar_cajas_derecha_izquierda_arriba_abajo(cajas, img_h, row_tol_ratio=0.02, min_row_tol_px=6):
+# ---------------- Orden: filas y columnas ----------------
+def ordenar_por_filas_y_columnas(cajas, img_h, row_tol_ratio=0.02, right_to_left=True):
+    """
+    Agrupa por filas (tolerancia vertical relativa) y ordena:
+      - Filas: arriba→abajo
+      - Dentro de la fila: derecha→izquierda (si right_to_left=True) o izquierda→derecha
+    """
     if not cajas:
         return []
-    # orden preliminar por Ycentro asc, Xcentro desc
-    cajas = sorted(cajas, key=lambda b: (b[1] + b[3]/2.0, - (b[0] + b[2]/2.0)))
-    row_tol = max(int(img_h * row_tol_ratio), min_row_tol_px)
+
+    # Orden preliminar por Ycentro asc y Xcentro (dirección inversa si R→L)
+    cajas = sorted(
+        cajas,
+        key=lambda b: (b[1] + b[3] / 2.0, -(b[0] + b[2] / 2.0) if right_to_left else (b[0] + b[2] / 2.0))
+    )
+
+    row_tol = max(int(img_h * row_tol_ratio), 6)
     filas = []
     for box in cajas:
         x, y, w, h = box
-        cy = y + h/2.0
+        cy = y + h / 2.0
         placed = False
         for fila in filas:
-            cys = [fy + fh/2.0 for (_, fy, fw, fh) in fila]
-            if abs(cy - (sum(cys)/len(cys))) <= row_tol:
-                fila.append(box); placed = True; break
+            cys = [fy + fh / 2.0 for (_, fy, fw, fh) in fila]
+            if abs(cy - (sum(cys) / len(cys))) <= row_tol:
+                fila.append(box)
+                placed = True
+                break
         if not placed:
             filas.append([box])
-    filas = sorted(filas, key=lambda fila: sum([fy + fh/2.0 for (_, fy, fw, fh) in fila]) / len(fila))
+
+    # Filas por Y asc; dentro de la fila orden por X (según dirección)
+    filas = sorted(filas, key=lambda fila: sum([fy + fh / 2.0 for (_, fy, fw, fh) in fila]) / len(fila))
     out = []
     for fila in filas:
-        out.extend(sorted(fila, key=lambda b: -(b[0] + b[2]/2.0)))
+        fila_ordenada = sorted(
+            fila,
+            key=lambda b: -(b[0] + b[2] / 2.0) if right_to_left else (b[0] + b[2] / 2.0)
+        )
+        out.extend(fila_ordenada)
     return out
 
-# ---------- Detectar RECTÁNGULOS LARGOS ----------
-def detectar_rectangulos_largos(mask_blue, img_shape, expected=None):
+# ---------------- Procesamiento principal (relativo) ----------------
+def procesar_imagen_rectangulos_relativos(image_bgr, titulo="Página"):
     """
-    Filtra únicamente rectángulos horizontales largos (ancho ≫ alto).
-    - Umbrales RELATIVOS (al tamaño de página) para tirar ruido.
-    - Requiere relación de aspecto mínima (w/h).
-    - Tiers (estricto→relajado) para no perder “cajas largas”.
+    Pipeline original con:
+      - Redimensionado a max_width (si aplica)
+      - Máscara HSV para azul
+      - Filtro de rectángulos HORIZONTALES con umbrales RELATIVOS a W,H
+      - OCR psm=6
     """
-    H, W = img_shape[:2]
-
-    # Limpieza leve de máscara
-    kernel = np.ones((3, 3), np.uint8)
-    mask = cv2.morphologyEx(mask_blue, cv2.MORPH_OPEN, kernel, iterations=1)
-    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=1)
-
-    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-    # Tiers: (min_area_rel, min_w_rel, min_h_rel, min_aspect_ratio, extent_low, extent_high)
-    # * min_aspect_ratio alto para “rectángulos largos”
-    tiers = [
-        (0.0002, 0.10, 0.006, 4.0, 0.01, 0.55),  # estricto
-        (0.00015,0.08, 0.005, 3.5, 0.01, 0.60),  # medio
-        (0.00010,0.06, 0.004, 3.0, 0.01, 0.65),  # relajado
-        (0.00005,0.04, 0.003, 2.5, 0.005,0.70),  # muy relajado (último recurso)
-    ]
-
-    best = []
-    for (area_rel, w_rel, h_rel, ar_min, ext_low, ext_high) in tiers:
-        min_area = int(H * W * area_rel)
-        min_w_px = max(3, int(W * w_rel))
-        min_h_px = max(2, int(H * h_rel))
-        seleccion = []
-        for c in contours:
-            area = cv2.contourArea(c)
-            if area < min_area:
-                continue
-            x, y, w, h = cv2.boundingRect(c)
-            if w < min_w_px or h < min_h_px:
-                continue
-
-            # Solo horizontales largos
-            ar = w / float(h) if h > 0 else 999.0
-            if ar < ar_min:
-                continue
-
-            # Aproximación poligonal para rectangularidad básica
-            peri = cv2.arcLength(c, True)
-            approx = cv2.approxPolyDP(c, 0.02 * peri, True)
-            if not cv2.isContourConvex(approx):
-                continue
-            if len(approx) < 4 or len(approx) > 10:
-                continue
-
-            # Extent: área/área_bbox — bordes azules suelen dar extent bajo
-            extent = area / float(w * h)
-            if not (ext_low <= extent <= ext_high):
-                continue
-
-            seleccion.append((x, y, w, h))
-
-        # Orden y decisión por tier
-        seleccion = ordenar_cajas_derecha_izquierda_arriba_abajo(seleccion, H)
-        if expected is not None and len(seleccion) >= expected:
-            return seleccion[:expected]
-        if len(seleccion) > len(best):
-            best = seleccion
-
-    # Si no se llegó a expected, devuelve lo mejor encontrado ordenado
-    best = ordenar_cajas_derecha_izquierda_arriba_abajo(best, H)
-    if expected is not None and len(best) > expected:
-        best = best[:expected]
-    return best
-
-# ---------- Pipeline (idéntico excepto el detector) ----------
-def procesar_imagen(image_bgr, titulo="Página", expected=None):
     image = image_bgr.copy()
     original = image_bgr.copy()
 
@@ -156,19 +111,45 @@ def procesar_imagen(image_bgr, titulo="Página", expected=None):
         original = cv2.resize(original, (int(original.shape[1] * scale_ratio), int(original.shape[0] * scale_ratio)),
                               interpolation=cv2.INTER_AREA)
 
-    # Máscara azul (idéntico umbral)
+    H, W = image.shape[:2]
+
+    # Máscara azul (tus umbrales)
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
     lower_blue = np.array([90, 50, 180])
     upper_blue = np.array([130, 255, 255])
     mask = cv2.inRange(hsv, lower_blue, upper_blue)
 
     # Debug
-    show_resized(f"{titulo} - Máscara Azul", mask)
+    show_resized(f"{titulo} - Máscara Azul (cajas detectables)", mask)
 
-    # >>> Rectángulos largos (en lugar de “cajas” genéricas)
-    cajas = detectar_rectangulos_largos(mask, image.shape, expected=expected)
+    # --- UMBRALES RELATIVOS (ajusta estos porcentajes a tu plantilla) ---
+    # Rectángulos largos horizontales: w grande relativo, h pequeño-moderado, y área suficiente
+    W_MIN = int(W * 0.03)   # 3% del ancho mínimo (evita puntitos)
+    W_MAX = int(W * 0.95)   # 95% del ancho máximo (por si hay líneas largas)
+    H_MIN = int(H * 0.006)  # 0.6% del alto (evita dos puntos muy finos)
+    H_MAX = int(H * 0.10)   # 10% del alto (si tus rectángulos son más altos, sube a 0.12–0.15)
+    AREA_MIN = int(W * H * 0.0002)  # 0.02% del área total (ruido fuera)
+    ASPECT_MIN = 2.2         # Relación mínima w/h (más alto = más “largo”)
 
-    # OCR (igual que antes)
+    # Contornos y filtro relativo
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    cajas = []
+    for cnt in contours:
+        x, y, w, h = cv2.boundingRect(cnt)
+        area = w * h
+        if area < AREA_MIN:
+            continue
+        if not (W_MIN <= w <= W_MAX and H_MIN <= h <= H_MAX):
+            continue
+        aspect = (w / float(h)) if h > 0 else 999.0
+        if aspect < ASPECT_MIN:
+            continue
+        cajas.append((x, y, w, h))
+
+    # Orden (filas arriba→abajo, dentro de fila derecha→izquierda)
+    cajas = ordenar_por_filas_y_columnas(cajas, H, right_to_left=ORDER_RIGHT_TO_LEFT)
+
+    # OCR (igual)
     valores = []
     for x, y, w, h in cajas:
         roi = original[y:y+h, x:x+w]
@@ -177,27 +158,25 @@ def procesar_imagen(image_bgr, titulo="Página", expected=None):
         if text:
             valores.append(text)
 
-    # Visual (enumeración), mostrado a escala
+    # Visual final con enumeración (a escala para ver completo)
     out = image.copy()
     for i, (x, y, w, h) in enumerate(cajas, start=1):
         cv2.rectangle(out, (x, y), (x+w, y+h), (0, 255, 0), 2)
         cv2.putText(out, f"{i}", (x, max(12, y-5)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,255), 1)
-
-    show_resized(f"{titulo} - Rectángulos Largos Detectados", out)
+    show_resized(f"{titulo} - Rectángulos Detectados y Numerados", out)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
     return valores
 
-# --------- Flujo principal ---------
-valores_totales = []
+# ---------------- Ejecutar ----------------
 imagenes = cargar_imagen_o_pdf(file_path)
+valores_totales = []
 
 if file_path.lower().endswith(".pdf"):
     for idx, img_bgr in enumerate(imagenes, start=1):
-        expected = EXPECTED_FIRST_PAGE_BOXES if idx == 1 else None
-        valores_totales.extend(procesar_imagen(img_bgr, titulo=f"Página {idx}", expected=expected))
+        valores_totales.extend(procesar_imagen_rectangulos_relativos(img_bgr, titulo=f"Página {idx}"))
 else:
-    valores_totales = procesar_imagen(imagenes[0], titulo="Imagen", expected=None)
+    valores_totales = procesar_imagen_rectangulos_relativos(imagenes[0], titulo="Imagen")
 
 print(json.dumps(valores_totales, ensure_ascii=False))
