@@ -187,10 +187,10 @@ elif file_path.lower().endswith(".pdf"):
 # -------------------- Salida para PAD --------------------
 if isinstance(resultado.get("valores"), dict):
     # Si es un diccionario, toma los valores en orden de clave
-    salida = "§§§".join(str(v) for v in resultado["valores"].values())
+    salida = "||".join(str(v) for v in resultado["valores"].values())
 elif isinstance(resultado.get("valores"), list):
     # Si es una lista, toma directamente sus elementos
-    salida = "§§§".join(str(v) for v in resultado["valores"])
+    salida = "||".join(str(v) for v in resultado["valores"])
 else:
     # Por si no hay valores o es un solo string
     salida = str(resultado.get("valores", ""))
